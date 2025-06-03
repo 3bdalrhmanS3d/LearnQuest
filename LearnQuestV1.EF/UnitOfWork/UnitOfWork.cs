@@ -17,7 +17,7 @@ namespace LearnQuestV1.EF.UnitOfWork
         public IBaseRepo<User> Users { get; }
         public IBaseRepo<AccountVerification> AccountVerifications { get; }
         public IBaseRepo<RefreshToken> RefreshTokens { get; }
-        public IBaseRepo<UserVisitHistory> UserVisitHistory { get; }
+        public IBaseRepo<UserVisitHistory> UserVisitHistories { get; }
         public IBaseRepo<BlacklistToken> BlacklistTokens { get; }
         public IBaseRepo<UserDetail> UserDetails { get; }
 
@@ -27,7 +27,7 @@ namespace LearnQuestV1.EF.UnitOfWork
             Users = new BaseRepo<User>(_context);
             AccountVerifications = new BaseRepo<AccountVerification>(_context);
             RefreshTokens = new BaseRepo<RefreshToken>(_context);
-            UserVisitHistory = new BaseRepo<UserVisitHistory>(_context);
+            UserVisitHistories = new BaseRepo<UserVisitHistory>(_context);
             BlacklistTokens = new BaseRepo<BlacklistToken>(_context);
             UserDetails = new BaseRepo<UserDetail>(_context);
         }

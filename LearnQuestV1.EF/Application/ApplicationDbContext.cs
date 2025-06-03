@@ -31,6 +31,36 @@ namespace LearnQuestV1.EF.Application
             modelBuilder.Entity<User>()
                 .HasIndex(u => u.EmailAddress)
                 .IsUnique();
+            modelBuilder.Entity<User>()
+                .HasMany(u => u.AccountVerifications)
+                .WithOne(av => av.User)
+                .HasForeignKey(av => av.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<User>()
+                .HasMany(u => u.RefreshTokens)
+                .WithOne(rt => rt.User)
+                .HasForeignKey(rt => rt.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<User>()
+                .HasMany(u => u.VisitHistories)
+                .WithOne(vh => vh.User)
+                .HasForeignKey(vh => vh.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<User>()
+                .HasOne(u => u.UserDetail)
+                .WithOne(ud => ud.User)
+                .HasForeignKey<UserDetail>(ud => ud.UserId);
+
+            // تعريف الجداول وغيرها إن لزم
+            modelBuilder.Entity<User>().ToTable("Users");
+            modelBuilder.Entity<AccountVerification>().ToTable("AccountVerifications");
+            modelBuilder.Entity<RefreshToken>().ToTable("RefreshTokens");
+            modelBuilder.Entity<UserVisitHistory>().ToTable("UserVisitHistories");
+            modelBuilder.Entity<BlacklistToken>().ToTable("BlacklistTokens");
+            modelBuilder.Entity<UserDetail>().ToTable("UserDetails");
 
 
         }

@@ -18,7 +18,7 @@ namespace LearnQuestV1.Core.Interfaces
         IBaseRepo<User> Users { get; }
         IBaseRepo<AccountVerification> AccountVerifications { get; }
         IBaseRepo<RefreshToken> RefreshTokens { get; }
-        IBaseRepo<UserVisitHistory> UserVisitHistory { get; }
+        IBaseRepo<UserVisitHistory> UserVisitHistories { get; }
         IBaseRepo<BlacklistToken> BlacklistTokens { get; }
 
         IBaseRepo<UserDetail> UserDetails { get; }
