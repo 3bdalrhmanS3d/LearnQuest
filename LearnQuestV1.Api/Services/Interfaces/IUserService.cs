@@ -1,6 +1,8 @@
-﻿using LearnQuestV1.Api.DTOs.User.Response;
+﻿using LearnQuestV1.Api.DTOs.Payments;
+using LearnQuestV1.Api.DTOs.Profile;
+using LearnQuestV1.Api.DTOs.Progress;
+using LearnQuestV1.Api.DTOs.User.Response;
 using LearnQuestV1.Api.DTOs.Users.Request;
-using LearnQuestV1.Api.DTOs.Users.Response;
 
 namespace LearnQuestV1.Api.Services.Interfaces
 {

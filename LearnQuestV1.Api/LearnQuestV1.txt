@@ -1,0 +1,125 @@
+﻿LearnQuestV1.sln
+│
+├── LearnQuestV1.Api/                       ← Web/API project
+│   ├── Controllers/
+│   │   ├── AccountController.cs
+│   │   ├── ProfileController.cs
+│   │   ├── ProgressController.cs
+│   │   └── … (any other controllers)
+│   │
+│   ├── DTOs/
+│   │   ├── Users/
+│   │   │   ├── Request/
+│   │   │   │   ├── SignupRequestDto.cs
+│   │   │   │   ├── SigninRequestDto.cs
+│   │   │   │   ├── VerifyAccountRequestDto.cs
+│   │   │   │   ├── RefreshTokenRequestDto.cs
+│   │   │   │   ├── ForgetPasswordRequestDto.cs
+│   │   │   │   └── ResetPasswordRequestDto.cs
+│   │   │   └── Response/
+│   │   │       ├── SigninResponseDto.cs
+│   │   │       ├── RefreshTokenResponseDto.cs
+│   │   │       ├── AutoLoginResponseDto.cs
+│   │   │       └── … (other user‐related response DTOs)
+│   │   │
+│   │   ├── Profile/
+│   │   │   ├── UserProfileDto.cs
+│   │   │   ├── UserProfileUpdateDto.cs
+│   │   │   └── UserProgressDto.cs
+│   │   │
+│   │   ├── Progress/
+│   │   │   ├── TrackDto.cs
+│   │   │   ├── TrackCoursesDto.cs
+│   │   │   ├── CourseInTrackDto.cs
+│   │   │   ├── CourseDto.cs
+│   │   │   ├── LevelDto.cs
+│   │   │   ├── LevelsResponseDto.cs
+│   │   │   ├── SectionDto.cs
+│   │   │   ├── SectionsResponseDto.cs
+│   │   │   ├── ContentDto.cs
+│   │   │   └── ContentsResponseDto.cs
+│   │   │
+│   │   └── Payments/
+│   │       ├── PaymentRequestDto.cs
+│   │       └── MyCourseDto.cs
+│   │
+│   ├── Services/
+│   │   ├── Interfaces/
+│   │   │   ├── IAccountService.cs
+│   │   │   ├── IUserService.cs
+│   │   │   ├── IEmailQueueService.cs
+│   │   │   ├── IFailedLoginTracker.cs
+│   │   │   └── (etc.)
+│   │   │
+│   │   └── Implementations/
+│   │       ├── AccountService.cs
+│   │       ├── UserService.cs
+│   │       ├── EmailQueueService.cs
+│   │       ├── FailedLoginTracker.cs
+│   │       └── EmailQueueBackgroundService.cs
+│   │
+│   ├── Utilities/
+│   │   └── AuthHelpers.cs
+│   │
+│   ├── Extensions/
+│   │   └── ServiceCollectionExtensions.cs   ← registers DbContext, UoW, services, AutoMapper
+│   │
+│   ├── Mappings/
+│   │   └── (AutoMapper profiles, if any)
+│   │
+│   ├── appsettings.json
+│   ├── Program.cs
+│   └── Startup.cs (if using older ASP.NET Core conventions)
+│
+├── LearnQuestV1.Core/                      ← Business‐level project
+│   ├── Enums/
+│   │   └── UserRole.cs
+│   │
+│   ├── Models/
+│   │   ├── User.cs
+│   │   ├── UserDetail.cs
+│   │   ├── AccountVerification.cs
+│   │   ├── RefreshToken.cs
+│   │   ├── UserVisitHistory.cs
+│   │   ├── BlacklistToken.cs
+│   │   ├── Course.cs
+│   │   ├── AboutCourse.cs
+│   │   ├── CourseSkill.cs
+│   │   ├── Level.cs
+│   │   ├── Section.cs
+│   │   ├── Content.cs
+│   │   ├── CourseEnrollment.cs
+│   │   ├── CourseFeedback.cs
+│   │   ├── CourseReview.cs
+│   │   ├── CourseTrack.cs
+│   │   ├── CourseTrackCourse.cs
+│   │   ├── FavoriteCourse.cs
+│   │   ├── Payment.cs
+│   │   ├── UserCoursePoint.cs
+│   │   ├── UserProgress.cs
+│   │   ├── Notification.cs
+│   │   └── UserContentActivity.cs
+│   │
+│   ├── Interfaces/
+│   │   ├── IBaseRepo\<T\>.cs    ← generic repository interface
+│   │   ├── IUnitOfWork.cs       ← unit–of–work interface
+│   │   └── (other domain‐level interfaces, if any)
+│   │
+│   └── (any Domain Services or additional business logic layers)
+│
+└── LearnQuestV1.EF/                       ← Entity Framework Core project
+    ├── Application/                       ← holds the DbContext
+    │   └── ApplicationDbContext.cs
+    │
+    ├── Repositories/
+    │   ├── BaseRepo\<T\>.cs                 ← implements IBaseRepo\<T\>
+    │   ├── (any custom repository classes, e.g. UserRepository.cs if you have custom methods)
+    │   └── (optional extension methods for IQueryable)
+    │
+    ├── UnitOfWork/
+    │   ├── UnitOfWork.cs                    ← implements IUnitOfWork
+    │   └── (other transactional helpers, if needed)
+    │
+    └── Migrations/                          ← EF Migrations folder, auto-generated
+        └── (timestamped migration files)
+

@@ -1,11 +1,10 @@
-﻿namespace LearnQuestV1.Api.DTOs.User.Response
+﻿namespace LearnQuestV1.Api.DTOs.Progress
 {
-    public class LevelDto
+    public class SectionsResponseDto
     {
         public int LevelId { get; set; }
         public string LevelName { get; set; } = string.Empty;
         public string LevelDetails { get; set; } = string.Empty;
-        public int LevelOrder { get; set; }
-        public bool IsVisible { get; set; }
+        public IEnumerable<SectionDto> Sections { get; set; } = Enumerable.Empty<SectionDto>();
     }
 }

@@ -1,4 +1,4 @@
-﻿namespace LearnQuestV1.Api.DTOs.User.Response
+﻿namespace LearnQuestV1.Api.DTOs.Progress
 {
     public class TrackDto
     {

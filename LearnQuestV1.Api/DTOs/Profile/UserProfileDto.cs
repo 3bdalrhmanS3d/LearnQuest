@@ -1,4 +1,4 @@
-﻿namespace LearnQuestV1.Api.DTOs.Users.Response
+﻿namespace LearnQuestV1.Api.DTOs.Profile
 {
     public class UserProfileDto
     {
