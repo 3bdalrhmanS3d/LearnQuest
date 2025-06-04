@@ -38,8 +38,8 @@ namespace LearnQuestV1.Core.Interfaces
         IBaseRepo<Payment> Payments { get; }
         IBaseRepo<UserCoursePoint> UserCoursePoints { get; }
         IBaseRepo<UserProgress> UserProgresses { get; }
-        //IBaseRepo<UserContentActivity> UserContentActivities { get; }
-        //IBaseRepo<Notification> Notifications { get; }
+        IBaseRepo<UserContentActivity> UserContentActivities { get; }
+        IBaseRepo<Notification> Notifications { get; }
 
         Task<int> SaveAsync();
 

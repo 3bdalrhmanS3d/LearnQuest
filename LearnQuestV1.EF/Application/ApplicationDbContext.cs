@@ -39,7 +39,9 @@ namespace LearnQuestV1.EF.Application
         public DbSet<CourseTrack> CourseTracks { get; set; } = null!;
         public DbSet<CourseTrackCourse> CourseTrackCourses { get; set; } = null!;
 
+        public DbSet<Notification> Notifications { get; set; } = null!;
 
+        public DbSet<UserContentActivity> UserContentActivities { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

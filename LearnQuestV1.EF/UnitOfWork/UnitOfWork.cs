@@ -67,8 +67,8 @@ namespace LearnQuestV1.EF.UnitOfWork
         public IBaseRepo<Payment> Payments { get; }
         public IBaseRepo<UserCoursePoint> UserCoursePoints { get; }
         public IBaseRepo<UserProgress> UserProgresses { get; }
-        //public IBaseRepo<UserContentActivity> UserContentActivities { get; }
-        //public IBaseRepo<Notification> Notifications { get; }
+        public IBaseRepo<UserContentActivity> UserContentActivities { get; }
+        public IBaseRepo<Notification> Notifications { get; }
 
         public async Task<int> SaveAsync()
         {
