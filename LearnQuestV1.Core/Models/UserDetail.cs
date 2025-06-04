@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 
 namespace LearnQuestV1.Core.Models
 {
+    [Table("UserDetails")]
     public class UserDetail
     {
         public UserDetail()
@@ -17,8 +18,7 @@ namespace LearnQuestV1.Core.Models
         }
 
         /// <summary>
-        /// Primary key & Foreign key → one-to-one with User.
-        /// If you want a truly required 1:1, this must always match an existing UserId.
+        /// Primary key & foreign key → enforces one-to-one with User.
         /// </summary>
         [Key]
         [ForeignKey(nameof(User))]
@@ -30,21 +30,20 @@ namespace LearnQuestV1.Core.Models
         [Required]
         [MaxLength(50)]
         public string EducationLevel { get; set; } = string.Empty;
-        // (e.g. "Primary", "Middle", "High School", "University")
+        // e.g.: "Primary", "Middle", "High School", "University"
 
         [Required]
         [MaxLength(50)]
         public string Nationality { get; set; } = string.Empty;
 
         /// <summary>
-        /// UTC timestamp when this detail row was created.
+        /// UTC timestamp when this detail record was created.
         /// </summary>
         [Required]
         public DateTime CreatedAt { get; set; }
 
         /// <summary>
-        /// Navigation back to User.
-        /// Since it's 1:1, mark as virtual if you use lazy loading.
+        /// Navigation back to the related User.
         /// </summary>
         public virtual User User { get; set; } = null!;
     }

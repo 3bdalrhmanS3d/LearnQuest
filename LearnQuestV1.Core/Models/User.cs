@@ -7,24 +7,35 @@ using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using LearnQuestV1.Core.Enums;
 
 namespace LearnQuestV1.Core.Models
 {
-    public enum UserRole
-    {
-        [Description("RegularUser")]
-        RegularUser,
-
-        [Description("Instructor")]
-        Instructor,
-
-        [Description("Admin")]
-        Admin
-    }
-
+    
     [Table("Users")]
     public class User
     {
+        public User()
+        {
+            // Initialize all collections to avoid null references.
+            AccountVerifications = new HashSet<AccountVerification>();
+            RefreshTokens = new HashSet<RefreshToken>();
+            VisitHistories = new HashSet<UserVisitHistory>();
+            CoursesTaught = new HashSet<Course>();
+            CourseEnrollments = new HashSet<CourseEnrollment>();
+            CourseFeedbacks = new HashSet<CourseFeedback>();
+            CourseReviews = new HashSet<CourseReview>();
+            Payments = new HashSet<Payment>();
+            UserCoursePoints = new HashSet<UserCoursePoint>();
+            UserProgresses = new HashSet<UserProgress>();
+            FavoriteCourses = new HashSet<FavoriteCourse>();
+
+            CreatedAt = DateTime.UtcNow;
+            IsActive = false;
+            IsDeleted = false;
+            Role = UserRole.RegularUser;
+        }
+
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int UserId { get; set; }
@@ -97,17 +108,45 @@ namespace LearnQuestV1.Core.Models
         /// </summary>
         public virtual ICollection<UserVisitHistory> VisitHistories { get; set; }
 
-        public User()
-        {
-            // Initialize collections (if you allow multiple verifications)
-            AccountVerifications = new HashSet<AccountVerification>();
+        /// <summary>
+        /// One-to-many: courses taught by this user (if the user is an Instructor).
+        /// </summary>
+        public virtual ICollection<Course> CoursesTaught { get; set; }
 
-            RefreshTokens = new HashSet<RefreshToken>();
-            VisitHistories = new HashSet<UserVisitHistory>();
-            CreatedAt = DateTime.UtcNow;
-            IsActive = false;
-            IsDeleted = false;
-            Role = UserRole.RegularUser;
-        }
+        /// <summary>
+        /// One-to-many: course enrollment records for this user.
+        /// </summary>
+        public virtual ICollection<CourseEnrollment> CourseEnrollments { get; set; }
+
+        /// <summary>
+        /// One-to-many: feedback entries that this user has left on courses.
+        /// </summary>
+        public virtual ICollection<CourseFeedback> CourseFeedbacks { get; set; }
+
+        /// <summary>
+        /// One-to-many: reviews that this user has written about courses.
+        /// </summary>
+        public virtual ICollection<CourseReview> CourseReviews { get; set; }
+
+        /// <summary>
+        /// One-to-many: payment records made by this user.
+        /// </summary>
+        public virtual ICollection<Payment> Payments { get; set; }
+
+        /// <summary>
+        /// One-to-many: points that this user has accumulated in courses.
+        /// </summary>
+        public virtual ICollection<UserCoursePoint> UserCoursePoints { get; set; }
+
+        /// <summary>
+        /// One-to-many: progress tracking entries for this user.
+        /// </summary>
+        public virtual ICollection<UserProgress> UserProgresses { get; set; }
+
+        /// <summary>
+        /// One-to-many: favorite courses for this user.
+        /// </summary>
+        public virtual ICollection<FavoriteCourse> FavoriteCourses { get; set; }
+        
     }
 }

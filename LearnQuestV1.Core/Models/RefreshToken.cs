@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 
 namespace LearnQuestV1.Core.Models
 {
+    [Table("RefreshTokens")]
     public class RefreshToken
     {
         public RefreshToken()

@@ -18,7 +18,6 @@ namespace LearnQuestV1.Core.Models
         /// The full JWT or refresh token string that is blacklisted.
         /// </summary>
         [Required]
-        [MaxLength(512)]
         public string Token { get; set; } = string.Empty;
 
         /// <summary>
@@ -27,5 +26,13 @@ namespace LearnQuestV1.Core.Models
         /// </summary>
         [Required]
         public DateTime ExpiryDate { get; set; }
+
+        /// <summary>
+        /// Optional foreign key → the user to whom this token was issued.
+        /// </summary>
+        public int? UserId { get; set; }
+
+        [ForeignKey(nameof(UserId))]
+        public virtual User? User { get; set; }
     }
 }

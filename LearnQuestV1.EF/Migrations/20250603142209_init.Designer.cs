@@ -205,7 +205,7 @@ namespace LearnQuestV1.EF.Migrations
                     b.HasOne("LearnQuestV1.Core.Models.User", "User")
                         .WithMany("AccountVerifications")
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.Navigation("User");
@@ -216,7 +216,7 @@ namespace LearnQuestV1.EF.Migrations
                     b.HasOne("LearnQuestV1.Core.Models.User", "User")
                         .WithMany("RefreshTokens")
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.Navigation("User");
@@ -227,7 +227,7 @@ namespace LearnQuestV1.EF.Migrations
                     b.HasOne("LearnQuestV1.Core.Models.User", "User")
                         .WithOne("UserDetail")
                         .HasForeignKey("LearnQuestV1.Core.Models.UserDetail", "UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.Navigation("User");
@@ -238,7 +238,7 @@ namespace LearnQuestV1.EF.Migrations
                     b.HasOne("LearnQuestV1.Core.Models.User", "User")
                         .WithMany("VisitHistories")
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.Navigation("User");

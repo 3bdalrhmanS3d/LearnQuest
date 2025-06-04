@@ -4,6 +4,7 @@ using LearnQuestV1.Api.DTOs.Users.Response;
 using LearnQuestV1.Api.Services.Interfaces;
 using LearnQuestV1.Core.Interfaces;
 using LearnQuestV1.Core.Models;
+using LearnQuestV1.Core.Enums;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
@@ -144,32 +145,45 @@ namespace LearnQuestV1.Api.Services.Implementations
 
         public async Task VerifyAccountAsync(VerifyAccountRequestDto input)
         {
-            var httpCtx = _httpContextAccessor.HttpContext!;
+            // 1) Get HttpContext
+            var httpCtx = _httpContextAccessor.HttpContext
+                          ?? throw new InvalidOperationException("HTTP context is unavailable.");
+
+            // 2) Read "EmailForVerification" cookie
             if (!httpCtx.Request.Cookies.TryGetValue("EmailForVerification", out var email))
                 throw new InvalidOperationException("Verification email not found. Please register again.");
 
-            var user = (await _uow.Users.FindAsync(u => u.EmailAddress == email)).FirstOrDefault();
-            if (user == null)
-                throw new InvalidOperationException("User not found.");
+            // 3) Find the user by email
+            var usersFound = await _uow.Users.FindAsync(u => u.EmailAddress == email);
+            var user = usersFound.FirstOrDefault() ?? throw new InvalidOperationException("User not found.");
 
-            // نأخذ اخر سجلّ تحقق:
-            var lastVerif = user.AccountVerifications.OrderByDescending(av => av.Date).FirstOrDefault();
-            if (lastVerif == null)
-                throw new InvalidOperationException("Verification details missing.");
+            // 4) Fetch all verification records for this user
+            var verifications = await _uow.AccountVerifications.FindAsync(av => av.UserId == user.UserId);
+            //    (IBaseRepo<AccountVerification>.FindAsync returns IEnumerable<AccountVerification>)
+            var lastVerif = verifications
+                            .OrderByDescending(av => av.Date)
+                            .FirstOrDefault() ?? throw new InvalidOperationException("Verification details missing.");
 
-            if (lastVerif.Code != input.VerificationCode)
+            // 5) Check if codes match
+            if (!string.Equals(lastVerif.Code, input.VerificationCode, StringComparison.Ordinal))
                 throw new InvalidOperationException("Invalid verification code.");
 
+            // 6) Check expiration (30 minutes)
             if (lastVerif.Date.AddMinutes(30) < DateTime.UtcNow)
                 throw new InvalidOperationException("Verification code expired.");
 
-            // تفعيل الحساب وتحديث CheckedOK
+            // 7) Activate account and mark verification as successful
             user.IsActive = true;
             lastVerif.CheckedOK = true;
+
+            // 8) Update user and verification record
             _uow.Users.Update(user);
             _uow.AccountVerifications.Update(lastVerif);
+
+            // 9) Commit to database
             await _uow.SaveAsync();
 
+            // 10) Delete the cookie
             httpCtx.Response.Cookies.Delete("EmailForVerification");
         }
 
