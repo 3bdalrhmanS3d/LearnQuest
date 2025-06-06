@@ -1,86 +1,82 @@
 ﻿LearnQuestV1.sln
 │
-├── LearnQuestV1.Api/                       ← Web/API project
+├── LearnQuestV1.Api/                      ← Web/API project
 │   ├── Controllers/
 │   │   ├── AccountController.cs
 │   │   ├── ProfileController.cs
 │   │   ├── ProgressController.cs
-│   │   └── AdminController.cs
+│   │   ├── AdminController.cs
+│   │   ├── DashboardController.cs
+│   │   ├── TrackController.cs
+│   │   ├── CourseController.cs
+│   │   ├── LevelController.cs
+│   │   ├── SectionController.cs
+│   │   └── ContentController.cs
 │   │
 │   ├── DTOs/
 │   │   ├── Users/
-│   │   │   ├── Request/
-│   │   │   │   ├── SignupRequestDto.cs
-│   │   │   │   ├── SigninRequestDto.cs
-│   │   │   │   ├── VerifyAccountRequestDto.cs
-│   │   │   │   ├── RefreshTokenRequestDto.cs
-│   │   │   │   ├── ForgetPasswordRequestDto.cs
-│   │   │   │   └── ResetPasswordRequestDto.cs
-│   │   │   └── Response/
-│   │   │       ├── SigninResponseDto.cs
-│   │   │       ├── RefreshTokenResponseDto.cs
-│   │   │       └── AutoLoginResponseDto.cs
+│   │   │   ├── Request/           ← SignupRequestDto, SigninRequestDto, etc.
+│   │   │   └── Response/          ← SigninResponseDto, RefreshTokenResponseDto, …
 │   │   │
-│   │   ├── Profile/
-│   │   │   ├── UserProfileDto.cs
-│   │   │   ├── UserProfileUpdateDto.cs
-│   │   │   └── UserProgressDto.cs
-│   │   │
-│   │   ├── Progress/
-│   │   │   ├── TrackDto.cs
-│   │   │   ├── TrackCoursesDto.cs
-│   │   │   ├── CourseInTrackDto.cs
-│   │   │   ├── CourseDto.cs
-│   │   │   ├── LevelDto.cs
-│   │   │   ├── LevelsResponseDto.cs
-│   │   │   ├── SectionDto.cs
-│   │   │   ├── SectionsResponseDto.cs
-│   │   │   ├── ContentDto.cs
-│   │   │   └── ContentsResponseDto.cs
-│   │   │
-│   │   ├── Payments/
-│   │   │   ├── PaymentRequestDto.cs
-│   │   │   └── MyCourseDto.cs
-│   │   │
-│   │   └── Admin/
-│   │       ├── AdminUserDto.cs
-│   │       ├── BasicUserInfoDto.cs
-│   │       ├── AdminSendNotificationInput.cs
-│   │       ├── AdminActionLogDto.cs
-│   │       └── SystemStatsDto.cs
+│   │   ├── Profile/               ← UserProfileDto, UserProfileUpdateDto, UserProgressDto
+│   │   ├── Progress/              ← TrackDto, TrackCoursesDto, CourseInTrackDto, LevelDto, …
+│   │   ├── Payments/              ← PaymentRequestDto, MyCourseDto
+│   │   ├── Admin/                 ← AdminUserDto, BasicUserInfoDto, AdminActionLogDto, SystemStatsDto, AdminSendNotificationInput
+│   │   ├── Dashboard/             ← DashboardDto, CourseStatDto, MostEngagedCourseDto
+│   │   ├── Tracks/                ← CreateTrackDto, UpdateTrackDto, TrackDetailDto, …
+│   │   ├── Courses/               ← CreateCourseDto, UpdateCourseDto, CourseDto, CourseDetailsDto, …
+│   │   ├── Levels/                ← CreateLevelDto, UpdateLevelDto, LevelSummaryDto, LevelStatsDto, ReorderLevelDto
+│   │   ├── Sections/              ← CreateSectionDto, UpdateSectionDto, SectionDto, ReorderSectionDto
+│   │   └── Contents/              ← CreateContentDto, UpdateContentDto, ContentDto, ReorderContentDto
 │   │
 │   ├── Services/
 │   │   ├── Interfaces/
 │   │   │   ├── IAccountService.cs
 │   │   │   ├── IUserService.cs
-│   │   │   ├── IAdminService.cs
 │   │   │   ├── IEmailQueueService.cs
-│   │   │   └── IFailedLoginTracker.cs
+│   │   │   ├── IFailedLoginTracker.cs
+│   │   │   ├── ITrackService.cs
+│   │   │   ├── ICourseService.cs
+│   │   │   ├── ILevelService.cs
+│   │   │   ├── ISectionService.cs
+│   │   │   ├── IContentService.cs
+│   │   │   ├── IAdminService.cs
+│   │   │   └── IDashboardService.cs
 │   │   │
 │   │   └── Implementations/
 │   │       ├── AccountService.cs
 │   │       ├── UserService.cs
-│   │       ├── AdminService.cs
 │   │       ├── EmailQueueService.cs
 │   │       ├── FailedLoginTracker.cs
+│   │       ├── TrackService.cs
+│   │       ├── CourseService.cs
+│   │       ├── LevelService.cs
+│   │       ├── SectionService.cs
+│   │       ├── ContentService.cs
+│   │       ├── AdminService.cs
+│   │       ├── DashboardService.cs
 │   │       └── EmailQueueBackgroundService.cs
 │   │
 │   ├── Utilities/
-│   │   └── AuthHelpers.cs
+│   │   ├── AuthHelpers.cs
+│   │   └── ClaimsPrincipalExtensions.cs
 │   │
 │   ├── Extensions/
-│   │   └── ServiceCollectionExtensions.cs
+│   │   └── ServiceCollectionExtensions.cs   ← register DbContext, UoW, services, AutoMapper
 │   │
 │   ├── Mappings/
-│   │   └── (AutoMapper profiles, if applicable)
+│   │   └── ApplicationProfiles.cs           ← AutoMapper profiles
 │   │
 │   ├── appsettings.json
 │   └── Program.cs
 │
-├── LearnQuestV1.Core/                      ← Business‐level project
+├── LearnQuestV1.Core/                     ← Domain‐level project
 │   ├── Enums/
-│   │   └── UserRole.cs
-│   │   └── NotificationTemplateType.cs
+│   │   ├── UserRole.cs
+│   │   ├── ContentType.cs
+│   │   ├── NotificationTemplateType.cs
+│   │   ├── PaymentStatus.cs
+│   │   └── CourseOutcomeType.cs
 │   │
 │   ├── Models/
 │   │   ├── User.cs
@@ -109,23 +105,20 @@
 │   │   └── AdminActionLog.cs
 │   │
 │   ├── Interfaces/
-│   │   ├── IBaseRepo.cs       ← generic repository interface
-│   │   ├── IUnitOfWork.cs          ← unit–of–work interface
-│   │   
+│   │   ├── IBaseRepo<T>.cs
+│   │   └── IUnitOfWork.cs
 │   │
-│   └── (any Domain Services or additional business logic layers)
+│   └── (any additional domain services)
 │
-└── LearnQuestV1.EF/                       ← Entity Framework Core project
+└── LearnQuestV1.EF/                       ← EF Core project
     ├── Application/
-    │   └── ApplicationDbContext.cs      ← defines DbSet<> for all Core.Models
+    │   └── ApplicationDbContext.cs
     │
     ├── Repositories/
-    │   ├── BaseRepo\<T\>.cs             ← implements IBaseRepo\<T\>
-    │   ├── (any custom repository classes, if present)
-    │   └── (optional extension methods for IQueryable)
+    │   └── BaseRepo<T>.cs
     │
     ├── UnitOfWork/
-    │   └── UnitOfWork.cs                ← implements IUnitOfWork
+    │   └── UnitOfWork.cs
     │
-    └── Migrations/                      ← EF Migrations folder (auto‐generated)
-        └── (timestamped migration files)
+    └── Migrations/
+        └── [timestamped‐migration‐files]
