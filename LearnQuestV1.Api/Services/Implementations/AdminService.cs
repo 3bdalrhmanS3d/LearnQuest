@@ -10,12 +10,14 @@ namespace LearnQuestV1.Api.Services.Implementations
     public class AdminService : IAdminService
     {
         private readonly IUnitOfWork _uow;
+        private readonly ActionLogService _logService;
         private readonly IEmailQueueService _emailQueueService;
 
-        public AdminService(IUnitOfWork uow, IEmailQueueService emailQueueService)
+        public AdminService(IUnitOfWork uow, IEmailQueueService emailQueueService, ActionLogService logService)
         {
             _uow = uow;
             _emailQueueService = emailQueueService;
+            _logService = logService;
         }
 
         /// <summary>
@@ -97,20 +99,20 @@ namespace LearnQuestV1.Api.Services.Implementations
             return user;
         }
 
-        private async Task LogAdminActionAsync(int adminId, int targetUserId, string actionType, string details)
-        {
-            var log = new AdminActionLog
-            {
-                AdminId = adminId,
-                TargetUserId = targetUserId,
-                ActionType = actionType,
-                ActionDetails = details,
-                ActionDate = DateTime.UtcNow
-            };
+        //private async Task LogAdminActionAsync(int adminId, int targetUserId, string actionType, string details)
+        //{
+        //    var log = new AdminActionLog
+        //    {
+        //        AdminId = adminId,
+        //        TargetUserId = targetUserId,
+        //        ActionType = actionType,
+        //        ActionDetails = details,
+        //        ActionDate = DateTime.UtcNow
+        //    };
 
-            await _uow.AdminActionLogs.AddAsync(log);
-            await _uow.SaveAsync();
-        }
+        //    await _uow.AdminActionLogs.AddAsync(log);
+        //    await _uow.SaveAsync();
+        //}
 
         public async Task PromoteToInstructorAsync(int adminId, int targetUserId)
         {
@@ -123,7 +125,7 @@ namespace LearnQuestV1.Api.Services.Implementations
             _uow.Users.Update(user);
             await _uow.SaveAsync();
 
-            await LogAdminActionAsync(adminId, targetUserId, "MakeInstructor", $"User {user.EmailAddress} promoted to Instructor");
+            await _logService.LogAsync(adminId, targetUserId, "MakeInstructor", $"User {user.EmailAddress} promoted to Instructor");
             await _uow.SaveAsync();
         }
 
@@ -134,7 +136,7 @@ namespace LearnQuestV1.Api.Services.Implementations
             _uow.Users.Update(user);
             await _uow.SaveAsync();
 
-            await LogAdminActionAsync(adminId, targetUserId, "MakeAdmin", $"User {user.EmailAddress} promoted to Admin");
+            await _logService.LogAsync(adminId, targetUserId, "MakeAdmin", $"User {user.EmailAddress} promoted to Admin");
             await _uow.SaveAsync();
         }
 
@@ -148,7 +150,7 @@ namespace LearnQuestV1.Api.Services.Implementations
             _uow.Users.Update(user);
             await _uow.SaveAsync();
 
-            await LogAdminActionAsync(adminId, targetUserId, "MakeRegularUser", $"User {user.EmailAddress} demoted to RegularUser");
+            await _logService.LogAsync(adminId, targetUserId, "MakeRegularUser", $"User {user.EmailAddress} demoted to RegularUser");
             await _uow.SaveAsync();
         }
 
@@ -165,7 +167,7 @@ namespace LearnQuestV1.Api.Services.Implementations
             _uow.Users.Update(user);
             await _uow.SaveAsync();
 
-            await LogAdminActionAsync(adminId, targetUserId, "SoftDeleteUser", $"User {user.EmailAddress} marked as deleted");
+            await _logService.LogAsync(adminId, targetUserId, "SoftDeleteUser", $"User {user.EmailAddress} marked as deleted");
             await _uow.SaveAsync();
         }
 
@@ -179,7 +181,7 @@ namespace LearnQuestV1.Api.Services.Implementations
             _uow.Users.Update(user);
             await _uow.SaveAsync();
 
-            await LogAdminActionAsync(adminId, targetUserId, "RecoverUser", $"User {user.EmailAddress} recovered");
+            await _logService.LogAsync(adminId, targetUserId, "RecoverUser", $"User {user.EmailAddress} recovered");
             await _uow.SaveAsync();
         }
 
@@ -193,7 +195,7 @@ namespace LearnQuestV1.Api.Services.Implementations
             _uow.Users.Update(user);
             await _uow.SaveAsync();
 
-            await LogAdminActionAsync(adminId, targetUserId, "ToggleUserActivation",
+            await _logService.LogAsync(adminId, targetUserId, "ToggleUserActivation",
                 $"User {user.EmailAddress} activation toggled to {(user.IsActive ? "enabled" : "disabled")}");
             await _uow.SaveAsync();
         }
@@ -285,7 +287,7 @@ namespace LearnQuestV1.Api.Services.Implementations
             await _uow.Notifications.AddAsync(notif);
             await _uow.SaveAsync();
 
-            await LogAdminActionAsync(adminId, user.UserId, "SendNotification", $"Notification sent to {user.EmailAddress}");
+            await _logService.LogAsync(adminId, user.UserId, "SendNotification", $"Notification sent to {user.EmailAddress}");
             await _uow.SaveAsync();
         }
 

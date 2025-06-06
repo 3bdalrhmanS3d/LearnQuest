@@ -19,8 +19,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="DTOs\Course\Request\" />
-    <Folder Include="DTOs\Course\Response\" />
     <Folder Include="Middlewares\" />
     <Folder Include="Profiles\" />
   </ItemGroup>

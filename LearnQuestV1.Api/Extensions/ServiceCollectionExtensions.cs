@@ -21,10 +21,15 @@ namespace LearnQuestV1.Api.Extensions
             services.AddScoped<IAdminService, AdminService>();
             services.AddScoped<IDashboardService, DashboardService>();
             services.AddScoped<ITrackService, TrackService>();
+            services.AddScoped<ICourseService, CourseService>();
+            services.AddScoped<ISectionService, SectionService>();
+            services.AddScoped<ILevelService, LevelService>();
+
+            services.AddScoped<ActionLogService, ActionLogService > ();
             services.AddScoped<TrackService>();
             // سجلّ FailedLoginTracker كـScoped
             services.AddScoped<IFailedLoginTracker, FailedLoginTracker>();
-
+            services.AddHttpContextAccessor();
             // هنا: سجّل EmailQueueService كـSingleton بدلاً من Scoped
             services.AddSingleton<IEmailQueueService, EmailQueueService>();
 

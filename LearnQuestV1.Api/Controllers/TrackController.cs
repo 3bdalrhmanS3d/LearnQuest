@@ -1,5 +1,6 @@
 ﻿using LearnQuestV1.Api.DTOs.Track;
 using LearnQuestV1.Api.Services.Interfaces;
+using LearnQuestV1.Api.Utilities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -12,10 +13,11 @@ namespace LearnQuestV1.Api.Controllers
     public class TrackController : ControllerBase
     {
         private readonly ITrackService _trackService;
-
-        public TrackController(ITrackService trackService)
+        private readonly IActionLogService _actionLogService;
+        public TrackController(ITrackService trackService, IActionLogService actionLogService)
         {
             _trackService = trackService;
+            _actionLogService = actionLogService;
         }
 
         /// <summary>
@@ -28,9 +30,14 @@ namespace LearnQuestV1.Api.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
+            var userId = User.GetCurrentUserId();
+            if (userId == null)
+                return Unauthorized(new { message = "User ID not found in claims." });
+
             try
             {
                 var newTrackId = await _trackService.CreateTrackAsync(dto);
+                await _actionLogService.LogAsync(userId.Value, "Create", $"Created new track with ID {newTrackId} and name '{dto.TrackName}'");
                 return Ok(new { message = "Track created successfully.", trackId = newTrackId });
             }
             catch (KeyNotFoundException knf)
@@ -74,10 +81,10 @@ namespace LearnQuestV1.Api.Controllers
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
-
             try
             {
                 await _trackService.UpdateTrackAsync(dto);
+
                 return Ok(new { message = "Track updated successfully." });
             }
             catch (KeyNotFoundException knf)
