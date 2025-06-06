@@ -29,7 +29,8 @@ namespace LearnQuestV1.Core.Models
             UserCoursePoints = new HashSet<UserCoursePoint>();
             UserProgresses = new HashSet<UserProgress>();
             FavoriteCourses = new HashSet<FavoriteCourse>();
-
+            AdminActionsPerformed = new HashSet<AdminActionLog>();
+            AdminActionsReceived = new HashSet<AdminActionLog>();
             CreatedAt = DateTime.UtcNow;
             IsActive = false;
             IsDeleted = false;
@@ -147,6 +148,16 @@ namespace LearnQuestV1.Core.Models
         /// One-to-many: favorite courses for this user.
         /// </summary>
         public virtual ICollection<FavoriteCourse> FavoriteCourses { get; set; }
-        
+
+        /// <summary>
+        /// All admin‐action logs where this user acted as the Admin (the actor).
+        /// </summary>
+        public virtual ICollection<AdminActionLog> AdminActionsPerformed { get; set; }
+
+        /// <summary>
+        /// All admin‐action logs where this user was the TargetUser (the “victim” of the action).
+        /// </summary>
+        public virtual ICollection<AdminActionLog> AdminActionsReceived { get; set; }
+
     }
 }

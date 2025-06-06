@@ -41,6 +41,8 @@ namespace LearnQuestV1.Core.Interfaces
         IBaseRepo<UserContentActivity> UserContentActivities { get; }
         IBaseRepo<Notification> Notifications { get; }
 
+        IBaseRepo<AdminActionLog> AdminActionLogs { get; }
+
         Task<int> SaveAsync();
 
 

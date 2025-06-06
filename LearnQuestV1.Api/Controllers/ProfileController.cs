@@ -4,6 +4,7 @@ using LearnQuestV1.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using LearnQuestV1.Api.Utilities;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
@@ -35,7 +36,7 @@ namespace LearnQuestV1.Api.Controllers
         [HttpGet("")]
         public async Task<IActionResult> GetProfile()
         {
-            var userId = GetUserIdFromToken();
+            var userId = User.GetCurrentUserId();
             if (userId == null)
                 return Unauthorized(new { message = "Invalid or missing token." });
 
@@ -65,7 +66,7 @@ namespace LearnQuestV1.Api.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            var userId = GetUserIdFromToken();
+            var userId = User.GetCurrentUserId();
             if (userId == null)
                 return Unauthorized(new { message = "Invalid or missing token." });
 
@@ -87,7 +88,7 @@ namespace LearnQuestV1.Api.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            var userId = GetUserIdFromToken();
+            var userId = User.GetCurrentUserId();
             if (userId == null)
                 return Unauthorized(new { message = "Invalid or missing token." });
 
@@ -129,7 +130,7 @@ namespace LearnQuestV1.Api.Controllers
         [HttpGet("my-courses")]
         public async Task<IActionResult> GetMyCourses()
         {
-            var userId = GetUserIdFromToken();
+            var userId = User.GetCurrentUserId();
             if (userId == null)
                 return Unauthorized(new { message = "Invalid or missing token." });
 
@@ -148,7 +149,7 @@ namespace LearnQuestV1.Api.Controllers
         [HttpGet("favorite-courses")]
         public async Task<IActionResult> GetFavoriteCourses()
         {
-            var userId = GetUserIdFromToken();
+            var userId = User.GetCurrentUserId();
             if (userId == null)
                 return Unauthorized(new { message = "Invalid or missing token." });
 
@@ -170,7 +171,7 @@ namespace LearnQuestV1.Api.Controllers
             if (file == null || file.Length == 0)
                 return BadRequest(new { message = "No file uploaded." });
 
-            var userId = GetUserIdFromToken();
+            var userId = User.GetCurrentUserId();
             if (userId == null)
                 return Unauthorized(new { message = "Invalid or missing token." });
 
@@ -193,7 +194,7 @@ namespace LearnQuestV1.Api.Controllers
         [HttpDelete("delete-photo")]
         public async Task<IActionResult> DeleteProfilePhoto()
         {
-            var userId = GetUserIdFromToken();
+            var userId = User.GetCurrentUserId();
             if (userId == null)
                 return Unauthorized(new { message = "Invalid or missing token." });
 
@@ -212,13 +213,6 @@ namespace LearnQuestV1.Api.Controllers
             }
         }
 
-        // دالة مساعدة لاستخراج UserId من التوكن
-        private int? GetUserIdFromToken()
-        {
-            var claimValue = _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (int.TryParse(claimValue, out int id))
-                return id;
-            return null;
-        }
+        
     }
 }

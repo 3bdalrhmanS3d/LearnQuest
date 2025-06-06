@@ -42,6 +42,7 @@ namespace LearnQuestV1.EF.Application
         public DbSet<Notification> Notifications { get; set; } = null!;
 
         public DbSet<UserContentActivity> UserContentActivities { get; set; }
+        public DbSet<AdminActionLog> AdminActionLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -313,6 +314,17 @@ namespace LearnQuestV1.EF.Application
                 .IsUnique();
 
 
+            modelBuilder.Entity<AdminActionLog>()
+                .HasOne(a => a.Admin)
+                .WithMany(u => u.AdminActionsPerformed)
+                .HasForeignKey(a => a.AdminId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<AdminActionLog>()
+                .HasOne(a => a.TargetUser)
+                .WithMany(u => u.AdminActionsReceived)
+                .HasForeignKey(a => a.TargetUserId)
+                .OnDelete(DeleteBehavior.Restrict);
         }
     }
 }

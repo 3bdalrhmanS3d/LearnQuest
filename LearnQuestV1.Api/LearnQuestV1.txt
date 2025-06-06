@@ -5,7 +5,7 @@
 │   │   ├── AccountController.cs
 │   │   ├── ProfileController.cs
 │   │   ├── ProgressController.cs
-│   │   └── … (any other controllers)
+│   │   └── AdminController.cs
 │   │
 │   ├── DTOs/
 │   │   ├── Users/
@@ -19,8 +19,7 @@
 │   │   │   └── Response/
 │   │   │       ├── SigninResponseDto.cs
 │   │   │       ├── RefreshTokenResponseDto.cs
-│   │   │       ├── AutoLoginResponseDto.cs
-│   │   │       └── … (other user‐related response DTOs)
+│   │   │       └── AutoLoginResponseDto.cs
 │   │   │
 │   │   ├── Profile/
 │   │   │   ├── UserProfileDto.cs
@@ -39,21 +38,29 @@
 │   │   │   ├── ContentDto.cs
 │   │   │   └── ContentsResponseDto.cs
 │   │   │
-│   │   └── Payments/
-│   │       ├── PaymentRequestDto.cs
-│   │       └── MyCourseDto.cs
+│   │   ├── Payments/
+│   │   │   ├── PaymentRequestDto.cs
+│   │   │   └── MyCourseDto.cs
+│   │   │
+│   │   └── Admin/
+│   │       ├── AdminUserDto.cs
+│   │       ├── BasicUserInfoDto.cs
+│   │       ├── AdminSendNotificationInput.cs
+│   │       ├── AdminActionLogDto.cs
+│   │       └── SystemStatsDto.cs
 │   │
 │   ├── Services/
 │   │   ├── Interfaces/
 │   │   │   ├── IAccountService.cs
 │   │   │   ├── IUserService.cs
+│   │   │   ├── IAdminService.cs
 │   │   │   ├── IEmailQueueService.cs
-│   │   │   ├── IFailedLoginTracker.cs
-│   │   │   └── (etc.)
+│   │   │   └── IFailedLoginTracker.cs
 │   │   │
 │   │   └── Implementations/
 │   │       ├── AccountService.cs
 │   │       ├── UserService.cs
+│   │       ├── AdminService.cs
 │   │       ├── EmailQueueService.cs
 │   │       ├── FailedLoginTracker.cs
 │   │       └── EmailQueueBackgroundService.cs
@@ -62,18 +69,18 @@
 │   │   └── AuthHelpers.cs
 │   │
 │   ├── Extensions/
-│   │   └── ServiceCollectionExtensions.cs   ← registers DbContext, UoW, services, AutoMapper
+│   │   └── ServiceCollectionExtensions.cs
 │   │
 │   ├── Mappings/
-│   │   └── (AutoMapper profiles, if any)
+│   │   └── (AutoMapper profiles, if applicable)
 │   │
 │   ├── appsettings.json
-│   ├── Program.cs
-│   └── Startup.cs (if using older ASP.NET Core conventions)
+│   └── Program.cs
 │
 ├── LearnQuestV1.Core/                      ← Business‐level project
 │   ├── Enums/
 │   │   └── UserRole.cs
+│   │   └── NotificationTemplateType.cs
 │   │
 │   ├── Models/
 │   │   ├── User.cs
@@ -98,28 +105,27 @@
 │   │   ├── UserCoursePoint.cs
 │   │   ├── UserProgress.cs
 │   │   ├── Notification.cs
-│   │   └── UserContentActivity.cs
+│   │   ├── UserContentActivity.cs
+│   │   └── AdminActionLog.cs
 │   │
 │   ├── Interfaces/
-│   │   ├── IBaseRepo\<T\>.cs    ← generic repository interface
-│   │   ├── IUnitOfWork.cs       ← unit–of–work interface
-│   │   └── (other domain‐level interfaces, if any)
+│   │   ├── IBaseRepo.cs       ← generic repository interface
+│   │   ├── IUnitOfWork.cs          ← unit–of–work interface
+│   │   
 │   │
 │   └── (any Domain Services or additional business logic layers)
 │
 └── LearnQuestV1.EF/                       ← Entity Framework Core project
-    ├── Application/                       ← holds the DbContext
-    │   └── ApplicationDbContext.cs
+    ├── Application/
+    │   └── ApplicationDbContext.cs      ← defines DbSet<> for all Core.Models
     │
     ├── Repositories/
-    │   ├── BaseRepo\<T\>.cs                 ← implements IBaseRepo\<T\>
-    │   ├── (any custom repository classes, e.g. UserRepository.cs if you have custom methods)
+    │   ├── BaseRepo\<T\>.cs             ← implements IBaseRepo\<T\>
+    │   ├── (any custom repository classes, if present)
     │   └── (optional extension methods for IQueryable)
     │
     ├── UnitOfWork/
-    │   ├── UnitOfWork.cs                    ← implements IUnitOfWork
-    │   └── (other transactional helpers, if needed)
+    │   └── UnitOfWork.cs                ← implements IUnitOfWork
     │
-    └── Migrations/                          ← EF Migrations folder, auto-generated
+    └── Migrations/                      ← EF Migrations folder (auto‐generated)
         └── (timestamped migration files)
-

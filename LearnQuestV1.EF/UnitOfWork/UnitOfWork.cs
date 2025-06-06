@@ -40,8 +40,9 @@ namespace LearnQuestV1.EF.UnitOfWork
             Payments = new BaseRepo<Payment>(context);
             UserCoursePoints = new BaseRepo<UserCoursePoint>(context);
             UserProgresses = new BaseRepo<UserProgress>(context);
-            //UserContentActivities = new BaseRepo<UserContentActivity>(context);
-            //Notifications = new BaseRepo<Notification>(context);
+            UserContentActivities = new BaseRepo<UserContentActivity>(context);
+            Notifications = new BaseRepo<Notification>(context);
+            AdminActionLogs = new BaseRepo<AdminActionLog>(context);
         }
 
         public IBaseRepo<User> Users { get; }
@@ -70,6 +71,7 @@ namespace LearnQuestV1.EF.UnitOfWork
         public IBaseRepo<UserContentActivity> UserContentActivities { get; }
         public IBaseRepo<Notification> Notifications { get; }
 
+        public IBaseRepo<AdminActionLog> AdminActionLogs { get; }
         public async Task<int> SaveAsync()
         {
             return await _context.SaveChangesAsync();

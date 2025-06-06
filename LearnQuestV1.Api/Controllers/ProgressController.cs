@@ -4,6 +4,7 @@ using LearnQuestV1.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using LearnQuestV1.Api.Utilities;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
@@ -53,7 +54,7 @@ namespace LearnQuestV1.Api.Controllers
         [HttpGet("search-courses")]
         public async Task<IActionResult> SearchCourses([FromQuery] string? search)
         {
-            var userId = GetUserIdFromToken();
+            var userId = User.GetCurrentUserId();
             if (userId == null)
                 return Unauthorized(new { message = "Invalid or missing token." });
 
@@ -72,7 +73,7 @@ namespace LearnQuestV1.Api.Controllers
         [HttpGet("course-levels/{courseId:int}")]
         public async Task<IActionResult> GetCourseLevels(int courseId)
         {
-            var userId = GetUserIdFromToken();
+            var userId = User.GetCurrentUserId();
             if (userId == null)
                 return Unauthorized();
 
@@ -95,7 +96,7 @@ namespace LearnQuestV1.Api.Controllers
         [HttpGet("level-sections/{levelId:int}")]
         public async Task<IActionResult> GetLevelSections(int levelId)
         {
-            var userId = GetUserIdFromToken();
+            var userId = User.GetCurrentUserId();
             if (userId == null)
                 return Unauthorized();
 
@@ -118,7 +119,7 @@ namespace LearnQuestV1.Api.Controllers
         [HttpGet("section-contents/{sectionId:int}")]
         public async Task<IActionResult> GetSectionContents(int sectionId)
         {
-            var userId = GetUserIdFromToken();
+            var userId = User.GetCurrentUserId();
             if (userId == null)
                 return Unauthorized();
 
@@ -141,7 +142,7 @@ namespace LearnQuestV1.Api.Controllers
         [HttpPost("start-content/{contentId:int}")]
         public async Task<IActionResult> StartContent(int contentId)
         {
-            var userId = GetUserIdFromToken();
+            var userId = User.GetCurrentUserId();
             if (userId == null)
                 return Unauthorized();
 
@@ -160,7 +161,7 @@ namespace LearnQuestV1.Api.Controllers
         [HttpPost("end-content/{contentId:int}")]
         public async Task<IActionResult> EndContent(int contentId)
         {
-            var userId = GetUserIdFromToken();
+            var userId = User.GetCurrentUserId();
             if (userId == null)
                 return Unauthorized();
 
@@ -179,7 +180,7 @@ namespace LearnQuestV1.Api.Controllers
         [HttpPost("complete-section/{sectionId:int}")]
         public async Task<IActionResult> CompleteSection(int sectionId)
         {
-            var userId = GetUserIdFromToken();
+            var userId = User.GetCurrentUserId();
             if (userId == null)
                 return Unauthorized();
 
@@ -198,7 +199,7 @@ namespace LearnQuestV1.Api.Controllers
         [HttpGet("next-section/{courseId:int}")]
         public async Task<IActionResult> GetNextSection(int courseId)
         {
-            var userId = GetUserIdFromToken();
+            var userId = User.GetCurrentUserId();
             if (userId == null)
                 return Unauthorized();
 
@@ -217,7 +218,7 @@ namespace LearnQuestV1.Api.Controllers
         [HttpGet("user-stats")]
         public async Task<IActionResult> GetUserStats()
         {
-            var userId = GetUserIdFromToken();
+            var userId = User.GetCurrentUserId();
             if (userId == null)
                 return Unauthorized();
 
@@ -229,7 +230,7 @@ namespace LearnQuestV1.Api.Controllers
         [HttpGet("course-completion/{courseId:int}")]
         public async Task<IActionResult> HasCompletedCourse(int courseId)
         {
-            var userId = GetUserIdFromToken();
+            var userId = User.GetCurrentUserId();
             if (userId == null)
                 return Unauthorized();
 
@@ -241,7 +242,7 @@ namespace LearnQuestV1.Api.Controllers
         [HttpGet("notifications")]
         public async Task<IActionResult> GetNotifications()
         {
-            var userId = GetUserIdFromToken();
+            var userId = User.GetCurrentUserId();
             if (userId == null)
                 return Unauthorized();
 
@@ -253,7 +254,7 @@ namespace LearnQuestV1.Api.Controllers
         [HttpGet("notifications/unread-count")]
         public async Task<IActionResult> GetUnreadNotificationsCount()
         {
-            var userId = GetUserIdFromToken();
+            var userId = User.GetCurrentUserId();
             if (userId == null)
                 return Unauthorized();
 
@@ -265,7 +266,7 @@ namespace LearnQuestV1.Api.Controllers
         [HttpPost("notifications/mark-read/{notificationId:int}")]
         public async Task<IActionResult> MarkNotificationAsRead(int notificationId)
         {
-            var userId = GetUserIdFromToken();
+            var userId = User.GetCurrentUserId();
             if (userId == null)
                 return Unauthorized();
 
@@ -284,7 +285,7 @@ namespace LearnQuestV1.Api.Controllers
         [HttpPost("notifications/mark-all-read")]
         public async Task<IActionResult> MarkAllNotificationsAsRead()
         {
-            var userId = GetUserIdFromToken();
+            var userId = User.GetCurrentUserId();
             if (userId == null)
                 return Unauthorized();
 
