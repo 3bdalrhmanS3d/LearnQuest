@@ -293,13 +293,5 @@ namespace LearnQuestV1.Api.Controllers
             return Ok(new { message = "All notifications marked as read." });
         }
 
-        // دالة مساعدة لاستخراج UserId من التوكن
-        private int? GetUserIdFromToken()
-        {
-            var claimValue = _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (int.TryParse(claimValue, out int id))
-                return id;
-            return null;
-        }
     }
 }
