@@ -19,6 +19,9 @@ namespace LearnQuestV1.Api.Extensions
             services.AddScoped<IAccountService, AccountService>();
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IAdminService, AdminService>();
+            services.AddScoped<IDashboardService, DashboardService>();
+            services.AddScoped<ITrackService, TrackService>();
+            services.AddScoped<TrackService>();
             // سجلّ FailedLoginTracker كـScoped
             services.AddScoped<IFailedLoginTracker, FailedLoginTracker>();
 
