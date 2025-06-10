@@ -15,8 +15,6 @@ namespace LearnQuestV1.Api
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            // Add services to the container.
-
             // add the ApplicationDbContext
             builder.Services.AddDbContext<ApplicationDbContext>(options =>
                 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"),
@@ -32,7 +30,7 @@ namespace LearnQuestV1.Api
             builder.Services.AddDistributedMemoryCache();
 
             var jwtSettings = builder.Configuration.GetSection("JWT");
-            var key = Encoding.UTF8.GetBytes(jwtSettings["SecretKey"]);
+            var key = Encoding.UTF8.GetBytes(jwtSettings["SecretKey"]!);
 
             builder.Services.AddAuthentication(options =>
             {
@@ -57,6 +55,18 @@ namespace LearnQuestV1.Api
 
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             builder.Services.AddEndpointsApiExplorer();
+
+            builder.Services.AddEndpointsApiExplorer();
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy("AllowReactApp", policy =>
+                {
+                    policy.WithOrigins("http://localhost:3000")
+                          .AllowAnyHeader()
+                          .AllowAnyMethod();
+                });
+            });
+
             builder.Services.AddSwaggerGen(c =>
             {
                 c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -66,9 +76,8 @@ namespace LearnQuestV1.Api
                     Type = SecuritySchemeType.ApiKey,
                     BearerFormat = "JWT",
                     Scheme = "Bearer",
-                    Description = "Enter 'Bearer {token}' in the field below."
+                    Description = "Enter 'Bearer {token}'"
                 });
-
                 c.AddSecurityRequirement(new OpenApiSecurityRequirement
                 {
                     {
@@ -77,13 +86,14 @@ namespace LearnQuestV1.Api
                             Reference = new OpenApiReference
                             {
                                 Type = ReferenceType.SecurityScheme,
-                                Id = "Bearer"
+                                Id   = "Bearer"
                             }
                         },
                         Array.Empty<string>()
                     }
                 });
             });
+
 
             var app = builder.Build();
 
@@ -98,7 +108,7 @@ namespace LearnQuestV1.Api
 
             app.UseAuthorization();
 
-
+            app.UseCors("AllowReactApp");
             app.MapControllers();
 
             app.Run();
