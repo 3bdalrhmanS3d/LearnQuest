@@ -13,6 +13,7 @@ using LearnQuestV1.Core.Models.Communication;
 using LearnQuestV1.Core.Models.Administration;
 using LearnQuestV1.Core.Models.FeedbackAndReviews;
 using LearnQuestV1.Core.Models.LearningAndProgress;
+using LearnQuestV1.Core.Models.Quiz;
 
 
 namespace LearnQuestV1.EF.Application
@@ -52,7 +53,14 @@ namespace LearnQuestV1.EF.Application
 
         public DbSet<UserContentActivity> UserContentActivities { get; set; }
         public DbSet<AdminActionLog> AdminActionLogs { get; set; }
-
+        
+        // Quiz System DbSets
+        public DbSet<Quiz> Quizzes { get; set; }
+        public DbSet<Question> Questions { get; set; }
+        public DbSet<QuestionOption> QuestionOptions { get; set; }
+        public DbSet<QuizQuestion> QuizQuestions { get; set; }
+        public DbSet<QuizAttempt> QuizAttempts { get; set; }
+        public DbSet<UserAnswer> UserAnswers { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -334,6 +342,28 @@ namespace LearnQuestV1.EF.Application
                 .WithMany(u => u.AdminActionsReceived)
                 .HasForeignKey(a => a.TargetUserId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            ConfigureQuizEntities(modelBuilder);
+        }
+
+        private void ConfigureQuizEntities(ModelBuilder modelBuilder)
+        {
+            // Quiz Configuration  
+            modelBuilder.Entity<Quiz>(entity =>
+            {
+                entity.ToTable(t => t.HasCheckConstraint("CK_Quiz_HierarchyConstraint",
+                    @"(QuizType = 1 AND ContentId IS NOT NULL AND SectionId IS NULL AND LevelId IS NULL) OR  
+                     (QuizType = 2 AND SectionId IS NOT NULL AND ContentId IS NULL AND LevelId IS NULL) OR  
+                     (QuizType = 3 AND LevelId IS NOT NULL AND ContentId IS NULL AND SectionId IS NULL) OR  
+                     (QuizType = 4 AND ContentId IS NULL AND SectionId IS NULL AND LevelId IS NULL)"));
+            });
+
+            // UserAnswer Configuration  
+            modelBuilder.Entity<UserAnswer>(entity =>
+            {
+                entity.ToTable(t => t.HasCheckConstraint("CK_UserAnswer_AnswerType",
+                    "(SelectedOptionId IS NOT NULL AND BooleanAnswer IS NULL) OR (SelectedOptionId IS NULL AND BooleanAnswer IS NOT NULL)"));
+            });
         }
     }
 }

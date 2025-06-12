@@ -7,6 +7,7 @@ using LearnQuestV1.Core.Models.FeedbackAndReviews;
 using LearnQuestV1.Core.Models.Financial;
 using LearnQuestV1.Core.Models.LearningAndProgress;
 using LearnQuestV1.Core.Models.UserManagement;
+using LearnQuestV1.Core.Models.Quiz;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -50,6 +51,13 @@ namespace LearnQuestV1.Core.Interfaces
         IBaseRepo<Notification> Notifications { get; }
 
         IBaseRepo<AdminActionLog> AdminActionLogs { get; }
+
+        IBaseRepo<Quiz> Quizzes { get; }
+        IBaseRepo<Question> Questions { get; }
+        IBaseRepo<QuestionOption> QuestionOptions { get; }
+        IBaseRepo<QuizQuestion> QuizQuestions { get; }
+        IBaseRepo<QuizAttempt> QuizAttempts { get; }
+        IBaseRepo<UserAnswer> UserAnswers { get; }
 
         Task<int> SaveAsync();
 

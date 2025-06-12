@@ -12,6 +12,7 @@ using LearnQuestV1.Core.Models.CourseStructure;
 using LearnQuestV1.Core.Models.FeedbackAndReviews;
 using LearnQuestV1.Core.Models.Financial;
 using LearnQuestV1.Core.Models.LearningAndProgress;
+using LearnQuestV1.Core.Models.Quiz;
 using LearnQuestV1.Core.Models.UserManagement;
 using LearnQuestV1.EF.Application;
 using LearnQuestV1.EF.Repositories;
@@ -51,6 +52,12 @@ namespace LearnQuestV1.EF.UnitOfWork
             UserContentActivities = new BaseRepo<UserContentActivity>(context);
             Notifications = new BaseRepo<Notification>(context);
             AdminActionLogs = new BaseRepo<AdminActionLog>(context);
+            Quizzes = new BaseRepo<Quiz>(context);
+            Questions = new BaseRepo<Question>(context);
+            QuestionOptions = new BaseRepo<QuestionOption>(context);
+            QuizQuestions = new BaseRepo<QuizQuestion>(context);
+            QuizAttempts = new BaseRepo<QuizAttempt>(context);
+            UserAnswers = new BaseRepo<UserAnswer>(context);
         }
 
         public IBaseRepo<User> Users { get; }
@@ -80,6 +87,14 @@ namespace LearnQuestV1.EF.UnitOfWork
         public IBaseRepo<Notification> Notifications { get; }
 
         public IBaseRepo<AdminActionLog> AdminActionLogs { get; }
+
+        public IBaseRepo<Quiz> Quizzes { get; }
+        public IBaseRepo<Question> Questions { get; }
+        public IBaseRepo<QuestionOption> QuestionOptions { get; }
+        public IBaseRepo<QuizQuestion> QuizQuestions { get; }
+        public IBaseRepo<QuizAttempt> QuizAttempts { get; }
+        public IBaseRepo<UserAnswer> UserAnswers { get; }
+
         public async Task<int> SaveAsync()
         {
             return await _context.SaveChangesAsync();
