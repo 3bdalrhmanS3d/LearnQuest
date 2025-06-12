@@ -1,6 +1,7 @@
-﻿using LearnQuestV1.Core.Models.Administration;
-using LearnQuestV1.Core.Models.CourseOrganization;
+﻿using LearnQuestV1.Core.Models.CourseOrganization;
+using LearnQuestV1.Core.Models.FeedbackAndReviews;
 using LearnQuestV1.Core.Models.Financial;
+using LearnQuestV1.Core.Models.LearningAndProgress;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;

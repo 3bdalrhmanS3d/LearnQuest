@@ -1,9 +1,8 @@
-﻿using static System.Collections.Specialized.BitVector32;
-using System.ComponentModel.DataAnnotations.Schema;
+﻿using System.ComponentModel.DataAnnotations.Schema;
 using System.ComponentModel.DataAnnotations;
 using LearnQuestV1.Core.Models.CourseStructure;
 
-namespace LearnQuestV1.Core.Models
+namespace LearnQuestV1.Core.Models.LearningAndProgress
 {
     [Table("UserProgress")]
     public class UserProgress

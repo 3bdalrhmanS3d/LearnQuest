@@ -1,5 +1,6 @@
 ﻿using LearnQuestV1.Core.Interfaces;
 using LearnQuestV1.Core.Models;
+using LearnQuestV1.Core.Models.Administration;
 
 namespace LearnQuestV1.Api.Services.Implementations
 {

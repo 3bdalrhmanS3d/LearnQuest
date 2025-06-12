@@ -11,6 +11,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
+using LearnQuestV1.Core.Models.CourseStructure;
 
 namespace LearnQuestV1.Api.Services.Implementations
 {

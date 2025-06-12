@@ -8,11 +8,15 @@ using LearnQuestV1.Api.Services.Interfaces;
 using LearnQuestV1.Core.Enums;
 using LearnQuestV1.Core.Interfaces;
 using LearnQuestV1.Core.Models;
+using LearnQuestV1.Core.Models.Financial;
+using LearnQuestV1.Core.Models.LearningAndProgress;
+using LearnQuestV1.Core.Models.UserManagement;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
+
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;

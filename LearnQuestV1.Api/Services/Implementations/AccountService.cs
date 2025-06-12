@@ -17,6 +17,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using LearnQuestV1.Core.Models.UserManagement;
 
 namespace LearnQuestV1.Api.Services.Implementations
 {
@@ -350,7 +351,7 @@ namespace LearnQuestV1.Api.Services.Implementations
 
             var user = await _uow.Users.GetByIdAsync(rt.UserId);
             var newJwt = AuthHelpers.GenerateAccessToken(
-                user.UserId.ToString(),
+                user!.UserId.ToString(),
                 user.EmailAddress,
                 user.FullName,
                 user.Role,

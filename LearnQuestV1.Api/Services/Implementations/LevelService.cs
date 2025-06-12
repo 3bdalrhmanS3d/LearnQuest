@@ -5,6 +5,7 @@ using LearnQuestV1.Core.Interfaces;
 using LearnQuestV1.Core.Models;
 using LearnQuestV1.Core.Enums;
 using Microsoft.EntityFrameworkCore;
+using LearnQuestV1.Core.Models.CourseStructure;
 
 namespace LearnQuestV1.Api.Services.Implementations
 {

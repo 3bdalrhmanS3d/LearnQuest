@@ -2,6 +2,7 @@
 using LearnQuestV1.Core.Enums;
 using LearnQuestV1.Core.Models;
 using LearnQuestV1.Core.Models.CourseOrganization;
+using LearnQuestV1.Core.Models.UserManagement;
 using LearnQuestV1.EF.Application;
 using Microsoft.EntityFrameworkCore;
 

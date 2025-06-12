@@ -7,7 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using LearnQuestV1.Core.Models.CourseStructure;
 
-namespace LearnQuestV1.Core.Models
+namespace LearnQuestV1.Core.Models.LearningAndProgress
 {
     [Table("UserContentActivities")]
     public class UserContentActivity

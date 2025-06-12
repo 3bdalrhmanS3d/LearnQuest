@@ -11,6 +11,9 @@ using LearnQuestV1.Core.Models.Financial;
 using LearnQuestV1.Core.Models.CourseOrganization;
 using LearnQuestV1.Core.Models.Communication;
 using LearnQuestV1.Core.Models.Administration;
+using LearnQuestV1.Core.Models.FeedbackAndReviews;
+using LearnQuestV1.Core.Models.LearningAndProgress;
+
 
 namespace LearnQuestV1.EF.Application
 {

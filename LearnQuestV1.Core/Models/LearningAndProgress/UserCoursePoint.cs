@@ -2,19 +2,14 @@
 using System.ComponentModel.DataAnnotations;
 using LearnQuestV1.Core.Models.CourseStructure;
 
-namespace LearnQuestV1.Core.Models.Administration
+namespace LearnQuestV1.Core.Models.LearningAndProgress
 {
-    [Table("CourseReviews")]
-    public class CourseReview
+    [Table("UserCoursePoints")]
+    public class UserCoursePoint
     {
-        public CourseReview()
-        {
-            CreatedAt = DateTime.UtcNow;
-        }
-
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-        public int CourseReviewId { get; set; }
+        public int Id { get; set; }
 
         [Required]
         public int UserId { get; set; }
@@ -29,14 +24,6 @@ namespace LearnQuestV1.Core.Models.Administration
         public virtual Course Course { get; set; } = null!;
 
         [Required]
-        [Range(1, 5)]
-        public int Rating { get; set; }
-
-        [Required]
-        [MaxLength(1000)]
-        public string ReviewComment { get; set; } = string.Empty;
-
-        [Required]
-        public DateTime CreatedAt { get; set; }
+        public int TotalPoints { get; set; } = 0;
     }
 }

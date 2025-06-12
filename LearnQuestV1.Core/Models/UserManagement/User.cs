@@ -10,7 +10,9 @@ using LearnQuestV1.Core.Enums;
 using LearnQuestV1.Core.Models.Administration;
 using LearnQuestV1.Core.Models.CourseOrganization;
 using LearnQuestV1.Core.Models.CourseStructure;
+using LearnQuestV1.Core.Models.FeedbackAndReviews;
 using LearnQuestV1.Core.Models.Financial;
+using LearnQuestV1.Core.Models.LearningAndProgress;
 using LearnQuestV1.Core.Models.UserManagement;
 
 namespace LearnQuestV1.Core.Models

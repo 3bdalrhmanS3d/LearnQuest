@@ -18,6 +18,7 @@ using LearnQuestV1.Core.Models.CourseStructure;
 using LearnQuestV1.Core.Models.CourseOrganization;
 using LearnQuestV1.Core.Models.Communication;
 using LearnQuestV1.Core.Models.Administration;
+using LearnQuestV1.Core.Models.LearningAndProgress;
 
 namespace LearnQuestV1.Api.Profiles
 {
