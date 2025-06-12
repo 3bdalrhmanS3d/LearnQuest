@@ -1,11 +1,11 @@
-
-using LearnQuestV1.Api.Extensions;
+﻿using LearnQuestV1.Api.Extensions;
 using LearnQuestV1.EF.Application;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.OpenApi.Models;
+using LearnQuestV1.Api.Data; // Add this using for the DatabaseSeeder
 
 namespace LearnQuestV1.Api
 {
@@ -24,7 +24,6 @@ namespace LearnQuestV1.Api
 
             builder.Services.AddProjectDependencies();
             builder.Services.AddAutoMapperProfiles();
-
 
             builder.Services.AddControllers();
             builder.Services.AddDistributedMemoryCache();
@@ -56,7 +55,6 @@ namespace LearnQuestV1.Api
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             builder.Services.AddEndpointsApiExplorer();
 
-            builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowReactApp", policy =>
@@ -94,8 +92,36 @@ namespace LearnQuestV1.Api
                 });
             });
 
-
             var app = builder.Build();
+
+            // ============================================
+            // DATABASE SEEDING - USING SYNCHRONOUS APPROACH
+            // ============================================
+            using (var scope = app.Services.CreateScope())
+            {
+                var services = scope.ServiceProvider;
+                try
+                {
+                    var context = services.GetRequiredService<ApplicationDbContext>();
+
+                    // Apply any pending migrations
+                    if (context.Database.GetPendingMigrations().Any())
+                    {
+                        Console.WriteLine("🔄 Applying pending migrations...");
+                        context.Database.Migrate();
+                        Console.WriteLine("✅ Migrations applied successfully!");
+                    }
+
+                    // Seed the database - call the method synchronously
+                    DatabaseSeeder.SeedDatabaseAsync(context).GetAwaiter().GetResult();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"❌ An error occurred while seeding the database: {ex.Message}");
+                    // Optionally log the exception or handle it as needed
+                    // Don't throw here to prevent the app from crashing on startup
+                }
+            }
 
             // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
@@ -106,6 +132,7 @@ namespace LearnQuestV1.Api
 
             app.UseHttpsRedirection();
 
+            app.UseAuthentication(); // Add this line - it was missing
             app.UseAuthorization();
 
             app.UseCors("AllowReactApp");
