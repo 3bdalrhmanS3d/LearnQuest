@@ -26,16 +26,17 @@ namespace LearnQuestV1.Api.Services.Implementations
         /// </summary>
         public async Task<IEnumerable<CourseCDto>> GetAllCoursesForInstructorAsync()
         {
-            var user = _httpContextAccessor.HttpContext?.User;
+            var user = (_httpContextAccessor.HttpContext?.User) ?? throw new InvalidOperationException("Unable to determine current user.");
             var instructorId = user.GetCurrentUserId();
             if (instructorId == null)
-                throw new InvalidOperationException("Unable to determine current user.");
+                throw new InvalidOperationException("Unable to determine current user ID.");
 
-            // Verify role = Instructor (optional)
+            // Verify role = Instructor (optional)  
             var found = await _uow.Users.Query()
                 .AnyAsync(u => u.UserId == instructorId.Value
                                && u.Role == UserRole.Instructor
                                && !u.IsDeleted);
+
             if (!found)
                 throw new KeyNotFoundException("Instructor not found or is deleted.");
 
@@ -43,6 +44,9 @@ namespace LearnQuestV1.Api.Services.Implementations
                 .Where(c => c.InstructorId == instructorId.Value && !c.IsDeleted)
                 .OrderByDescending(c => c.CreatedAt)
                 .ToListAsync();
+
+            if (courses == null || !courses.Any())
+                return Enumerable.Empty<CourseCDto>();
 
             return courses.Select(c => new CourseCDto
             {
@@ -60,7 +64,7 @@ namespace LearnQuestV1.Api.Services.Implementations
         /// </summary>
         public async Task<CourseDetailsDto> GetCourseDetailsAsync(int courseId)
         {
-            var user = _httpContextAccessor.HttpContext?.User;
+            var user = (_httpContextAccessor.HttpContext?.User) ?? throw new InvalidOperationException("Unable to determine current user.");
             var instructorId = user.GetCurrentUserId();
             if (instructorId == null)
                 throw new InvalidOperationException("Unable to determine current user.");
@@ -106,7 +110,7 @@ namespace LearnQuestV1.Api.Services.Implementations
         /// </summary>
         public async Task<int> CreateCourseAsync(CreateCourseDto input)
         {
-            var user = _httpContextAccessor.HttpContext?.User;
+            var user = (_httpContextAccessor.HttpContext?.User) ?? throw new InvalidOperationException("Unable to determine current user.");
             var instructorId = user.GetCurrentUserId();
             if (instructorId == null)
                 throw new InvalidOperationException("Unable to determine current user.");
@@ -177,7 +181,7 @@ namespace LearnQuestV1.Api.Services.Implementations
         /// </summary>
         public async Task UpdateCourseAsync(int courseId, UpdateCourseDto input)
         {
-            var user = _httpContextAccessor.HttpContext?.User;
+            var user = (_httpContextAccessor.HttpContext?.User) ?? throw new InvalidOperationException("Unable to determine current user.");
             var instructorId = user.GetCurrentUserId();
             if (instructorId == null)
                 throw new InvalidOperationException("Unable to determine current user.");
@@ -293,7 +297,7 @@ namespace LearnQuestV1.Api.Services.Implementations
         /// </summary>
         public async Task DeleteCourseAsync(int courseId)
         {
-            var user = _httpContextAccessor.HttpContext?.User;
+            var user = (_httpContextAccessor.HttpContext?.User) ?? throw new InvalidOperationException("Unable to determine current user.");
             var instructorId = user.GetCurrentUserId();
             if (instructorId == null)
                 throw new InvalidOperationException("Unable to determine current user.");
@@ -315,7 +319,7 @@ namespace LearnQuestV1.Api.Services.Implementations
         /// </summary>
         public async Task ToggleCourseStatusAsync(int courseId)
         {
-            var user = _httpContextAccessor.HttpContext?.User;
+            var user = (_httpContextAccessor.HttpContext?.User) ?? throw new InvalidOperationException("Unable to determine current user.");
             var instructorId = user.GetCurrentUserId();
             if (instructorId == null)
                 throw new InvalidOperationException("Unable to determine current user.");
@@ -337,7 +341,7 @@ namespace LearnQuestV1.Api.Services.Implementations
         /// </summary>
         public async Task<string> UploadCourseImageAsync(int courseId, IFormFile file)
         {
-            var user = _httpContextAccessor.HttpContext?.User;
+            var user = (_httpContextAccessor.HttpContext?.User) ?? throw new InvalidOperationException("Unable to determine current user.");
             var instructorId = user.GetCurrentUserId();
             if (instructorId == null)
                 throw new InvalidOperationException("Unable to determine current user.");

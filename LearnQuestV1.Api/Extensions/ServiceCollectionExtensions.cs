@@ -33,6 +33,7 @@ namespace LearnQuestV1.Api.Extensions
             // هنا: سجّل EmailQueueService كـSingleton بدلاً من Scoped
             services.AddSingleton<IEmailQueueService, EmailQueueService>();
 
+
             // سجّل الخلفيّة، وهي HostedService (Singleton ضمن DI)
             services.AddHostedService<EmailQueueBackgroundService>();
 

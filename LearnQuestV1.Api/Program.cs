@@ -5,7 +5,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.OpenApi.Models;
-using LearnQuestV1.Api.Data; // Add this using for the DatabaseSeeder
+using LearnQuestV1.Api.Data;
+using LearnQuestV1.Api.Middlewares; // Add this using for the DatabaseSeeder
 
 namespace LearnQuestV1.Api
 {
@@ -131,6 +132,8 @@ namespace LearnQuestV1.Api
             }
 
             app.UseHttpsRedirection();
+
+            app.UseMiddleware<ExceptionHandlingMiddleware>();
 
             app.UseAuthentication(); // Add this line - it was missing
             app.UseAuthorization();
