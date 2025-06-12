@@ -13,6 +13,11 @@ using LearnQuestV1.Api.DTOs.User.Response;
 using LearnQuestV1.Api.DTOs.Users.Request;
 using LearnQuestV1.Api.DTOs.Users.Response;
 using LearnQuestV1.Core.Models;
+using LearnQuestV1.Core.Models.UserManagement;
+using LearnQuestV1.Core.Models.CourseStructure;
+using LearnQuestV1.Core.Models.CourseOrganization;
+using LearnQuestV1.Core.Models.Communication;
+using LearnQuestV1.Core.Models.Administration;
 
 namespace LearnQuestV1.Api.Profiles
 {

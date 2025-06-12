@@ -7,7 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using LearnQuestV1.Core.Enums;
 
-namespace LearnQuestV1.Core.Models
+namespace LearnQuestV1.Core.Models.CourseStructure
 {
 
     [Table("AboutCourses")]

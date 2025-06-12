@@ -2,7 +2,7 @@
 using System.ComponentModel.DataAnnotations;
 using LearnQuestV1.Core.Enums;
 
-namespace LearnQuestV1.Core.Models
+namespace LearnQuestV1.Core.Models.CourseStructure
 {
     [Table("Contents")]
     public class Content

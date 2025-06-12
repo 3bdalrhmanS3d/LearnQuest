@@ -5,9 +5,8 @@ using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using LearnQuestV1.Core.Models;
 
-namespace LearnQuestV1.Core.Models
+namespace LearnQuestV1.Core.Models.UserManagement
 {
     [Table("UserVisitHistory")]
     public class UserVisitHistory

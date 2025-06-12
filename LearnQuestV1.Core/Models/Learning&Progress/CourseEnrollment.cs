@@ -1,14 +1,20 @@
 ﻿using System.ComponentModel.DataAnnotations.Schema;
 using System.ComponentModel.DataAnnotations;
+using LearnQuestV1.Core.Models.CourseStructure;
 
 namespace LearnQuestV1.Core.Models
 {
-    [Table("UserCoursePoints")]
-    public class UserCoursePoint
+    [Table("CourseEnrollments")]
+    public class CourseEnrollment
     {
+        public CourseEnrollment()
+        {
+            EnrolledAt = DateTime.UtcNow;
+        }
+
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-        public int Id { get; set; }
+        public int CourseEnrollmentId { get; set; }
 
         [Required]
         public int UserId { get; set; }
@@ -23,6 +29,7 @@ namespace LearnQuestV1.Core.Models
         public virtual Course Course { get; set; } = null!;
 
         [Required]
-        public int TotalPoints { get; set; } = 0;
+        public DateTime EnrolledAt { get; set; }
+
     }
 }

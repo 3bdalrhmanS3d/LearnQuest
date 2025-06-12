@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace LearnQuestV1.Core.Models
+namespace LearnQuestV1.Core.Models.CourseOrganization
 {
     [Table("CourseTracks")]
     public class CourseTrack

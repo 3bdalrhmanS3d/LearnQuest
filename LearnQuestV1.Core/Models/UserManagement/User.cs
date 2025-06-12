@@ -1,5 +1,4 @@
-﻿using LearnQuestV1.Core.Models;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
@@ -8,10 +7,15 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using LearnQuestV1.Core.Enums;
+using LearnQuestV1.Core.Models.Administration;
+using LearnQuestV1.Core.Models.CourseOrganization;
+using LearnQuestV1.Core.Models.CourseStructure;
+using LearnQuestV1.Core.Models.Financial;
+using LearnQuestV1.Core.Models.UserManagement;
 
 namespace LearnQuestV1.Core.Models
 {
-    
+
     [Table("Users")]
     public class User
     {

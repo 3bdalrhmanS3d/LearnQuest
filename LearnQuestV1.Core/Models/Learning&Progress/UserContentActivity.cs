@@ -5,6 +5,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using LearnQuestV1.Core.Models.CourseStructure;
 
 namespace LearnQuestV1.Core.Models
 {

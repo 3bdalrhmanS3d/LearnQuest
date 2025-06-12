@@ -1,5 +1,5 @@
 ﻿using LearnQuestV1.Api.DTOs.Admin;
-using LearnQuestV1.Core.Models;
+using LearnQuestV1.Core.Models.UserManagement;
 
 namespace LearnQuestV1.Api.Services.Interfaces
 {

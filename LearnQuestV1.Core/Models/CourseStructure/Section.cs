@@ -7,7 +7,7 @@ using System.Reflection.Metadata;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace LearnQuestV1.Core.Models
+namespace LearnQuestV1.Core.Models.CourseStructure
 {
     [Table("Sections")]
     public class Section

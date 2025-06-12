@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace LearnQuestV1.Core.Models
+namespace LearnQuestV1.Core.Models.UserManagement
 {
     public class BlacklistToken
     {

@@ -1,4 +1,10 @@
 ﻿using LearnQuestV1.Core.Models;
+using LearnQuestV1.Core.Models.Administration;
+using LearnQuestV1.Core.Models.Communication;
+using LearnQuestV1.Core.Models.CourseOrganization;
+using LearnQuestV1.Core.Models.CourseStructure;
+using LearnQuestV1.Core.Models.Financial;
+using LearnQuestV1.Core.Models.UserManagement;
 using System;
 using System.Collections.Generic;
 using System.Linq;

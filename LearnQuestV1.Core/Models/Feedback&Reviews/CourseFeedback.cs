@@ -1,19 +1,20 @@
 ﻿using System.ComponentModel.DataAnnotations.Schema;
 using System.ComponentModel.DataAnnotations;
+using LearnQuestV1.Core.Models.CourseStructure;
 
 namespace LearnQuestV1.Core.Models
 {
-    [Table("CourseEnrollments")]
-    public class CourseEnrollment
+    [Table("CourseFeedbacks")]
+    public class CourseFeedback
     {
-        public CourseEnrollment()
+        public CourseFeedback()
         {
-            EnrolledAt = DateTime.UtcNow;
+            CreatedAt = DateTime.UtcNow;
         }
 
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-        public int CourseEnrollmentId { get; set; }
+        public int FeedbackId { get; set; }
 
         [Required]
         public int UserId { get; set; }
@@ -28,7 +29,14 @@ namespace LearnQuestV1.Core.Models
         public virtual Course Course { get; set; } = null!;
 
         [Required]
-        public DateTime EnrolledAt { get; set; }
+        [Range(1, 5)]
+        public int Rating { get; set; }
 
+        [Required]
+        [MaxLength(1000)]
+        public string Comment { get; set; } = string.Empty;
+
+        [Required]
+        public DateTime CreatedAt { get; set; }
     }
 }

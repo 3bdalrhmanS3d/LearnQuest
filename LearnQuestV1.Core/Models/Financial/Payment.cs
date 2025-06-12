@@ -1,8 +1,9 @@
 ﻿using System.ComponentModel.DataAnnotations.Schema;
 using System.ComponentModel.DataAnnotations;
 using LearnQuestV1.Core.Enums;
+using LearnQuestV1.Core.Models.CourseStructure;
 
-namespace LearnQuestV1.Core.Models
+namespace LearnQuestV1.Core.Models.Financial
 {
     [Table("Payments")]
     public class Payment

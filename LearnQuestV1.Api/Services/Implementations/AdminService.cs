@@ -3,6 +3,7 @@ using LearnQuestV1.Api.Services.Interfaces;
 using LearnQuestV1.Core.Enums;
 using LearnQuestV1.Core.Interfaces;
 using LearnQuestV1.Core.Models;
+using LearnQuestV1.Core.Models.UserManagement;
 using Microsoft.EntityFrameworkCore;
 
 namespace LearnQuestV1.Api.Services.Implementations

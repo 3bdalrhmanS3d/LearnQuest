@@ -1,4 +1,7 @@
-﻿using System;
+﻿using LearnQuestV1.Core.Models.Administration;
+using LearnQuestV1.Core.Models.CourseOrganization;
+using LearnQuestV1.Core.Models.Financial;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -7,7 +10,7 @@ using System.Reflection.Emit;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace LearnQuestV1.Core.Models
+namespace LearnQuestV1.Core.Models.CourseStructure
 {
     [Table("Courses")]
     public class Course

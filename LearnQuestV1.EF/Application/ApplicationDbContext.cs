@@ -5,6 +5,12 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using LearnQuestV1.Core.Models;
+using LearnQuestV1.Core.Models.UserManagement;
+using LearnQuestV1.Core.Models.CourseStructure;
+using LearnQuestV1.Core.Models.Financial;
+using LearnQuestV1.Core.Models.CourseOrganization;
+using LearnQuestV1.Core.Models.Communication;
+using LearnQuestV1.Core.Models.Administration;
 
 namespace LearnQuestV1.EF.Application
 {

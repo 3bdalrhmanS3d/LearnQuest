@@ -1,9 +1,8 @@
-﻿using LearnQuestV1.Core.Models;
-using System;
+﻿using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace LearnQuestV1.Core.Models
+namespace LearnQuestV1.Core.Models.UserManagement
 {
     [Table("AccountVerifications")]
     public class AccountVerification
