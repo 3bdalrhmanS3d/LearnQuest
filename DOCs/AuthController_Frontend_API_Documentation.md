@@ -1,6 +1,3 @@
----
-
-```markdown
 # 📄 LearnQuest - AuthController API Documentation (Frontend Contract)
 
 > This document serves as a full API reference for the frontend team (React) to integrate with the authentication system.
@@ -8,11 +5,11 @@
 ---
 
 ## 🌐 Base URL
-```
 
+``` 
 [https://localhost:7217/api/Auth](https://localhost:7217/api/Auth)
 
-````
+```
 
 ---
 
@@ -21,6 +18,7 @@
 **Endpoint:** `POST /signup`
 
 **Request Body:**
+
 ```json
 {
   "firstName": "string (required)",
@@ -29,7 +27,7 @@
   "password": "string (required)",
   "userConfPassword": "string (required, must match password)"
 }
-````
+```
 
 **Success Response:**
 
@@ -285,5 +283,3 @@
 * 🔸 `autoLoginToken` → used for long-term "Remember Me" scenarios.
 * 🔸 Always validate `success` field on frontend.
 * 🔸 Use timestamp if needed for debug or error tracking.
-
----
