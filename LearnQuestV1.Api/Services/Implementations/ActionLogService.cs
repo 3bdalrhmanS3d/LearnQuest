@@ -1,10 +1,11 @@
 ﻿using LearnQuestV1.Core.Interfaces;
+using LearnQuestV1.Api.Services.Interfaces;
 using LearnQuestV1.Core.Models;
 using LearnQuestV1.Core.Models.Administration;
 
 namespace LearnQuestV1.Api.Services.Implementations
 {
-    public class ActionLogService
+    public class ActionLogService : IActionLogService
     {
         private readonly IUnitOfWork _uow;
 

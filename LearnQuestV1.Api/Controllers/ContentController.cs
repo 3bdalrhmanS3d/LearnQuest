@@ -38,7 +38,8 @@ namespace LearnQuestV1.Api.Controllers
             try
             {
                 var newId = await _contentService.CreateContentAsync(input, instructorId.Value);
-                await _actionLogService.LogAsync(instructorId.Value, "CreateContent", $"Created content with ID {newId} under section {input.SectionId}");
+                await _actionLogService.LogAsync(instructorId.Value, null, "CreateContent",
+                    $"Created content with ID {newId} under section {input.SectionId}");
                 return Ok(new { message = "Content created successfully", contentId = newId });
             }
             catch (KeyNotFoundException knf)
@@ -71,7 +72,8 @@ namespace LearnQuestV1.Api.Controllers
             try
             {
                 var url = await _contentService.UploadContentFileAsync(file, type);
-                await _actionLogService.LogAsync(instructorId.Value, "UploadContentFile", $"Uploaded {type} file: {file.FileName}");
+                await _actionLogService.LogAsync(instructorId.Value, null, "UploadContentFile",
+                    $"Uploaded {type} file: {file.FileName}");
                 return Ok(new { message = "File uploaded successfully", url });
             }
             catch (InvalidOperationException inv)
@@ -99,7 +101,8 @@ namespace LearnQuestV1.Api.Controllers
             try
             {
                 await _contentService.UpdateContentAsync(input, instructorId.Value);
-                await _actionLogService.LogAsync(instructorId.Value, "UpdateContent", $"Updated content with ID {input.ContentId}");
+                await _actionLogService.LogAsync(instructorId.Value, null, "UpdateContent",
+                    $"Updated content with ID {input.ContentId}");
                 return Ok(new { message = "Content updated successfully" });
             }
             catch (KeyNotFoundException knf)
@@ -130,7 +133,8 @@ namespace LearnQuestV1.Api.Controllers
             try
             {
                 await _contentService.DeleteContentAsync(contentId, instructorId.Value);
-                await _actionLogService.LogAsync(instructorId.Value, "DeleteContent", $"Deleted content with ID {contentId}");
+                await _actionLogService.LogAsync(instructorId.Value, null, "DeleteContent",
+                    $"Deleted content with ID {contentId}");
                 return Ok(new { message = "Content deleted successfully." });
             }
             catch (KeyNotFoundException knf)
@@ -158,7 +162,8 @@ namespace LearnQuestV1.Api.Controllers
             try
             {
                 await _contentService.ReorderContentsAsync(input, instructorId.Value);
-                await _actionLogService.LogAsync(instructorId.Value, "ReorderContents", "Reordered multiple contents");
+                await _actionLogService.LogAsync(instructorId.Value, null, "ReorderContents",
+                    "Reordered multiple contents");
                 return Ok(new { message = "Contents reordered successfully." });
             }
             catch (Exception)

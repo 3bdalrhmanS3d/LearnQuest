@@ -34,7 +34,7 @@ namespace LearnQuestV1.Api.Services.Implementations
             // Verify role = Instructor (optional)  
             var found = await _uow.Users.Query()
                 .AnyAsync(u => u.UserId == instructorId.Value
-                               && u.Role == UserRole.Instructor
+                               && u.Role == UserRole.Instructor || u.Role == UserRole.Admin
                                && !u.IsDeleted);
 
             if (!found)
@@ -75,9 +75,7 @@ namespace LearnQuestV1.Api.Services.Implementations
                 .Include(c => c.CourseSkills)
                 .FirstOrDefaultAsync(c => c.CourseId == courseId
                                           && c.InstructorId == instructorId.Value
-                                          && !c.IsDeleted);
-            if (course == null)
-                throw new KeyNotFoundException($"Course {courseId} not found or not owned by you.");
+                                          && !c.IsDeleted) ?? throw new KeyNotFoundException($"Course {courseId} not found or not owned by you.");
 
             var dto = new CourseDetailsDto
             {
@@ -117,8 +115,7 @@ namespace LearnQuestV1.Api.Services.Implementations
 
             // Verify instructor exists
             var exists = await _uow.Users.Query()
-                .AnyAsync(u => u.UserId == instructorId.Value
-                               && u.Role == UserRole.Instructor
+                .AnyAsync(u => u.UserId == instructorId.Value 
                                && !u.IsDeleted);
             if (!exists)
                 throw new KeyNotFoundException("Instructor not found or is deleted.");

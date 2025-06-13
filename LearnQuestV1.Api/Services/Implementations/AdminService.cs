@@ -12,10 +12,10 @@ namespace LearnQuestV1.Api.Services.Implementations
     public class AdminService : IAdminService
     {
         private readonly IUnitOfWork _uow;
-        private readonly ActionLogService _logService;
+        private readonly IActionLogService _logService;
         private readonly IEmailQueueService _emailQueueService;
 
-        public AdminService(IUnitOfWork uow, IEmailQueueService emailQueueService, ActionLogService logService)
+        public AdminService(IUnitOfWork uow, IEmailQueueService emailQueueService, IActionLogService logService)
         {
             _uow = uow;
             _emailQueueService = emailQueueService;

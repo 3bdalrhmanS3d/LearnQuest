@@ -6,7 +6,9 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.OpenApi.Models;
 using LearnQuestV1.Api.Data;
-using LearnQuestV1.Api.Middlewares; // Add this using for the DatabaseSeeder
+using LearnQuestV1.Api.Middlewares;
+using LearnQuestV1.Api.Services.Interfaces;
+using LearnQuestV1.Api.Services.Implementations; // Add this using for the DatabaseSeeder
 
 namespace LearnQuestV1.Api
 {

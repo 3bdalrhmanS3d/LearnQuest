@@ -3,12 +3,12 @@
     public interface IActionLogService
     {
         /// <summary>
-        /// Records a row in the InstructorActionLog table.
+        /// Records a row in the AdminActionLog table.
         /// </summary>
-        /// <param name="instructorId">The instructor/user ID performing the action.</param>
-        /// <param name="actionType">A short code or name for the action (e.g. "Create", "Update", etc.).</param>
-        /// <param name="description">A free‐text description of what happened.</param>
-        Task LogAsync(int instructorId, string actionType, string description);
-
+        /// <param name="adminId">The admin/user ID performing the action.</param>
+        /// <param name="targetUserId">The ID of the user affected by the action (optional).</param>
+        /// <param name="actionType">A short code or name for the action.</param>
+        /// <param name="actionDetails">A free‐text description of what happened.</param>
+        Task LogAsync(int adminId, int? targetUserId, string actionType, string actionDetails);
     }
 }

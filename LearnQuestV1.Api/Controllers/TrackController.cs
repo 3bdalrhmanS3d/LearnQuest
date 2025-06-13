@@ -37,7 +37,7 @@ namespace LearnQuestV1.Api.Controllers
             try
             {
                 var newTrackId = await _trackService.CreateTrackAsync(dto);
-                await _actionLogService.LogAsync(userId.Value, "Create", $"Created new track with ID {newTrackId} and name '{dto.TrackName}'");
+
                 return Ok(new { message = "Track created successfully.", trackId = newTrackId });
             }
             catch (KeyNotFoundException knf)

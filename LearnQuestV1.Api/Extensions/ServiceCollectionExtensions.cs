@@ -25,7 +25,7 @@ namespace LearnQuestV1.Api.Extensions
             services.AddScoped<ISectionService, SectionService>();
             services.AddScoped<ILevelService, LevelService>();
 
-            services.AddScoped<ActionLogService, ActionLogService > ();
+            services.AddScoped<IActionLogService, ActionLogService>();
             services.AddScoped<TrackService>();
             // سجلّ FailedLoginTracker كـScoped
             services.AddScoped<IFailedLoginTracker, FailedLoginTracker>();

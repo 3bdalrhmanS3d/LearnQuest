@@ -94,7 +94,7 @@ namespace LearnQuestV1.Api.Controllers
             try
             {
                 var newCourseId = await _courseService.CreateCourseAsync(input);
-                await _actionLogService.LogAsync(instructorId.Value, "CreateCourse", $"Created new course with ID {newCourseId} and name '{input.CourseName}'");
+                await _actionLogService.LogAsync(instructorId.Value, null, "CreateCourse", $"Created new course with ID {newCourseId} and name '{input.CourseName}'");
 
                 return CreatedAtAction(
                     nameof(GetCourseDetails),
@@ -133,7 +133,7 @@ namespace LearnQuestV1.Api.Controllers
             try
             {
                 await _courseService.UpdateCourseAsync(courseId, input);
-                await _actionLogService.LogAsync(instructorId.Value, "UpdateCourse", $"Updated course with ID {courseId}");
+                await _actionLogService.LogAsync(instructorId.Value, null, "UpdateCourse", $"Updated course with ID {courseId} and name '{input.CourseName}'");
 
                 return Ok(new { message = "Course updated successfully" });
             }
@@ -165,7 +165,8 @@ namespace LearnQuestV1.Api.Controllers
             try
             {
                 await _courseService.DeleteCourseAsync(courseId);
-                await _actionLogService.LogAsync(instructorId.Value, "DeleteCourse", $"Soft-deleted course with ID {courseId}");
+
+                await _actionLogService.LogAsync(instructorId.Value, null, "DeleteCourse", $"Soft-deleted course with ID {courseId}");
 
                 return Ok(new { message = "Course deleted successfully" });
             }
@@ -197,7 +198,7 @@ namespace LearnQuestV1.Api.Controllers
             try
             {
                 await _courseService.ToggleCourseStatusAsync(courseId);
-                await _actionLogService.LogAsync(instructorId.Value, "ToggleCourseStatus", $"Toggled status for course with ID {courseId}");
+                await _actionLogService.LogAsync(instructorId.Value, null, "ToggleCourseStatus", $"Toggled status for course with ID {courseId}");
 
                 return Ok(new { message = "Course status toggled successfully" });
             }
@@ -232,7 +233,7 @@ namespace LearnQuestV1.Api.Controllers
             try
             {
                 var imageUrl = await _courseService.UploadCourseImageAsync(courseId, file);
-                await _actionLogService.LogAsync(instructorId.Value, "UploadCourseImage", $"Uploaded image for course with ID {courseId}");
+                await _actionLogService.LogAsync(instructorId.Value, null, "UploadCourseImage", $"Uploaded image for course with ID {courseId}");
 
                 return Ok(new { message = "Course image uploaded successfully", imageUrl });
             }
