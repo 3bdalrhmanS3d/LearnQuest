@@ -261,7 +261,6 @@ namespace LearnQuestV1.Api.Services.Implementations
                 throw new InvalidOperationException("Invalid login credentials.");
             }
 
-            // Check latest verification record
             var lastVerif = user.AccountVerifications.OrderByDescending(av => av.Date).FirstOrDefault();
             if (lastVerif != null && !lastVerif.CheckedOK)
             {
@@ -283,7 +282,6 @@ namespace LearnQuestV1.Api.Services.Implementations
 
             _failedLoginTracker.ResetFailedAttempts(email);
 
-            // Log user visit
             var visit = new UserVisitHistory
             {
                 UserId = user.UserId,
@@ -292,14 +290,12 @@ namespace LearnQuestV1.Api.Services.Implementations
             await _uow.UserVisitHistories.AddAsync(visit);
             await _uow.SaveAsync();
 
-            var tokenDuration = input.RememberMe ? TimeSpan.FromDays(30) : TimeSpan.FromHours(3);
             var jwt = AuthHelpers.GenerateAccessToken(
                 user.UserId.ToString(),
                 user.EmailAddress,
                 user.FullName,
                 user.Role,
-                _config,
-                tokenDuration
+                _config
             );
 
             var refreshToken = new RefreshToken
@@ -308,30 +304,19 @@ namespace LearnQuestV1.Api.Services.Implementations
                 ExpiryDate = DateTime.UtcNow.AddDays(7),
                 UserId = user.UserId
             };
+
             await _uow.RefreshTokens.AddAsync(refreshToken);
             await _uow.SaveAsync();
-
-            if (input.RememberMe)
-            {
-                var cookieOpts = new CookieOptions
-                {
-                    HttpOnly = true,
-                    Secure = true,
-                    SameSite = SameSiteMode.Strict,
-                    Expires = DateTime.UtcNow.AddDays(30)
-                };
-                var httpCtx = _httpContextAccessor.HttpContext!;
-                httpCtx.Response.Cookies.Append("UserEmail", user.EmailAddress, cookieOpts);
-                httpCtx.Response.Cookies.Append("UserPassword", input.Password, cookieOpts);
-            }
 
             return new SigninResponseDto
             {
                 Token = new JwtSecurityTokenHandler().WriteToken(jwt),
                 Expiration = jwt.ValidTo,
                 Role = user.Role.ToString(),
-                RefreshToken = refreshToken.Token
+                RefreshToken = refreshToken.Token,
+                UserId = user.UserId
             };
+
         }
 
         /// <summary>
@@ -362,7 +347,8 @@ namespace LearnQuestV1.Api.Services.Implementations
             {
                 Token = Guid.NewGuid().ToString(),
                 ExpiryDate = DateTime.UtcNow.AddDays(7),
-                UserId = user.UserId
+                UserId = user.UserId,
+
             };
             await _uow.RefreshTokens.AddAsync(newRefresh);
             await _uow.SaveAsync();

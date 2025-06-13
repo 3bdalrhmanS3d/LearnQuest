@@ -15,7 +15,11 @@
         public const string PASSWORD_REQUIREMENTS_NOT_MET = "AUTH_010";
         public const string VERIFICATION_CODE_SENT = "AUTH_011";
         public const string OPERATION_SUCCESSFUL = "AUTH_012";
-        public const string PASSWORD_RESET_INITIATED = "AUTH_013";
-        public const string LOGOUT_SUCCESSFUL = "AUTH_014";
+        public const string LOGOUT_SUCCESSFUL = "AUTH_013";
+        public const string PASSWORD_RESET_INITIATED = "AUTH_014";
+        public const string AUTO_LOGIN_SUCCESS = "AUTH_015";
+        public const string AUTO_LOGIN_FAILED = "AUTH_016";
+        public const string SESSION_EXPIRED = "AUTH_017";
+        public const string PERMISSION_DENIED = "AUTH_018";
     }
 }

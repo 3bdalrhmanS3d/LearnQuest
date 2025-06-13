@@ -8,7 +8,8 @@ using Microsoft.OpenApi.Models;
 using LearnQuestV1.Api.Data;
 using LearnQuestV1.Api.Middlewares;
 using LearnQuestV1.Api.Services.Interfaces;
-using LearnQuestV1.Api.Services.Implementations; // Add this using for the DatabaseSeeder
+using LearnQuestV1.Api.Services.Implementations;
+using LearnQuestV1.Api.Configuration; // Add this using for the DatabaseSeeder
 
 namespace LearnQuestV1.Api
 {
@@ -23,6 +24,9 @@ namespace LearnQuestV1.Api
                 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"),
                     b => b.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName)));
 
+            builder.Services.Configure<SecuritySettings>(
+                    builder.Configuration.GetSection("Security"));
+
             builder.Services.AddHttpContextAccessor();
 
             builder.Services.AddProjectDependencies();
@@ -30,6 +34,15 @@ namespace LearnQuestV1.Api
 
             builder.Services.AddControllers();
             builder.Services.AddDistributedMemoryCache();
+
+            builder.Services.AddSession(options =>
+            {
+                options.IdleTimeout = TimeSpan.FromMinutes(30);
+                options.Cookie.HttpOnly = true;
+                options.Cookie.IsEssential = true;
+                options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+                options.Cookie.SameSite = SameSiteMode.Strict;
+            });
 
             var jwtSettings = builder.Configuration.GetSection("JWT");
             var key = Encoding.UTF8.GetBytes(jwtSettings["SecretKey"]!);
@@ -62,11 +75,14 @@ namespace LearnQuestV1.Api
             {
                 options.AddPolicy("AllowReactApp", policy =>
                 {
-                    policy.WithOrigins("http://localhost:3000")
+                    policy.WithOrigins("https://yourfrontend.com")
+                          .AllowAnyMethod()
                           .AllowAnyHeader()
-                          .AllowAnyMethod();
+                          .AllowCredentials()
+                          .WithExposedHeaders("X-Pagination");
                 });
             });
+
 
             builder.Services.AddSwaggerGen(c =>
             {
@@ -96,6 +112,13 @@ namespace LearnQuestV1.Api
             });
 
             builder.Services.AddQuizServices();
+
+            builder.Services.AddHsts(options =>
+            {
+                options.Preload = true;
+                options.IncludeSubDomains = true;
+                options.MaxAge = TimeSpan.FromDays(365);
+            });
 
             var app = builder.Build();
 
@@ -137,13 +160,19 @@ namespace LearnQuestV1.Api
 
             app.UseHttpsRedirection();
 
-            app.UseMiddleware<ExceptionHandlingMiddleware>();
-
-            app.UseAuthentication(); // Add this line - it was missing
-            app.UseAuthorization();
+            app.UseHsts();  // HSTS لازم يجي بعد HttpsRedirection (في Production mode أساسا)
 
             app.UseCors("AllowReactApp");
+
+            app.UseSession();
+
+            app.UseMiddleware<ExceptionHandlingMiddleware>();
+
+            app.UseAuthentication();
+            app.UseAuthorization();
+
             app.MapControllers();
+
 
             app.Run();
         }

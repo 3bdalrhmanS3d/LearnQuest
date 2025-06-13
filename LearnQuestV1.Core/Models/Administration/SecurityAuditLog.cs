@@ -12,16 +12,45 @@ namespace LearnQuestV1.Core.Models.Administration
     public class SecurityAuditLog
     {
         [Key]
-        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Id { get; set; }
-        public int? UserId { get; set; }
+
+        [MaxLength(255)]
         public string? EmailAttempted { get; set; }
+
+        public int? UserId { get; set; }
+
+        public virtual User? User { get; set; }
+
+        [MaxLength(45)]
         public string? IpAddress { get; set; }
-        public bool? Success { get; set; }
+
+        [Required]
+        public bool Success { get; set; }
+
+        [MaxLength(500)]
         public string? FailureReason { get; set; }
-        public string EventType { get; set; } = null!;
+
+        [Required, MaxLength(50)]
+        public string EventType { get; set; } = string.Empty;
+
+        [MaxLength(1000)]
         public string? EventDetails { get; set; }
+
+        [Required]
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
+        [MaxLength(500)]
+        public string? UserAgent { get; set; }
+
+        [MaxLength(100)]
+        public string? SessionId { get; set; }
+
+        public int RiskScore { get; set; } = 0;
+
+        [MaxLength(255)]
+        public string? GeoLocation { get; set; }
     }
+
+
 
 }

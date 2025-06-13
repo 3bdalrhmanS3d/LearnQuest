@@ -165,5 +165,7 @@ namespace LearnQuestV1.Core.Models
         /// </summary>
         public virtual ICollection<AdminActionLog> AdminActionsReceived { get; set; }
 
+        public virtual ICollection<SecurityAuditLog> SecurityAuditLogs { get; set; }
+
     }
 }

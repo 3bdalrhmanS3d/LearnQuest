@@ -4,9 +4,8 @@ using LearnQuestV1.Api.DTOs.User.Request;
 using LearnQuestV1.Api.DTOs.Users.Request;
 using LearnQuestV1.Api.DTOs.Users.Response;
 using LearnQuestV1.Api.Services.Interfaces;
-using LearnQuestV1.Core.Models;
+using LearnQuestV1.Api.Utilities;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LearnQuestV1.Api.Controllers
@@ -40,13 +39,32 @@ namespace LearnQuestV1.Api.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(SecureAuthResponse.Error(AuthErrorCodes.INVALID_REQUEST, AuthMessages.INVALID_REQUEST));
 
+            // Validate password strength
+            if (!AuthHelpers.IsPasswordStrong(input.Password))
+            {
+                return BadRequest(SecureAuthResponse.Error(
+                    AuthErrorCodes.PASSWORD_REQUIREMENTS_NOT_MET,
+                    AuthMessages.PASSWORD_WEAK));
+            }
+
             try
             {
                 await _accountService.SignupAsync(input);
-                return Ok(SecureAuthResponse.Success(AuthErrorCodes.OPERATION_SUCCESSFUL, AuthMessages.OPERATION_SUCCESSFUL));
+                return Ok(SecureAuthResponse.Success(
+                    AuthErrorCodes.VERIFICATION_CODE_SENT,
+                    AuthMessages.VERIFICATION_CODE_SENT));
             }
             catch (InvalidOperationException ex)
             {
+                // Log suspicious activity for repeated signup attempts
+                if (ex.Message.Contains("already exists"))
+                {
+                    await _securityAuditLogger.LogSuspiciousActivityAsync(
+                        input.EmailAddress,
+                        "Repeated signup attempt for existing email",
+                        GetClientIp());
+                }
+
                 return BadRequest(SecureAuthResponse.Error(AuthErrorCodes.INVALID_REQUEST, ex.Message));
             }
         }
@@ -59,14 +77,33 @@ namespace LearnQuestV1.Api.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(SecureAuthResponse.Error(AuthErrorCodes.INVALID_REQUEST, AuthMessages.INVALID_REQUEST));
 
+            var clientIp = GetClientIp();
+
             try
             {
                 await _accountService.VerifyAccountAsync(input);
-                return Ok(SecureAuthResponse.Success(AuthErrorCodes.OPERATION_SUCCESSFUL, AuthMessages.OPERATION_SUCCESSFUL));
+
+                // Log successful verification
+                await _securityAuditLogger.LogEmailVerificationAsync(
+                    GetEmailFromCookie(),
+                    clientIp,
+                    success: true);
+
+                return Ok(SecureAuthResponse.Success(
+                    AuthErrorCodes.OPERATION_SUCCESSFUL,
+                    AuthMessages.OPERATION_SUCCESSFUL));
             }
             catch (InvalidOperationException ex)
             {
-                return BadRequest(SecureAuthResponse.Error(AuthErrorCodes.INVALID_TOKEN, ex.Message));
+                // Log failed verification
+                await _securityAuditLogger.LogEmailVerificationAsync(
+                    GetEmailFromCookie() ?? "unknown",
+                    clientIp,
+                    success: false);
+
+                return BadRequest(SecureAuthResponse.Error(
+                    AuthErrorCodes.VERIFICATION_EXPIRED,
+                    AuthMessages.VERIFICATION_EXPIRED));
             }
         }
 
@@ -78,7 +115,9 @@ namespace LearnQuestV1.Api.Controllers
             try
             {
                 await _accountService.ResendVerificationCodeAsync();
-                return Ok(SecureAuthResponse.Success(AuthErrorCodes.VERIFICATION_CODE_SENT, AuthMessages.VERIFICATION_CODE_SENT));
+                return Ok(SecureAuthResponse.Success(
+                    AuthErrorCodes.VERIFICATION_CODE_SENT,
+                    AuthMessages.VERIFICATION_CODE_SENT));
             }
             catch (InvalidOperationException ex)
             {
@@ -98,17 +137,25 @@ namespace LearnQuestV1.Api.Controllers
 
             try
             {
+                // مفيش داعي تمرر rememberMe لـ AccountService هنا لأنه هيطلع AccessToken بالمدة الافتراضية من الإعدادات
                 var response = await _accountService.SigninAsync(input);
 
-                // Audit logging
+                // ✅ لو RememberMe مفعلة نولد AutoLoginToken فقط بدون اللعب في AccessToken
+                if (input.RememberMe)
+                {
+                    var autoLoginToken = await _autoLoginService.CreateAutoLoginTokenAsync(response.UserId);
+                    SetAutoLoginCookie(autoLoginToken);
+                }
+
+                // ✅ تسجيل المحاولة في سجل الأمان
                 await _securityAuditLogger.LogAuthenticationAttemptAsync(
                     input.Email,
                     clientIp,
                     success: true,
                     failureReason: null,
-                    userId: response.UserId
-                );
+                    userId: response.UserId);
 
+                // ✅ إرجاع الرد
                 return Ok(SecureAuthResponse<SigninResponseDto>.SuccessResponse(
                     response,
                     AuthErrorCodes.OPERATION_SUCCESSFUL,
@@ -116,8 +163,25 @@ namespace LearnQuestV1.Api.Controllers
             }
             catch (InvalidOperationException ex)
             {
-                await _securityAuditLogger.LogAuthenticationAttemptAsync(input.Email, clientIp, false, ex.Message);
-                return Unauthorized(SecureAuthResponse.Error(AuthErrorCodes.INVALID_CREDENTIALS, AuthMessages.INVALID_CREDENTIALS));
+                await _securityAuditLogger.LogAuthenticationAttemptAsync(
+                    input.Email,
+                    clientIp,
+                    false,
+                    ex.Message);
+
+                // ✅ حساب مغلق
+                if (ex.Message.Contains("locked", StringComparison.OrdinalIgnoreCase))
+                {
+                    await _securityAuditLogger.LogAccountLockoutAsync(input.Email, clientIp);
+                    return StatusCode(423, SecureAuthResponse.Error(
+                        AuthErrorCodes.ACCOUNT_LOCKED,
+                        AuthMessages.ACCOUNT_LOCKED));
+                }
+
+                // ✅ بيانات غير صحيحة
+                return Unauthorized(SecureAuthResponse.Error(
+                    AuthErrorCodes.INVALID_CREDENTIALS,
+                    AuthMessages.INVALID_CREDENTIALS));
             }
         }
 
@@ -130,9 +194,18 @@ namespace LearnQuestV1.Api.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(SecureAuthResponse.Error(AuthErrorCodes.INVALID_REQUEST, AuthMessages.INVALID_REQUEST));
 
+            var clientIp = GetClientIp();
+
             try
             {
                 var response = await _accountService.RefreshTokenAsync(input);
+
+                // Log successful token refresh
+                await _securityAuditLogger.LogTokenRefreshAsync(
+                    response.UserId ?? 0, // Assuming UserId is added to RefreshTokenResponseDto
+                    clientIp,
+                    success: true);
+
                 return Ok(SecureAuthResponse<RefreshTokenResponseDto>.SuccessResponse(
                     response,
                     AuthErrorCodes.OPERATION_SUCCESSFUL,
@@ -140,11 +213,19 @@ namespace LearnQuestV1.Api.Controllers
             }
             catch (InvalidOperationException ex)
             {
-                return Unauthorized(SecureAuthResponse.Error(AuthErrorCodes.INVALID_TOKEN, ex.Message));
+                // Log failed token refresh
+                await _securityAuditLogger.LogTokenRefreshAsync(
+                    0, // Unknown user
+                    clientIp,
+                    success: false);
+
+                return Unauthorized(SecureAuthResponse.Error(
+                    AuthErrorCodes.INVALID_TOKEN,
+                    AuthMessages.INVALID_TOKEN));
             }
         }
 
-        // -------------------- Auto Login (New) --------------------
+        // -------------------- Auto Login --------------------
 
         [HttpPost("auto-login")]
         public async Task<IActionResult> AutoLogin([FromBody] AutoLoginRequestDto input)
@@ -152,9 +233,14 @@ namespace LearnQuestV1.Api.Controllers
             if (string.IsNullOrWhiteSpace(input.AutoLoginToken))
                 return BadRequest(SecureAuthResponse.Error(AuthErrorCodes.INVALID_TOKEN, AuthMessages.INVALID_TOKEN));
 
+            var clientIp = GetClientIp();
+
             try
             {
                 var response = await _autoLoginService.AutoLoginFromTokenAsync(input.AutoLoginToken);
+
+                await _securityAuditLogger.LogAutoLoginAttemptAsync(clientIp, success: true);
+
                 return Ok(SecureAuthResponse<AutoLoginResponseDto>.SuccessResponse(
                     response,
                     AuthErrorCodes.OPERATION_SUCCESSFUL,
@@ -162,8 +248,31 @@ namespace LearnQuestV1.Api.Controllers
             }
             catch (InvalidOperationException ex)
             {
-                return Unauthorized(SecureAuthResponse.Error(AuthErrorCodes.INVALID_TOKEN, ex.Message));
+                await _securityAuditLogger.LogAutoLoginAttemptAsync(
+                    clientIp,
+                    success: false,
+                    failureReason: ex.Message);
+
+                return Unauthorized(SecureAuthResponse.Error(
+                    AuthErrorCodes.INVALID_TOKEN,
+                    AuthMessages.INVALID_TOKEN));
             }
+        }
+
+        // -------------------- Auto Login from Cookie --------------------
+
+        [HttpPost("auto-login-from-cookie")]
+        public async Task<IActionResult> AutoLoginFromCookie()
+        {
+            var autoLoginToken = GetAutoLoginTokenFromCookie();
+            if (string.IsNullOrEmpty(autoLoginToken))
+            {
+                return BadRequest(SecureAuthResponse.Error(
+                    AuthErrorCodes.INVALID_TOKEN,
+                    AuthMessages.INVALID_TOKEN));
+            }
+
+            return await AutoLogin(new AutoLoginRequestDto { AutoLoginToken = autoLoginToken });
         }
 
         // -------------------- Forget Password --------------------
@@ -174,14 +283,26 @@ namespace LearnQuestV1.Api.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(SecureAuthResponse.Error(AuthErrorCodes.INVALID_REQUEST, AuthMessages.INVALID_REQUEST));
 
+            var clientIp = GetClientIp();
+
             try
             {
                 await _accountService.ForgetPasswordAsync(input);
-                return Ok(SecureAuthResponse.Success(AuthErrorCodes.PASSWORD_RESET_INITIATED, AuthMessages.PASSWORD_RESET_INITIATED));
+
+                // Log password reset request
+                await _securityAuditLogger.LogPasswordResetRequestAsync(input.Email, clientIp);
+
+                // Always return success to prevent email enumeration
+                return Ok(SecureAuthResponse.Success(
+                    AuthErrorCodes.OPERATION_SUCCESSFUL,
+                    AuthMessages.PASSWORD_RESET_INITIATED));
             }
-            catch (InvalidOperationException ex)
+            catch (InvalidOperationException)
             {
-                return BadRequest(SecureAuthResponse.Error(AuthErrorCodes.INVALID_REQUEST, ex.Message));
+                // Still return success for security
+                return Ok(SecureAuthResponse.Success(
+                    AuthErrorCodes.OPERATION_SUCCESSFUL,
+                    AuthMessages.PASSWORD_RESET_INITIATED));
             }
         }
 
@@ -193,14 +314,32 @@ namespace LearnQuestV1.Api.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(SecureAuthResponse.Error(AuthErrorCodes.INVALID_REQUEST, AuthMessages.INVALID_REQUEST));
 
+            // Validate new password strength
+            if (!AuthHelpers.IsPasswordStrong(input.NewPassword))
+            {
+                return BadRequest(SecureAuthResponse.Error(
+                    AuthErrorCodes.PASSWORD_REQUIREMENTS_NOT_MET,
+                    AuthMessages.PASSWORD_WEAK));
+            }
+
+            var clientIp = GetClientIp();
+
             try
             {
                 await _accountService.ResetPasswordAsync(input);
-                return Ok(SecureAuthResponse.Success(AuthErrorCodes.OPERATION_SUCCESSFUL, AuthMessages.OPERATION_SUCCESSFUL));
+
+                // Log successful password reset
+                await _securityAuditLogger.LogPasswordChangeAsync(0, clientIp); // User ID not available here
+
+                return Ok(SecureAuthResponse.Success(
+                    AuthErrorCodes.OPERATION_SUCCESSFUL,
+                    AuthMessages.OPERATION_SUCCESSFUL));
             }
             catch (InvalidOperationException ex)
             {
-                return BadRequest(SecureAuthResponse.Error(AuthErrorCodes.INVALID_REQUEST, ex.Message));
+                return BadRequest(SecureAuthResponse.Error(
+                    AuthErrorCodes.INVALID_TOKEN,
+                    AuthMessages.INVALID_TOKEN));
             }
         }
 
@@ -221,7 +360,13 @@ namespace LearnQuestV1.Api.Controllers
             try
             {
                 await _accountService.LogoutAsync(token);
-                return Ok(SecureAuthResponse.Success(AuthErrorCodes.LOGOUT_SUCCESSFUL, AuthMessages.LOGOUT_SUCCESSFUL));
+
+                // Clear auto-login cookie if exists
+                ClearAutoLoginCookie();
+
+                return Ok(SecureAuthResponse.Success(
+                    AuthErrorCodes.OPERATION_SUCCESSFUL,
+                    AuthMessages.LOGOUT_SUCCESSFUL));
             }
             catch (InvalidOperationException ex)
             {
@@ -229,11 +374,59 @@ namespace LearnQuestV1.Api.Controllers
             }
         }
 
-        // -------------------- Helper --------------------
+        // -------------------- Helper Methods --------------------
+
         private string GetClientIp()
         {
             var context = _httpContextAccessor.HttpContext;
-            return context?.Connection?.RemoteIpAddress?.ToString() ?? "unknown";
+            if (context == null) return "unknown";
+
+            // Check for forwarded IP first (for load balancers/proxies)
+            var xForwardedFor = context.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+            if (!string.IsNullOrEmpty(xForwardedFor))
+            {
+                return xForwardedFor.Split(',')[0].Trim();
+            }
+
+            var xRealIp = context.Request.Headers["X-Real-IP"].FirstOrDefault();
+            if (!string.IsNullOrEmpty(xRealIp))
+            {
+                return xRealIp;
+            }
+
+            return context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        }
+
+        private string? GetEmailFromCookie()
+        {
+            return _httpContextAccessor.HttpContext?.Request.Cookies["EmailForVerification"];
+        }
+
+        private void SetAutoLoginCookie(string autoLoginToken)
+        {
+            var cookieOptions = new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict,
+                Expires = DateTime.UtcNow.AddDays(30),
+                Path = "/"
+            };
+
+            _httpContextAccessor.HttpContext?.Response.Cookies.Append(
+                "AutoLoginToken",
+                autoLoginToken,
+                cookieOptions);
+        }
+
+        private string? GetAutoLoginTokenFromCookie()
+        {
+            return _httpContextAccessor.HttpContext?.Request.Cookies["AutoLoginToken"];
+        }
+
+        private void ClearAutoLoginCookie()
+        {
+            _httpContextAccessor.HttpContext?.Response.Cookies.Delete("AutoLoginToken");
         }
     }
 }

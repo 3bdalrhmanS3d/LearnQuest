@@ -51,6 +51,6 @@ namespace LearnQuestV1.Core.Models.UserManagement
         /// Navigation back to User.
         /// </summary>
         [ForeignKey(nameof(UserId))]
-        public virtual User User { get; set; } = null!;
+        public virtual User? User { get; set; } = null!;
     }
 }

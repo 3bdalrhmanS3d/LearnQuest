@@ -14,8 +14,6 @@ using LearnQuestV1.Core.Models.Administration;
 using LearnQuestV1.Core.Models.FeedbackAndReviews;
 using LearnQuestV1.Core.Models.LearningAndProgress;
 using LearnQuestV1.Core.Models.Quiz;
-using static LearnQuestV1.Core.Models.Administration.SecurityAuditLog;
-
 
 namespace LearnQuestV1.EF.Application
 {
@@ -344,6 +342,12 @@ namespace LearnQuestV1.EF.Application
                 .WithMany(u => u.AdminActionsReceived)
                 .HasForeignKey(a => a.TargetUserId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<SecurityAuditLog>()
+                .HasOne(s => s.User)
+                .WithMany(u => u.SecurityAuditLogs)
+                .HasForeignKey(s => s.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
 
 
             #region Quiz System Configuration
