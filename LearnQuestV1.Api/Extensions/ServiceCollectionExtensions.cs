@@ -24,6 +24,9 @@ namespace LearnQuestV1.Api.Extensions
             services.AddScoped<ICourseService, CourseService>();
             services.AddScoped<ISectionService, SectionService>();
             services.AddScoped<ILevelService, LevelService>();
+            services.AddScoped<IAutoLoginService, AutoLoginService>();
+            services.AddScoped<ISecurityAuditLogger, SecurityAuditLogger>();
+
 
             services.AddScoped<IActionLogService, ActionLogService>();
             services.AddScoped<TrackService>();

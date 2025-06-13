@@ -46,6 +46,9 @@ namespace LearnQuestV1.EF.Migrations
                     b.Property<int>("AdminId")
                         .HasColumnType("int");
 
+                    b.Property<string>("IpAddress")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int?>("TargetUserId")
                         .HasColumnType("int");
 
@@ -56,6 +59,44 @@ namespace LearnQuestV1.EF.Migrations
                     b.HasIndex("TargetUserId");
 
                     b.ToTable("AdminActionLogs");
+                });
+
+            modelBuilder.Entity("LearnQuestV1.Core.Models.Administration.SecurityAuditLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("EmailAttempted")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("EventDetails")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FailureReason")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("IpAddress")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool?>("Success")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("SecurityAuditLogs");
                 });
 
             modelBuilder.Entity("LearnQuestV1.Core.Models.Communication.Notification", b =>

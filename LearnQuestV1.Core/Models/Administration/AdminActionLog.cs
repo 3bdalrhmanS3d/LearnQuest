@@ -58,5 +58,7 @@ namespace LearnQuestV1.Core.Models.Administration
         /// </summary>
         [Required]
         public DateTime ActionDate { get; set; }
+
+        public string? IpAddress { get; set; }
     }
 }

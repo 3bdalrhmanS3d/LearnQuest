@@ -58,6 +58,8 @@ namespace LearnQuestV1.Core.Interfaces
         IBaseRepo<QuestionOption> QuestionOptions { get; }
         IBaseRepo<UserAnswer> UserAnswers { get; }
 
+        IBaseRepo<SecurityAuditLog> SecurityAuditLogs { get; }
+
         // Transaction Methods
         Task<int> SaveAsync();
         Task<int> SaveChangesAsync();

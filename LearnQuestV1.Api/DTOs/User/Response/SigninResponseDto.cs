@@ -7,5 +7,7 @@
         public string Role { get; set; } = null!;
         public string RefreshToken { get; set; } = null!;
 
+        public int UserId { get; set; }
+
     }
 }

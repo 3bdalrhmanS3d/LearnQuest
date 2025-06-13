@@ -30,7 +30,7 @@ namespace LearnQuestV1.Api.Data
                     {
                         FullName = "System Administrator",
                         EmailAddress = "admin@learnquest.com",
-                        PasswordHash = AuthHelpers.HashPassword("Admin@123"), // Strong default password
+                        PasswordHash = AuthHelpers.HashPassword("Yg1rb76y@Yg1rb76y"), // Strong default password
                         CreatedAt = DateTime.UtcNow,
                         Role = UserRole.Admin,
                         IsActive = true,

@@ -58,6 +58,7 @@ namespace LearnQuestV1.EF.UnitOfWork
             // Communication & Administration
             Notifications = new BaseRepo<Notification>(context);
             AdminActionLogs = new BaseRepo<AdminActionLog>(context);
+            SecurityAuditLogs = new BaseRepo<SecurityAuditLog>(context);
 
             // Quiz System Repositories (Specialized)
             Quizzes = new QuizRepository(context);
@@ -103,6 +104,8 @@ namespace LearnQuestV1.EF.UnitOfWork
         // Communication & Administration
         public IBaseRepo<Notification> Notifications { get; }
         public IBaseRepo<AdminActionLog> AdminActionLogs { get; }
+
+        public IBaseRepo<SecurityAuditLog> SecurityAuditLogs { get; }
 
         // Quiz System Repositories (Specialized)
         public IQuizRepository Quizzes { get; }

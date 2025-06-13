@@ -63,6 +63,7 @@ namespace LearnQuestV1.Api.Services.Implementations
                 }
 
                 using var client = new SmtpClient();
+                client.ServerCertificateValidationCallback = (s, c, h, e) => true; // Skip SSL validation for demo purposes
                 await client.ConnectAsync(smtpServer, port, SecureSocketOptions.StartTls);
                 await client.AuthenticateAsync(email, password);
                 await client.SendAsync(message);
@@ -204,11 +205,18 @@ namespace LearnQuestV1.Api.Services.Implementations
                 message.Subject = subject;
                 message.Body = new TextPart("html") { Text = BuildCustomHtmlEmail(fullName, bodyMessage) };
 
+                bool skipSslValidation = _config.GetValue<bool>("EmailSettings:SkipSslValidation");
+
                 using var client = new SmtpClient();
-                await client.ConnectAsync(smtpServer, port, SecureSocketOptions.StartTls);
+
+                client.ServerCertificateValidationCallback = (s, c, h, e) => true;
+
+                await client.ConnectAsync(smtpServer, port, SecureSocketOptions.SslOnConnect);
                 await client.AuthenticateAsync(email, password);
                 await client.SendAsync(message);
                 await client.DisconnectAsync(true);
+
+
             }
             catch (Exception ex)
             {

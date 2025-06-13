@@ -14,6 +14,7 @@ using LearnQuestV1.Core.Models.Administration;
 using LearnQuestV1.Core.Models.FeedbackAndReviews;
 using LearnQuestV1.Core.Models.LearningAndProgress;
 using LearnQuestV1.Core.Models.Quiz;
+using static LearnQuestV1.Core.Models.Administration.SecurityAuditLog;
 
 
 namespace LearnQuestV1.EF.Application
@@ -61,6 +62,7 @@ namespace LearnQuestV1.EF.Application
         public DbSet<QuizQuestion> QuizQuestions { get; set; }
         public DbSet<QuizAttempt> QuizAttempts { get; set; }
         public DbSet<UserAnswer> UserAnswers { get; set; }
+        public DbSet<SecurityAuditLog> SecurityAuditLogs { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
