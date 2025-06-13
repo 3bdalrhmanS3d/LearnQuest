@@ -231,7 +231,7 @@ namespace LearnQuestV1.Api.Services.Implementations
 
         public async Task<SystemStatsDto> GetSystemStatisticsAsync()
         {
-            var totalUsers = await _uow.Users.Query().CountAsync(u => u.Role == UserRole.RegularUser && !u.IsDeleted);
+            var totalUsers = await _uow.Users.Query().CountAsync( u => !u.IsDeleted );
 
             var activatedUsers = await _uow.Users.Query()
                 .Include(u => u.AccountVerifications)
@@ -239,6 +239,8 @@ namespace LearnQuestV1.Api.Services.Implementations
 
             var totalCoursesActive = await _uow.Courses.Query().CountAsync(c => c.IsActive);
 
+            var totalRegularUsers = await _uow.Users.Query()
+                .CountAsync(u => u.Role == UserRole.RegularUser && !u.IsDeleted);
             var totalInstructors = await _uow.Users.Query().CountAsync(u => u.Role == UserRole.Instructor && !u.IsDeleted);
             var totalAdmins = await _uow.Users.Query().CountAsync(u => u.Role == UserRole.Admin && !u.IsDeleted);
 
@@ -246,7 +248,8 @@ namespace LearnQuestV1.Api.Services.Implementations
             {
                 TotalUsers = totalUsers,
                 ActivatedUsers = activatedUsers,
-                NotActivatedUsers = totalUsers - activatedUsers,
+                NotActivatedUsers = Math.Abs(totalUsers - activatedUsers),
+                TotalRegularUsers = totalRegularUsers,
                 TotalAdmins = totalAdmins,
                 TotalInstructors = totalInstructors,
                 TotalCourses = totalCoursesActive

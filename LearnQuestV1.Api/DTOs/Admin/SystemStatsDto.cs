@@ -8,5 +8,6 @@
         public int TotalAdmins { get; set; }
         public int TotalInstructors { get; set; }
         public int TotalCourses { get; set; }
+        public int TotalRegularUsers { get; set; }
     }
 }
