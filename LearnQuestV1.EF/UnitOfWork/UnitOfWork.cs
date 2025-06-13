@@ -1,7 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using LearnQuestV1.Core.Interfaces;
 using LearnQuestV1.Core.Models;
@@ -16,6 +13,7 @@ using LearnQuestV1.Core.Models.Quiz;
 using LearnQuestV1.Core.Models.UserManagement;
 using LearnQuestV1.EF.Application;
 using LearnQuestV1.EF.Repositories;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace LearnQuestV1.EF.UnitOfWork
 {
@@ -26,6 +24,8 @@ namespace LearnQuestV1.EF.UnitOfWork
         public UnitOfWork(ApplicationDbContext context)
         {
             _context = context;
+
+            // User Management
             Users = new BaseRepo<User>(context);
             UserDetails = new BaseRepo<UserDetail>(context);
             AccountVerifications = new BaseRepo<AccountVerification>(context);
@@ -33,33 +33,44 @@ namespace LearnQuestV1.EF.UnitOfWork
             UserVisitHistories = new BaseRepo<UserVisitHistory>(context);
             BlacklistTokens = new BaseRepo<BlacklistToken>(context);
 
+            // Course Structure
             Courses = new BaseRepo<Course>(context);
             AboutCourses = new BaseRepo<AboutCourse>(context);
             CourseSkills = new BaseRepo<CourseSkill>(context);
             Levels = new BaseRepo<Level>(context);
             Sections = new BaseRepo<Section>(context);
             Contents = new BaseRepo<Content>(context);
+
+            // Course Organization
             CourseEnrollments = new BaseRepo<CourseEnrollment>(context);
             CourseFeedbacks = new BaseRepo<CourseFeedback>(context);
             CourseReviews = new BaseRepo<CourseReview>(context);
             CourseTracks = new BaseRepo<CourseTrack>(context);
             CourseTrackCourses = new BaseRepo<CourseTrackCourse>(context);
-
             FavoriteCourses = new BaseRepo<FavoriteCourse>(context);
+
+            // Financial & Progress
             Payments = new BaseRepo<Payment>(context);
             UserCoursePoints = new BaseRepo<UserCoursePoint>(context);
             UserProgresses = new BaseRepo<UserProgress>(context);
             UserContentActivities = new BaseRepo<UserContentActivity>(context);
+
+            // Communication & Administration
             Notifications = new BaseRepo<Notification>(context);
             AdminActionLogs = new BaseRepo<AdminActionLog>(context);
-            Quizzes = new BaseRepo<Quiz>(context);
-            Questions = new BaseRepo<Question>(context);
-            QuestionOptions = new BaseRepo<QuestionOption>(context);
+
+            // Quiz System Repositories (Specialized)
+            Quizzes = new QuizRepository(context);
+            Questions = new QuestionRepository(context);
+            QuizAttempts = new QuizAttemptRepository(context);
+
+            // Quiz System Basic Repositories
             QuizQuestions = new BaseRepo<QuizQuestion>(context);
-            QuizAttempts = new BaseRepo<QuizAttempt>(context);
+            QuestionOptions = new BaseRepo<QuestionOption>(context);
             UserAnswers = new BaseRepo<UserAnswer>(context);
         }
 
+        // User Management
         public IBaseRepo<User> Users { get; }
         public IBaseRepo<UserDetail> UserDetails { get; }
         public IBaseRepo<AccountVerification> AccountVerifications { get; }
@@ -67,37 +78,56 @@ namespace LearnQuestV1.EF.UnitOfWork
         public IBaseRepo<UserVisitHistory> UserVisitHistories { get; }
         public IBaseRepo<BlacklistToken> BlacklistTokens { get; }
 
+        // Course Structure
         public IBaseRepo<Course> Courses { get; }
         public IBaseRepo<AboutCourse> AboutCourses { get; }
         public IBaseRepo<CourseSkill> CourseSkills { get; }
         public IBaseRepo<Level> Levels { get; }
         public IBaseRepo<Section> Sections { get; }
         public IBaseRepo<Content> Contents { get; }
+
+        // Course Organization
         public IBaseRepo<CourseEnrollment> CourseEnrollments { get; }
         public IBaseRepo<CourseFeedback> CourseFeedbacks { get; }
         public IBaseRepo<CourseReview> CourseReviews { get; }
         public IBaseRepo<CourseTrack> CourseTracks { get; }
         public IBaseRepo<CourseTrackCourse> CourseTrackCourses { get; }
-
         public IBaseRepo<FavoriteCourse> FavoriteCourses { get; }
+
+        // Financial & Progress
         public IBaseRepo<Payment> Payments { get; }
         public IBaseRepo<UserCoursePoint> UserCoursePoints { get; }
         public IBaseRepo<UserProgress> UserProgresses { get; }
         public IBaseRepo<UserContentActivity> UserContentActivities { get; }
-        public IBaseRepo<Notification> Notifications { get; }
 
+        // Communication & Administration
+        public IBaseRepo<Notification> Notifications { get; }
         public IBaseRepo<AdminActionLog> AdminActionLogs { get; }
 
-        public IBaseRepo<Quiz> Quizzes { get; }
-        public IBaseRepo<Question> Questions { get; }
-        public IBaseRepo<QuestionOption> QuestionOptions { get; }
+        // Quiz System Repositories (Specialized)
+        public IQuizRepository Quizzes { get; }
+        public IQuestionRepository Questions { get; }
+        public IQuizAttemptRepository QuizAttempts { get; }
+
+        // Quiz System Basic Repositories
         public IBaseRepo<QuizQuestion> QuizQuestions { get; }
-        public IBaseRepo<QuizAttempt> QuizAttempts { get; }
+        public IBaseRepo<QuestionOption> QuestionOptions { get; }
         public IBaseRepo<UserAnswer> UserAnswers { get; }
 
+        // Transaction Methods
         public async Task<int> SaveAsync()
         {
             return await _context.SaveChangesAsync();
+        }
+
+        public async Task<int> SaveChangesAsync()
+        {
+            return await _context.SaveChangesAsync();
+        }
+
+        public async Task<IDbContextTransaction> BeginTransactionAsync()
+        {
+            return await _context.Database.BeginTransactionAsync();
         }
 
         public void Dispose()

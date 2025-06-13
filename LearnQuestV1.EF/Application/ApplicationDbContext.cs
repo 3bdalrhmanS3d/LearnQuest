@@ -343,27 +343,291 @@ namespace LearnQuestV1.EF.Application
                 .HasForeignKey(a => a.TargetUserId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            ConfigureQuizEntities(modelBuilder);
-        }
 
-        private void ConfigureQuizEntities(ModelBuilder modelBuilder)
-        {
-            // Quiz Configuration  
+            #region Quiz System Configuration
+
+            // Quiz Configuration
             modelBuilder.Entity<Quiz>(entity =>
             {
-                entity.ToTable(t => t.HasCheckConstraint("CK_Quiz_HierarchyConstraint",
-                    @"(QuizType = 1 AND ContentId IS NOT NULL AND SectionId IS NULL AND LevelId IS NULL) OR  
-                     (QuizType = 2 AND SectionId IS NOT NULL AND ContentId IS NULL AND LevelId IS NULL) OR  
-                     (QuizType = 3 AND LevelId IS NOT NULL AND ContentId IS NULL AND SectionId IS NULL) OR  
-                     (QuizType = 4 AND ContentId IS NULL AND SectionId IS NULL AND LevelId IS NULL)"));
+                entity.HasKey(e => e.QuizId);
+
+                entity.Property(e => e.Title)
+                    .IsRequired()
+                    .HasMaxLength(200);
+
+                entity.Property(e => e.Description)
+                    .HasMaxLength(1000);
+
+                entity.Property(e => e.QuizType)
+                    .IsRequired()
+                    .HasConversion<int>();
+
+                entity.Property(e => e.MaxAttempts)
+                    .IsRequired()
+                    .HasDefaultValue(3);
+
+                entity.Property(e => e.PassingScore)
+                    .IsRequired()
+                    .HasDefaultValue(70);
+
+                entity.Property(e => e.IsRequired)
+                    .IsRequired()
+                    .HasDefaultValue(true);
+
+                entity.Property(e => e.CreatedAt)
+                    .IsRequired();
+
+                entity.Property(e => e.IsActive)
+                    .HasDefaultValue(true);
+
+                entity.Property(e => e.IsDeleted)
+                    .HasDefaultValue(false);
+
+                // Relationships
+                entity.HasOne(e => e.Course)
+                    .WithMany()
+                    .HasForeignKey(e => e.CourseId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.Instructor)
+                    .WithMany()
+                    .HasForeignKey(e => e.InstructorId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.Content)
+                    .WithMany()
+                    .HasForeignKey(e => e.ContentId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasOne(e => e.Section)
+                    .WithMany()
+                    .HasForeignKey(e => e.SectionId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasOne(e => e.Level)
+                    .WithMany()
+                    .HasForeignKey(e => e.LevelId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                // Indexes
+                entity.HasIndex(e => e.CourseId);
+                entity.HasIndex(e => e.InstructorId);
+                entity.HasIndex(e => e.QuizType);
+                entity.HasIndex(e => new { e.ContentId, e.SectionId, e.LevelId });
             });
 
-            // UserAnswer Configuration  
+            // Question Configuration
+            modelBuilder.Entity<Question>(entity =>
+            {
+                entity.HasKey(e => e.QuestionId);
+
+                entity.Property(e => e.QuestionText)
+                    .IsRequired();
+
+                entity.Property(e => e.QuestionType)
+                    .IsRequired()
+                    .HasConversion<int>();
+
+                entity.Property(e => e.HasCode)
+                    .HasDefaultValue(false);
+
+                entity.Property(e => e.CodeSnippet)
+                    .HasMaxLength(5000);
+
+                entity.Property(e => e.ProgrammingLanguage)
+                    .HasMaxLength(50);
+
+                entity.Property(e => e.Points)
+                    .IsRequired()
+                    .HasDefaultValue(1);
+
+                entity.Property(e => e.Explanation)
+                    .HasMaxLength(1000);
+
+                entity.Property(e => e.CreatedAt)
+                    .IsRequired();
+
+                entity.Property(e => e.IsActive)
+                    .HasDefaultValue(true);
+
+                // Relationships
+                entity.HasOne(e => e.Course)
+                    .WithMany()
+                    .HasForeignKey(e => e.CourseId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.Instructor)
+                    .WithMany()
+                    .HasForeignKey(e => e.InstructorId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.Content)
+                    .WithMany()
+                    .HasForeignKey(e => e.ContentId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                // Indexes
+                entity.HasIndex(e => e.CourseId);
+                entity.HasIndex(e => e.InstructorId);
+                entity.HasIndex(e => e.QuestionType);
+            });
+
+            // Question Option Configuration
+            modelBuilder.Entity<QuestionOption>(entity =>
+            {
+                entity.HasKey(e => e.OptionId);
+
+                entity.Property(e => e.OptionText)
+                    .IsRequired()
+                    .HasMaxLength(500);
+
+                entity.Property(e => e.IsCorrect)
+                    .IsRequired();
+
+                entity.Property(e => e.OrderIndex)
+                    .IsRequired();
+
+                // Relationships
+                entity.HasOne(e => e.Question)
+                    .WithMany(q => q.QuestionOptions)
+                    .HasForeignKey(e => e.QuestionId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                // Indexes
+                entity.HasIndex(e => e.QuestionId);
+                entity.HasIndex(e => new { e.QuestionId, e.OrderIndex });
+            });
+
+            // Quiz Question Configuration (Many-to-Many)
+            modelBuilder.Entity<QuizQuestion>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.OrderIndex)
+                    .IsRequired();
+
+                // Relationships
+                entity.HasOne(e => e.Quiz)
+                    .WithMany(q => q.QuizQuestions)
+                    .HasForeignKey(e => e.QuizId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Question)
+                    .WithMany(q => q.QuizQuestions)
+                    .HasForeignKey(e => e.QuestionId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                // Unique constraint
+                entity.HasIndex(e => new { e.QuizId, e.QuestionId })
+                    .IsUnique();
+
+                // Indexes
+                entity.HasIndex(e => new { e.QuizId, e.OrderIndex });
+            });
+
+            // Quiz Attempt Configuration
+            modelBuilder.Entity<QuizAttempt>(entity =>
+            {
+                entity.HasKey(e => e.AttemptId);
+
+                entity.Property(e => e.Score)
+                    .IsRequired();
+
+                entity.Property(e => e.TotalPoints)
+                    .IsRequired();
+
+                entity.Property(e => e.Passed)
+                    .IsRequired();
+
+                entity.Property(e => e.StartedAt)
+                    .IsRequired();
+
+                entity.Property(e => e.AttemptNumber)
+                    .IsRequired();
+
+                // Computed column for ScorePercentage (read-only)
+                entity.Ignore(e => e.ScorePercentage);
+
+                // Relationships
+                entity.HasOne(e => e.Quiz)
+                    .WithMany(q => q.QuizAttempts)
+                    .HasForeignKey(e => e.QuizId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.User)
+                    .WithMany()
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // Indexes
+                entity.HasIndex(e => e.QuizId);
+                entity.HasIndex(e => e.UserId);
+                entity.HasIndex(e => new { e.QuizId, e.UserId, e.AttemptNumber })
+                    .IsUnique();
+            });
+
+            // User Answer Configuration
             modelBuilder.Entity<UserAnswer>(entity =>
             {
-                entity.ToTable(t => t.HasCheckConstraint("CK_UserAnswer_AnswerType",
-                    "(SelectedOptionId IS NOT NULL AND BooleanAnswer IS NULL) OR (SelectedOptionId IS NULL AND BooleanAnswer IS NOT NULL)"));
+                entity.HasKey(e => e.UserAnswerId);
+
+                entity.Property(e => e.IsCorrect)
+                    .IsRequired();
+
+                entity.Property(e => e.PointsEarned)
+                    .IsRequired();
+
+                entity.Property(e => e.AnsweredAt)
+                    .IsRequired();
+
+                // Relationships
+                entity.HasOne(e => e.Attempt)
+                    .WithMany(a => a.UserAnswers)
+                    .HasForeignKey(e => e.AttemptId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Question)
+                    .WithMany(q => q.UserAnswers)
+                    .HasForeignKey(e => e.QuestionId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.SelectedOption)
+                    .WithMany(o => o.UserAnswers)
+                    .HasForeignKey(e => e.SelectedOptionId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                // Unique constraint - one answer per question per attempt
+                entity.HasIndex(e => new { e.AttemptId, e.QuestionId })
+                    .IsUnique();
+
+                // Indexes
+                entity.HasIndex(e => e.AttemptId);
+                entity.HasIndex(e => e.QuestionId);
             });
+
+            #endregion
+
+            //ConfigureQuizEntities(modelBuilder);
         }
+
+        //private void ConfigureQuizEntities(ModelBuilder modelBuilder)
+        //{
+        //    // Quiz Configuration  
+        //    modelBuilder.Entity<Quiz>(entity =>
+        //    {
+        //        entity.ToTable(t => t.HasCheckConstraint("CK_Quiz_HierarchyConstraint",
+        //            @"(QuizType = 1 AND ContentId IS NOT NULL AND SectionId IS NULL AND LevelId IS NULL) OR  
+        //             (QuizType = 2 AND SectionId IS NOT NULL AND ContentId IS NULL AND LevelId IS NULL) OR  
+        //             (QuizType = 3 AND LevelId IS NOT NULL AND ContentId IS NULL AND SectionId IS NULL) OR  
+        //             (QuizType = 4 AND ContentId IS NULL AND SectionId IS NULL AND LevelId IS NULL)"));
+        //    });
+
+        //    // UserAnswer Configuration  
+        //    modelBuilder.Entity<UserAnswer>(entity =>
+        //    {
+        //        entity.ToTable(t => t.HasCheckConstraint("CK_UserAnswer_AnswerType",
+        //            "(SelectedOptionId IS NOT NULL AND BooleanAnswer IS NULL) OR (SelectedOptionId IS NULL AND BooleanAnswer IS NOT NULL)"));
+        //    });
+        //}
     }
 }

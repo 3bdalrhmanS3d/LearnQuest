@@ -12,12 +12,12 @@ namespace LearnQuestV1.Core.Models.Quiz
         [Required]
         public int QuizId { get; set; }
         [ForeignKey("QuizId")]
-        public virtual required Quiz Quiz { get; set; }
+        public virtual Quiz Quiz { get; set; }
 
         [Required]
         public int QuestionId { get; set; }
         [ForeignKey("QuestionId")]
-        public virtual required Question Question { get; set; }
+        public virtual Question Question { get; set; }
 
         [Required]
         public int OrderIndex { get; set; }

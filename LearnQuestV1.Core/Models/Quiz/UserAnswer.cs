@@ -17,12 +17,12 @@ namespace LearnQuestV1.Core.Models.Quiz
         [Required]
         public int AttemptId { get; set; }
         [ForeignKey("AttemptId")]
-        public virtual required QuizAttempt Attempt { get; set; }
+        public virtual QuizAttempt Attempt { get; set; }
 
         [Required]
         public int QuestionId { get; set; }
         [ForeignKey("QuestionId")]
-        public virtual required Question Question { get; set; }
+        public virtual Question Question { get; set; }
 
         // For MCQ: Selected option
         public int? SelectedOptionId { get; set; }

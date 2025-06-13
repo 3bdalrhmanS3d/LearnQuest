@@ -19,12 +19,12 @@ namespace LearnQuestV1.Core.Models.Quiz
         [Required]
         public int QuizId { get; set; }
         [ForeignKey("QuizId")]
-        public virtual required Quiz Quiz { get; set; } // Added 'required' modifier  
+        public virtual Quiz Quiz { get; set; } // Added 'required' modifier  
 
         [Required]
         public int UserId { get; set; }
         [ForeignKey("UserId")]
-        public virtual required User User { get; set; } // Added 'required' modifier  
+        public virtual User User { get; set; } // Added 'required' modifier  
 
         [Required]
         public int Score { get; set; }

@@ -8,22 +8,13 @@ using LearnQuestV1.Core.Models.Financial;
 using LearnQuestV1.Core.Models.LearningAndProgress;
 using LearnQuestV1.Core.Models.UserManagement;
 using LearnQuestV1.Core.Models.Quiz;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace LearnQuestV1.Core.Interfaces
 {
     public interface IUnitOfWork : IDisposable
     {
-        //Task<int> SaveChangesAsync();
-        //Task<int> SaveChanges();
-        //Task BeginTransactionAsync();
-        //Task CommitTransactionAsync();
-        //Task RollbackTransactionAsync();
-
+        // User Management
         IBaseRepo<User> Users { get; }
         IBaseRepo<UserDetail> UserDetails { get; }
         IBaseRepo<AccountVerification> AccountVerifications { get; }
@@ -31,37 +22,45 @@ namespace LearnQuestV1.Core.Interfaces
         IBaseRepo<UserVisitHistory> UserVisitHistories { get; }
         IBaseRepo<BlacklistToken> BlacklistTokens { get; }
 
+        // Course Structure
         IBaseRepo<Course> Courses { get; }
         IBaseRepo<AboutCourse> AboutCourses { get; }
         IBaseRepo<CourseSkill> CourseSkills { get; }
         IBaseRepo<Level> Levels { get; }
         IBaseRepo<Section> Sections { get; }
         IBaseRepo<Content> Contents { get; }
+
+        // Course Organization
         IBaseRepo<CourseEnrollment> CourseEnrollments { get; }
         IBaseRepo<CourseFeedback> CourseFeedbacks { get; }
         IBaseRepo<CourseReview> CourseReviews { get; }
         IBaseRepo<CourseTrack> CourseTracks { get; }
         IBaseRepo<CourseTrackCourse> CourseTrackCourses { get; }
-
         IBaseRepo<FavoriteCourse> FavoriteCourses { get; }
+
+        // Financial & Progress
         IBaseRepo<Payment> Payments { get; }
         IBaseRepo<UserCoursePoint> UserCoursePoints { get; }
         IBaseRepo<UserProgress> UserProgresses { get; }
         IBaseRepo<UserContentActivity> UserContentActivities { get; }
-        IBaseRepo<Notification> Notifications { get; }
 
+        // Communication & Administration
+        IBaseRepo<Notification> Notifications { get; }
         IBaseRepo<AdminActionLog> AdminActionLogs { get; }
 
-        IBaseRepo<Quiz> Quizzes { get; }
-        IBaseRepo<Question> Questions { get; }
-        IBaseRepo<QuestionOption> QuestionOptions { get; }
+        // Quiz System Repositories (Specialized)
+        IQuizRepository Quizzes { get; }
+        IQuestionRepository Questions { get; }
+        IQuizAttemptRepository QuizAttempts { get; }
+
+        // Quiz System Basic Repositories
         IBaseRepo<QuizQuestion> QuizQuestions { get; }
-        IBaseRepo<QuizAttempt> QuizAttempts { get; }
+        IBaseRepo<QuestionOption> QuestionOptions { get; }
         IBaseRepo<UserAnswer> UserAnswers { get; }
 
+        // Transaction Methods
         Task<int> SaveAsync();
-
-
+        Task<int> SaveChangesAsync();
+        Task<IDbContextTransaction> BeginTransactionAsync();
     }
-
 }

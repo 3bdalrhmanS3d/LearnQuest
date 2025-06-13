@@ -37,7 +37,7 @@ namespace LearnQuestV1.Api.Utilities
             var issuer = config["JWT:ValidIss"];
             var audience = config["JWT:ValidAud"];
 
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey!));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
             return new JwtSecurityToken(

@@ -23,7 +23,7 @@ namespace LearnQuestV1.Core.Models.Quiz
         [Required]
         public int QuestionId { get; set; }
         [ForeignKey("QuestionId")]
-        public virtual required Question Question { get; set; }
+        public virtual Question? Question { get; set; }
 
         [Required]
         public required string OptionText { get; set; }

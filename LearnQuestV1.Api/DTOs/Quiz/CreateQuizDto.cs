@@ -9,7 +9,7 @@ namespace LearnQuestV1.Core.DTOs.Quiz
     {
         [Required(ErrorMessage = "Quiz title is required")]
         [StringLength(200, MinimumLength = 3, ErrorMessage = "Title must be between 3 and 200 characters")]
-        public string Title { get; set; }
+        public required string Title { get; set; } 
 
         [StringLength(1000, ErrorMessage = "Description cannot exceed 1000 characters")]
         public string? Description { get; set; }
@@ -76,7 +76,7 @@ namespace LearnQuestV1.Core.DTOs.Quiz
     {
         [Required(ErrorMessage = "Question text is required")]
         [StringLength(2000, MinimumLength = 10, ErrorMessage = "Question text must be between 10 and 2000 characters")]
-        public string QuestionText { get; set; }
+        public required string QuestionText { get; set; }
 
         [Required(ErrorMessage = "Question type is required")]
         [EnumDataType(typeof(QuestionType), ErrorMessage = "Invalid question type")]
@@ -132,7 +132,7 @@ namespace LearnQuestV1.Core.DTOs.Quiz
     {
         [Required(ErrorMessage = "Option text is required")]
         [StringLength(500, MinimumLength = 1, ErrorMessage = "Option text must be between 1 and 500 characters")]
-        public string OptionText { get; set; }
+        public required string OptionText { get; set; }
 
         [Required(ErrorMessage = "IsCorrect must be specified")]
         public bool IsCorrect { get; set; }
@@ -144,7 +144,7 @@ namespace LearnQuestV1.Core.DTOs.Quiz
     public class CreateQuizWithQuestionsDto
     {
         [Required]
-        public CreateQuizDto Quiz { get; set; }
+        public required CreateQuizDto Quiz { get; set; }
 
         [MinLength(1, ErrorMessage = "At least one question is required")]
         [MaxLength(50, ErrorMessage = "Maximum 50 questions are allowed")]
@@ -225,7 +225,7 @@ namespace LearnQuestV1.Core.DTOs.Quiz
 
         [Required(ErrorMessage = "Option text is required")]
         [StringLength(500, MinimumLength = 1, ErrorMessage = "Option text must be between 1 and 500 characters")]
-        public string OptionText { get; set; }
+        public required string OptionText { get; set; }
 
         [Required(ErrorMessage = "IsCorrect must be specified")]
         public bool IsCorrect { get; set; }
@@ -241,7 +241,7 @@ namespace LearnQuestV1.Core.DTOs.Quiz
     public class QuizResponseDto
     {
         public int QuizId { get; set; }
-        public string Title { get; set; }
+        public required string Title { get; set; }
         public string? Description { get; set; }
         public QuizType QuizType { get; set; }
         public string QuizTypeName => QuizType.ToString();
@@ -256,10 +256,10 @@ namespace LearnQuestV1.Core.DTOs.Quiz
         public string? LevelName { get; set; }
 
         public int CourseId { get; set; }
-        public string CourseName { get; set; }
+        public required string CourseName { get; set; }
 
         public int InstructorId { get; set; }
-        public string InstructorName { get; set; }
+        public required string InstructorName { get; set; }
 
         public int MaxAttempts { get; set; }
         public int PassingScore { get; set; }
@@ -283,7 +283,7 @@ namespace LearnQuestV1.Core.DTOs.Quiz
     public class QuestionResponseDto
     {
         public int QuestionId { get; set; }
-        public string QuestionText { get; set; }
+        public required string QuestionText { get; set; }
         public QuestionType QuestionType { get; set; }
         public string QuestionTypeName => QuestionType.ToString();
 
@@ -306,7 +306,7 @@ namespace LearnQuestV1.Core.DTOs.Quiz
     public class QuestionOptionResponseDto
     {
         public int OptionId { get; set; }
-        public string OptionText { get; set; }
+        public required string OptionText { get; set; }
         public int OrderIndex { get; set; }
 
         // Only shown to instructors or after quiz completion
@@ -317,10 +317,10 @@ namespace LearnQuestV1.Core.DTOs.Quiz
     {
         public int AttemptId { get; set; }
         public int QuizId { get; set; }
-        public string QuizTitle { get; set; }
+        public required string QuizTitle { get; set; }
 
         public int UserId { get; set; }
-        public string UserName { get; set; }
+        public required string UserName { get; set; }
 
         public int Score { get; set; }
         public int TotalPoints { get; set; }
@@ -339,7 +339,7 @@ namespace LearnQuestV1.Core.DTOs.Quiz
     {
         public int UserAnswerId { get; set; }
         public int QuestionId { get; set; }
-        public string QuestionText { get; set; }
+        public required string QuestionText { get; set; }
 
         public int? SelectedOptionId { get; set; }
         public string? SelectedOptionText { get; set; }
@@ -396,7 +396,7 @@ namespace LearnQuestV1.Core.DTOs.Quiz
     public class QuizSummaryDto
     {
         public int QuizId { get; set; }
-        public string Title { get; set; }
+        public required string Title { get; set; }
         public QuizType QuizType { get; set; }
         public string QuizTypeName => QuizType.ToString();
         public int TotalQuestions { get; set; }
@@ -415,7 +415,7 @@ namespace LearnQuestV1.Core.DTOs.Quiz
     public class QuestionSummaryDto
     {
         public int QuestionId { get; set; }
-        public string QuestionText { get; set; }
+        public required string QuestionText { get; set; }
         public QuestionType QuestionType { get; set; }
         public bool HasCode { get; set; }
         public int Points { get; set; }

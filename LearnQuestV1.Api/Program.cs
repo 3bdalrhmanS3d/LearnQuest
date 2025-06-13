@@ -95,6 +95,8 @@ namespace LearnQuestV1.Api
                 });
             });
 
+            builder.Services.AddQuizServices();
+
             var app = builder.Build();
 
             // ============================================

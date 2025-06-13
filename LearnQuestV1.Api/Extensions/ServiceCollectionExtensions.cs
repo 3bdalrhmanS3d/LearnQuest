@@ -40,6 +40,32 @@ namespace LearnQuestV1.Api.Extensions
             return services;
         }
 
+        public static IServiceCollection AddQuizServices(this IServiceCollection services)
+        {
+            // Register Quiz Repositories
+            services.AddScoped<IQuizRepository, QuizRepository>();
+            services.AddScoped<IQuestionRepository, QuestionRepository>();
+            services.AddScoped<IQuizAttemptRepository, QuizAttemptRepository>();
+
+            // Register Quiz Service
+            services.AddScoped<IQuizService, QuizService>();
+
+            return services;
+        }
+
+        // Add this method to your existing ServiceCollectionExtensions class
+        // If you don't have one, create the complete class like this:
+
+        public static IServiceCollection AddAllServices(this IServiceCollection services)
+        {
+            // Add existing services (if any)
+            // services.AddScoped<IExistingService, ExistingService>();
+
+            // Add Quiz Services
+            services.AddQuizServices();
+
+            return services;
+        }
         public static IServiceCollection AddAutoMapperProfiles(this IServiceCollection services)
         {
             services.AddAutoMapper(typeof(ServiceCollectionExtensions).Assembly);
