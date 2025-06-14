@@ -69,6 +69,12 @@ namespace LearnQuestV1.EF.UnitOfWork
             QuizQuestions = new BaseRepo<QuizQuestion>(context);
             QuestionOptions = new BaseRepo<QuestionOption>(context);
             UserAnswers = new BaseRepo<UserAnswer>(context);
+            PaymentTransactions = new BaseRepo<PaymentTransaction>(context);
+            Discounts = new BaseRepo<Discount>(context);
+            UserPreferences = new BaseRepo<UserPreferences>(context);
+            UserAchievements = new BaseRepo<UserAchievement>(context);
+            UserLearningSessions = new BaseRepo<UserLearningSession>(context);
+            SecurityAuditLogs = new BaseRepo<SecurityAuditLog>(context);
         }
 
         // User Management
@@ -116,6 +122,12 @@ namespace LearnQuestV1.EF.UnitOfWork
         public IBaseRepo<QuizQuestion> QuizQuestions { get; }
         public IBaseRepo<QuestionOption> QuestionOptions { get; }
         public IBaseRepo<UserAnswer> UserAnswers { get; }
+
+        public IBaseRepo<PaymentTransaction> PaymentTransactions { get; }
+        public IBaseRepo<Discount> Discounts { get; }
+        public IBaseRepo<UserPreferences> UserPreferences { get; }
+        public IBaseRepo<UserAchievement> UserAchievements { get; }
+        public IBaseRepo<UserLearningSession> UserLearningSessions { get; }
 
         // Transaction Methods
         public async Task<int> SaveAsync()

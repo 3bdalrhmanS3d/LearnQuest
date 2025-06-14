@@ -39,7 +39,19 @@ namespace LearnQuestV1.Core.Interfaces
         IBaseRepo<FavoriteCourse> FavoriteCourses { get; }
 
         // Financial & Progress
+        // =====================================================
+        // Financial Repositories
+        // =====================================================
         IBaseRepo<Payment> Payments { get; }
+        IBaseRepo<PaymentTransaction> PaymentTransactions { get; }
+        IBaseRepo<Discount> Discounts { get; }
+
+        // =====================================================
+        // User Enhancement Repositories
+        // =====================================================
+        IBaseRepo<UserPreferences> UserPreferences { get; }
+        IBaseRepo<UserAchievement> UserAchievements { get; }
+        IBaseRepo<UserLearningSession> UserLearningSessions { get; }
         IBaseRepo<UserCoursePoint> UserCoursePoints { get; }
         IBaseRepo<UserProgress> UserProgresses { get; }
         IBaseRepo<UserContentActivity> UserContentActivities { get; }

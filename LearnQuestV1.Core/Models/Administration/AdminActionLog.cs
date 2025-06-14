@@ -1,15 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace LearnQuestV1.Core.Models.Administration
 {
     [Table("AdminActionLogs")]
-
     public class AdminActionLog
     {
         public AdminActionLog()
@@ -47,7 +41,7 @@ namespace LearnQuestV1.Core.Models.Administration
         public string ActionType { get; set; } = string.Empty;
 
         /// <summary>
-        /// More details about what happened (e.g. “User foo@example.com promoted to Instructor”).
+        /// More details about what happened (e.g. "User foo@example.com promoted to Instructor").
         /// </summary>
         [Required]
         [MaxLength(1000)]
@@ -59,6 +53,7 @@ namespace LearnQuestV1.Core.Models.Administration
         [Required]
         public DateTime ActionDate { get; set; }
 
+        [MaxLength(45)]
         public string? IpAddress { get; set; }
     }
 }

@@ -61,6 +61,12 @@ namespace LearnQuestV1.EF.Application
         public DbSet<QuizAttempt> QuizAttempts { get; set; }
         public DbSet<UserAnswer> UserAnswers { get; set; }
         public DbSet<SecurityAuditLog> SecurityAuditLogs { get; set; }
+        public DbSet<Discount> Discounts { get; set; }
+        public DbSet<PaymentTransaction> PaymentTransactions { get; set; }
+        public DbSet<UserPreferences> UserPreferences { get; set; }
+        public DbSet<UserLearningSession> UserLearningSessions { get; set; }
+        public DbSet<UserAchievement> UserAchievements { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);

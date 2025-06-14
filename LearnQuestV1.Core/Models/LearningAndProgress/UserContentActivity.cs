@@ -10,45 +10,47 @@ using LearnQuestV1.Core.Models.CourseStructure;
 namespace LearnQuestV1.Core.Models.LearningAndProgress
 {
     [Table("UserContentActivities")]
+    /// <summary>
+    /// Tracks user content consumption activity and time spent
+    /// </summary>
     public class UserContentActivity
     {
-        public UserContentActivity()
-        {
-            StartTime = DateTime.UtcNow;
-        }
-
         [Key]
-        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-        public int Id { get; set; }
+        public int ActivityId { get; set; }
 
-        /// <summary>
-        /// Foreign key → the user who started this content.
-        /// </summary>
         [Required]
         public int UserId { get; set; }
+        [ForeignKey("UserId")]
+        public virtual User User { get; set; }
 
-        [ForeignKey(nameof(UserId))]
-        public virtual User User { get; set; } = null!;
-
-        /// <summary>
-        /// Foreign key → the content the user is interacting with.
-        /// </summary>
         [Required]
         public int ContentId { get; set; }
+        [ForeignKey("ContentId")]
+        public virtual Content Content { get; set; }
 
-        [ForeignKey(nameof(ContentId))]
-        public virtual Content Content { get; set; } = null!;
-
-        /// <summary>
-        /// UTC timestamp when the user started consuming the content.
-        /// </summary>
         [Required]
         public DateTime StartTime { get; set; }
 
-        /// <summary>
-        /// UTC timestamp when the user finished (ended) the content session; null if still in progress.
-        /// </summary>
         public DateTime? EndTime { get; set; }
 
+        /// <summary>
+        /// Calculated duration in minutes
+        /// </summary>
+        [NotMapped]
+        public int? DurationInMinutes => EndTime.HasValue
+            ? (int)(EndTime.Value - StartTime).TotalMinutes
+            : null;
+
+        /// <summary>
+        /// Whether the content session was completed
+        /// </summary>
+        [NotMapped]
+        public bool IsCompleted => EndTime.HasValue;
+
+        /// <summary>
+        /// Session status for tracking
+        /// </summary>
+        [NotMapped]
+        public string Status => EndTime.HasValue ? "Completed" : "In Progress";
     }
 }

@@ -65,7 +65,17 @@ namespace LearnQuestV1.Core.Models.CourseStructure
         [Required]
         [Column(TypeName = "decimal(18,2)")]
         public decimal CoursePrice { get; set; }
-
+        
+        [NotMapped]
+        public decimal? AverageRating
+        {
+            get
+            {
+                if (CourseReviews?.Any() == true)
+                    return (decimal)CourseReviews.Average(r => r.Rating);
+                return null;
+            }
+        }
         public bool IsActive { get; set; } = false;
         public bool IsDeleted { get; set; } = false;
 
