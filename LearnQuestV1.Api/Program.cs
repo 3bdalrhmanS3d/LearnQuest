@@ -1,15 +1,16 @@
-﻿using LearnQuestV1.Api.Extensions;
-using LearnQuestV1.EF.Application;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
-using Microsoft.OpenApi.Models;
+﻿using LearnQuestV1.Api.Configuration;
 using LearnQuestV1.Api.Data;
+using LearnQuestV1.Api.Extensions;
+using LearnQuestV1.Api.HealthChecks;
 using LearnQuestV1.Api.Middlewares;
-using LearnQuestV1.Api.Services.Interfaces;
 using LearnQuestV1.Api.Services.Implementations;
-using LearnQuestV1.Api.Configuration; // Add this using for the DatabaseSeeder
+using LearnQuestV1.Api.Services.Interfaces;
+using LearnQuestV1.EF.Application;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+using System.Text;
 
 namespace LearnQuestV1.Api
 {
@@ -19,22 +20,36 @@ namespace LearnQuestV1.Api
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            // add the ApplicationDbContext
+            // === DATABASE CONFIGURATION ===
             builder.Services.AddDbContext<ApplicationDbContext>(options =>
-                options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"),
+                options.UseSqlServer(
+                    builder.Configuration.GetConnectionString("DefaultConnection"),
                     b => b.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName)));
 
-            builder.Services.Configure<SecuritySettings>(
-                    builder.Configuration.GetSection("Security"));
+            // === SECURITY CONFIGURATION ===
+            builder.Services.Configure<SecuritySettings>(builder.Configuration.GetSection("Security"));
+            builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 
+            // === CORE SERVICES ===
             builder.Services.AddHttpContextAccessor();
-
             builder.Services.AddProjectDependencies();
             builder.Services.AddAutoMapperProfiles();
+            builder.Services.AddQuizServices();
 
-            builder.Services.AddControllers();
+            // === ENHANCED AUTHENTICATION SERVICES ===
+            builder.Services.AddSingleton<IFailedLoginTracker, FailedLoginTracker>();
+            builder.Services.AddScoped<ISecurityAuditLogger, SecurityAuditLogger>();
+            builder.Services.AddScoped<IAutoLoginService, AutoLoginService>();
+            builder.Services.AddScoped<IEmailTemplateService, EmailTemplateService>();
+            builder.Services.AddSingleton<IEmailQueueService, EmailQueueService>();
+
+            // === BACKGROUND SERVICES ===
+            builder.Services.AddHostedService<EmailQueueBackgroundService>();
+            builder.Services.AddHostedService<FailedLoginMaintenanceService>();
+
+            // === CACHING & SESSION ===
+            builder.Services.AddMemoryCache();
             builder.Services.AddDistributedMemoryCache();
-
             builder.Services.AddSession(options =>
             {
                 options.IdleTimeout = TimeSpan.FromMinutes(30);
@@ -44,9 +59,9 @@ namespace LearnQuestV1.Api
                 options.Cookie.SameSite = SameSiteMode.Strict;
             });
 
+            // === JWT AUTHENTICATION ===
             var jwtSettings = builder.Configuration.GetSection("JWT");
             var key = Encoding.UTF8.GetBytes(jwtSettings["SecretKey"]!);
-
             builder.Services.AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -64,28 +79,40 @@ namespace LearnQuestV1.Api
                     ValidateIssuerSigningKey = true,
                     ValidIssuer = jwtSettings["ValidIss"],
                     ValidAudience = jwtSettings["ValidAud"],
-                    IssuerSigningKey = new SymmetricSecurityKey(key)
+                    IssuerSigningKey = new SymmetricSecurityKey(key),
+                    ClockSkew = TimeSpan.Zero
                 };
             });
 
-            // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-            builder.Services.AddEndpointsApiExplorer();
+            // === CONTROLLERS ===
+            builder.Services.AddControllers();
 
+            // === CORS & API EXPLORER ===
+            builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowReactApp", policy =>
                 {
-                    policy.WithOrigins("https://yourfrontend.com")
-                          .AllowAnyMethod()
-                          .AllowAnyHeader()
-                          .AllowCredentials()
-                          .WithExposedHeaders("X-Pagination");
+                    policy.WithOrigins(
+                        "http://localhost:3000",
+                        "http://localhost:5173",
+                        "https://yourfrontend.com")
+                        .AllowAnyMethod()
+                        .AllowAnyHeader()
+                        .AllowCredentials()
+                        .WithExposedHeaders("X-Pagination");
                 });
             });
 
-
+            // === SWAGGER CONFIGURATION ===
             builder.Services.AddSwaggerGen(c =>
             {
+                c.SwaggerDoc("v1", new OpenApiInfo
+                {
+                    Title = "LearnQuest API",
+                    Version = "v1",
+                    Description = "Enhanced Learning Platform API with Security Features"
+                });
                 c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
                 {
                     In = ParameterLocation.Header,
@@ -93,7 +120,7 @@ namespace LearnQuestV1.Api
                     Type = SecuritySchemeType.ApiKey,
                     BearerFormat = "JWT",
                     Scheme = "Bearer",
-                    Description = "Enter 'Bearer {token}'"
+                    Description = "Enter 'Bearer {your JWT token}'"
                 });
                 c.AddSecurityRequirement(new OpenApiSecurityRequirement
                 {
@@ -103,7 +130,7 @@ namespace LearnQuestV1.Api
                             Reference = new OpenApiReference
                             {
                                 Type = ReferenceType.SecurityScheme,
-                                Id   = "Bearer"
+                                Id = "Bearer"
                             }
                         },
                         Array.Empty<string>()
@@ -111,8 +138,7 @@ namespace LearnQuestV1.Api
                 });
             });
 
-            builder.Services.AddQuizServices();
-
+            // === SECURITY HEADERS ===
             builder.Services.AddHsts(options =>
             {
                 options.Preload = true;
@@ -120,59 +146,70 @@ namespace LearnQuestV1.Api
                 options.MaxAge = TimeSpan.FromDays(365);
             });
 
+            // === HEALTH CHECKS ===
+            builder.Services.AddHealthChecks()
+                .AddCheck<EmailServiceHealthCheck>("email_service");
+
+            // === BUILD ===
             var app = builder.Build();
 
-            // ============================================
-            // DATABASE SEEDING - USING SYNCHRONOUS APPROACH
-            // ============================================
+            // === DATABASE SEEDING ===
             using (var scope = app.Services.CreateScope())
             {
                 var services = scope.ServiceProvider;
                 try
                 {
                     var context = services.GetRequiredService<ApplicationDbContext>();
-
-                    // Apply any pending migrations
                     if (context.Database.GetPendingMigrations().Any())
                     {
                         Console.WriteLine("🔄 Applying pending migrations...");
                         context.Database.Migrate();
                         Console.WriteLine("✅ Migrations applied successfully!");
                     }
-
-                    // Seed the database - call the method synchronously
                     DatabaseSeeder.SeedDatabaseAsync(context).GetAwaiter().GetResult();
+                    Console.WriteLine("✅ Database seeding completed!");
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"❌ An error occurred while seeding the database: {ex.Message}");
-                    // Optionally log the exception or handle it as needed
-                    // Don't throw here to prevent the app from crashing on startup
+                    services.GetRequiredService<ILogger<Program>>()
+                        .LogError(ex, "❌ An error occurred while seeding the database");
                 }
             }
 
-            // Configure the HTTP request pipeline.
+            // === MIDDLEWARE PIPELINE ===
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();
-                app.UseSwaggerUI();
+                app.UseSwaggerUI(c =>
+                {
+                    c.SwaggerEndpoint("/swagger/v1/swagger.json", "LearnQuest API v1");
+                    c.RoutePrefix = "swagger"; // serve at /swagger
+                });
             }
 
             app.UseHttpsRedirection();
 
-            app.UseHsts();  // HSTS لازم يجي بعد HttpsRedirection (في Production mode أساسا)
+            if (!app.Environment.IsDevelopment())
+            {
+                app.UseHsts();
+            }
 
+            app.UseRateLimiting();
             app.UseCors("AllowReactApp");
-
             app.UseSession();
-
             app.UseMiddleware<ExceptionHandlingMiddleware>();
-
             app.UseAuthentication();
             app.UseAuthorization();
-
+            app.MapHealthChecks("/health");
             app.MapControllers();
 
+            app.Lifetime.ApplicationStarted.Register(() =>
+            {
+                Console.WriteLine("🚀 LearnQuest API is running!");
+                Console.WriteLine($"📍 Environment: {app.Environment.EnvironmentName}");
+                Console.WriteLine($"📱 Swagger UI: {(app.Environment.IsDevelopment() ? "Available at /swagger" : "Disabled in production")} ");
+                Console.WriteLine("🏥 Health Check: Available at /health");
+            });
 
             app.Run();
         }

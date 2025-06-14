@@ -279,7 +279,7 @@ namespace LearnQuestV1.Api.Services.Implementations
             }
 
             // queue email
-            await _emailQueueService.SendCustomEmailAsync(user.EmailAddress, user.FullName, subject, bodyMessage);
+            _emailQueueService.QueueEmail(user.EmailAddress, user.FullName, subject, bodyMessage);
 
             // create notification record
             var notif = new Notification

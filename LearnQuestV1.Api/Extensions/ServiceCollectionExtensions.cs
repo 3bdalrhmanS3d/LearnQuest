@@ -3,7 +3,6 @@ using LearnQuestV1.Api.Services.Interfaces;
 using LearnQuestV1.Core.Interfaces;
 using LearnQuestV1.EF.Repositories;
 using LearnQuestV1.EF.UnitOfWork;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace LearnQuestV1.Api.Extensions
 {
@@ -11,11 +10,11 @@ namespace LearnQuestV1.Api.Extensions
     {
         public static IServiceCollection AddProjectDependencies(this IServiceCollection services)
         {
-            // سجلّ المستودعات و UnitOfWork
+            // === CORE REPOSITORIES & UNIT OF WORK ===
             services.AddScoped(typeof(IBaseRepo<>), typeof(BaseRepo<>));
             services.AddScoped<IUnitOfWork, UnitOfWork>();
 
-            // سجلّ AccountService
+            // === BUSINESS SERVICES ===
             services.AddScoped<IAccountService, AccountService>();
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IAdminService, AdminService>();
@@ -24,54 +23,81 @@ namespace LearnQuestV1.Api.Extensions
             services.AddScoped<ICourseService, CourseService>();
             services.AddScoped<ISectionService, SectionService>();
             services.AddScoped<ILevelService, LevelService>();
-            services.AddScoped<IAutoLoginService, AutoLoginService>();
-            services.AddScoped<ISecurityAuditLogger, SecurityAuditLogger>();
-
-
             services.AddScoped<IActionLogService, ActionLogService>();
-            services.AddScoped<TrackService>();
-            // سجلّ FailedLoginTracker كـScoped
-            services.AddScoped<IFailedLoginTracker, FailedLoginTracker>();
-            services.AddHttpContextAccessor();
-            // هنا: سجّل EmailQueueService كـSingleton بدلاً من Scoped
-            services.AddSingleton<IEmailQueueService, EmailQueueService>();
 
-
-            // سجّل الخلفيّة، وهي HostedService (Singleton ضمن DI)
-            services.AddHostedService<EmailQueueBackgroundService>();
+            // === ENHANCED SECURITY SERVICES ===
+            // Note: These are now registered in Program.cs for better control
+            // but keeping here for backward compatibility if needed
 
             return services;
         }
 
         public static IServiceCollection AddQuizServices(this IServiceCollection services)
         {
-            // Register Quiz Repositories
+            // === QUIZ REPOSITORIES ===
             services.AddScoped<IQuizRepository, QuizRepository>();
             services.AddScoped<IQuestionRepository, QuestionRepository>();
             services.AddScoped<IQuizAttemptRepository, QuizAttemptRepository>();
 
-            // Register Quiz Service
+            // === QUIZ SERVICES ===
             services.AddScoped<IQuizService, QuizService>();
 
             return services;
         }
 
-        // Add this method to your existing ServiceCollectionExtensions class
-        // If you don't have one, create the complete class like this:
-
-        public static IServiceCollection AddAllServices(this IServiceCollection services)
+        public static IServiceCollection AddAutoMapperProfiles(this IServiceCollection services)
         {
-            // Add existing services (if any)
-            // services.AddScoped<IExistingService, ExistingService>();
+            // Register AutoMapper with all profiles in the current assembly
+            services.AddAutoMapper(typeof(ServiceCollectionExtensions).Assembly);
+            return services;
+        }
 
-            // Add Quiz Services
-            services.AddQuizServices();
+        // === ENHANCED AUTHENTICATION SERVICES ===
+        public static IServiceCollection AddEnhancedAuthServices(this IServiceCollection services)
+        {
+            // Security Services
+            services.AddScoped<IAutoLoginService, AutoLoginService>();
+            services.AddScoped<ISecurityAuditLogger, SecurityAuditLogger>();
+
+            // Failed Login Tracker (Singleton for cross-request tracking)
+            services.AddSingleton<IFailedLoginTracker, FailedLoginTracker>();
 
             return services;
         }
-        public static IServiceCollection AddAutoMapperProfiles(this IServiceCollection services)
+
+        // === EMAIL SERVICES ===
+        public static IServiceCollection AddEmailServices(this IServiceCollection services)
         {
-            services.AddAutoMapper(typeof(ServiceCollectionExtensions).Assembly);
+            // Email Template Service
+            services.AddScoped<IEmailTemplateService, EmailTemplateService>();
+
+            // Email Queue Service (Singleton for queue management)
+            services.AddSingleton<IEmailQueueService, EmailQueueService>();
+
+            // Background Services
+            services.AddHostedService<EmailQueueBackgroundService>();
+            services.AddHostedService<FailedLoginMaintenanceService>();
+
+            return services;
+        }
+
+        // === RATE LIMITING SERVICES ===
+        public static IServiceCollection AddRateLimitingServices(this IServiceCollection services)
+        {
+            services.AddMemoryCache();
+            return services;
+        }
+
+        // === ALL ENHANCED SERVICES ===
+        public static IServiceCollection AddAllEnhancedServices(this IServiceCollection services)
+        {
+            services.AddProjectDependencies();
+            services.AddQuizServices();
+            services.AddEnhancedAuthServices();
+            services.AddEmailServices();
+            services.AddRateLimitingServices();
+            services.AddAutoMapperProfiles();
+
             return services;
         }
     }

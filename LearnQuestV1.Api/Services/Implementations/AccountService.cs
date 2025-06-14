@@ -1,23 +1,15 @@
 ﻿using AutoMapper;
+using LearnQuestV1.Api.Configuration;
 using LearnQuestV1.Api.DTOs.Users.Request;
 using LearnQuestV1.Api.DTOs.Users.Response;
 using LearnQuestV1.Api.Services.Interfaces;
+using LearnQuestV1.Api.Utilities;
+using LearnQuestV1.Core.Enums;
 using LearnQuestV1.Core.Interfaces;
 using LearnQuestV1.Core.Models;
-using LearnQuestV1.Core.Enums;
-using LearnQuestV1.Api.Utilities;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Configuration;
-using Microsoft.IdentityModel.Tokens;
-using System;
-using System.Collections.Generic;
-using System.IdentityModel.Tokens.Jwt;
-using System.Linq;
-using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
-using System.Threading.Tasks;
 using LearnQuestV1.Core.Models.UserManagement;
+using Microsoft.Extensions.Options;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace LearnQuestV1.Api.Services.Implementations
 {
@@ -29,6 +21,8 @@ namespace LearnQuestV1.Api.Services.Implementations
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IConfiguration _config;
         private readonly IMapper _mapper;
+        private readonly SecuritySettings _securitySettings;
+        private readonly ILogger<AccountService> _logger;
 
         public AccountService(
             IUnitOfWork uow,
@@ -36,7 +30,9 @@ namespace LearnQuestV1.Api.Services.Implementations
             IFailedLoginTracker failedLoginTracker,
             IHttpContextAccessor httpContextAccessor,
             IConfiguration config,
-            IMapper mapper)
+            IMapper mapper,
+            IOptions<SecuritySettings> securitySettings,
+            ILogger<AccountService> logger)
         {
             _uow = uow;
             _emailQueueService = emailQueueService;
@@ -44,75 +40,417 @@ namespace LearnQuestV1.Api.Services.Implementations
             _httpContextAccessor = httpContextAccessor;
             _config = config;
             _mapper = mapper;
+            _securitySettings = securitySettings.Value;
+            _logger = logger;
         }
 
         /// <summary>
         /// Registers a new user or resends a verification code if the user already exists but is not yet verified.
-        /// Throws InvalidOperationException if the user is already verified.
+        /// Enhanced with proper transaction management and configuration-based timeouts.
         /// </summary>
         public async Task SignupAsync(SignupRequestDto input)
         {
-            // 1. Check if user already exists by email
-            var existingUser = (await _uow.Users.FindAsync(u => u.EmailAddress == input.EmailAddress))
-                               .FirstOrDefault();
-
-            if (existingUser != null)
+            using var transaction = await _uow.BeginTransactionAsync();
+            try
             {
-                // Find the most recent verification record
-                var lastVerification = existingUser.AccountVerifications
+                // 1. Check if user already exists with proper includes
+                var existingUser = await GetUserWithVerificationsAsync(input.EmailAddress);
+
+                if (existingUser != null)
+                {
+                    await HandleExistingUserSignupAsync(existingUser);
+                    await transaction.CommitAsync();
+                    return;
+                }
+
+                // 2. Create new user with verification in transaction
+                await CreateNewUserAsync(input);
+                await transaction.CommitAsync();
+
+                _logger.LogInformation("New user registered: {Email}", input.EmailAddress);
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Verifies a user's account using a code stored in a cookie.
+        /// Enhanced with better error handling and security logging.
+        /// </summary>
+        public async Task VerifyAccountAsync(VerifyAccountRequestDto input)
+        {
+            var httpCtx = _httpContextAccessor.HttpContext
+                          ?? throw new InvalidOperationException("HTTP context is unavailable.");
+
+            // 1. Get email from cookie
+            if (!httpCtx.Request.Cookies.TryGetValue("EmailForVerification", out var email))
+                throw new InvalidOperationException("Verification session expired. Please register again.");
+
+            using var transaction = await _uow.BeginTransactionAsync();
+            try
+            {
+                // 2. Find user with verifications
+                var user = await GetUserWithVerificationsAsync(email);
+                if (user == null)
+                    throw new InvalidOperationException("Verification session invalid.");
+
+                // 3. Validate verification code
+                var lastVerification = user.AccountVerifications
                     .OrderByDescending(av => av.Date)
                     .FirstOrDefault();
 
-                // If already verified, we cannot register again
-                if (lastVerification != null && lastVerification.CheckedOK)
-                    throw new InvalidOperationException("User already exists and is verified.");
+                ValidateVerificationCode(lastVerification, input.VerificationCode);
 
-                if (lastVerification != null)
-                {
-                    // If it has been less than 30 minutes since last code, reject
-                    var elapsed = DateTime.UtcNow - lastVerification.Date;
-                    if (elapsed.TotalMinutes < 30)
-                    {
-                        var waitMinutes = 30 - (int)elapsed.TotalMinutes;
-                        throw new InvalidOperationException(
-                            $"A verification code was already sent. Please wait {waitMinutes} minute(s)."
-                        );
-                    }
+                // 4. Activate account
+                user.IsActive = true;
+                lastVerification!.CheckedOK = true;
 
-                    // Generate and save a new code
-                    lastVerification.Code = AuthHelpers.GenerateVerificationCode();
-                    lastVerification.Date = DateTime.UtcNow;
-                    _uow.AccountVerifications.Update(lastVerification);
-                }
-                else
-                {
-                    // Create the first verification record
-                    var newVerification = new AccountVerification
-                    {
-                        UserId = existingUser.UserId,
-                        Code = AuthHelpers.GenerateVerificationCode(),
-                        CheckedOK = false,
-                        Date = DateTime.UtcNow
-                    };
-                    await _uow.AccountVerifications.AddAsync(newVerification);
-                }
+                _uow.Users.Update(user);
+                _uow.AccountVerifications.Update(lastVerification);
 
-                await _uow.SaveAsync();
+                await _uow.SaveChangesAsync();
+                await transaction.CommitAsync();
 
-                // Queue an email with the (new) verification code
-                var codeToSend = existingUser.AccountVerifications
-                    .OrderByDescending(av => av.Date)
-                    .First().Code;
-                _emailQueueService.QueueResendEmail(
-                    existingUser.EmailAddress,
-                    existingUser.FullName,
-                    codeToSend
-                );
+                // 5. Clear cookie
+                httpCtx.Response.Cookies.Delete("EmailForVerification");
 
-                throw new InvalidOperationException("User already exists. Please verify your email.");
+                _logger.LogInformation("Account verified successfully: {Email}", email);
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Resends verification code with configurable cooldown period.
+        /// </summary>
+        public async Task ResendVerificationCodeAsync()
+        {
+            var httpCtx = _httpContextAccessor.HttpContext!;
+            if (!httpCtx.Request.Cookies.TryGetValue("EmailForVerification", out var email))
+                throw new InvalidOperationException("Verification session not found.");
+
+            var user = await GetUserWithVerificationsAsync(email);
+            if (user == null)
+                throw new InvalidOperationException("User not found.");
+
+            var lastVerification = user.AccountVerifications
+                .OrderByDescending(av => av.Date)
+                .FirstOrDefault();
+
+            if (lastVerification == null)
+                throw new InvalidOperationException("No verification record found.");
+
+            // Check cooldown period from configuration
+            var elapsed = DateTime.UtcNow - lastVerification.Date;
+            var cooldownMinutes = _securitySettings.Verification.ResendCodeCooldownMinutes;
+
+            if (elapsed.TotalMinutes < cooldownMinutes)
+            {
+                var waitMinutes = cooldownMinutes - (int)elapsed.TotalMinutes;
+                throw new InvalidOperationException(
+                    $"Please wait {waitMinutes} minute(s) before requesting a new code.");
             }
 
-            // 2. Create a new user
+            // Generate new code
+            lastVerification.Code = AuthHelpers.GenerateVerificationCode();
+            lastVerification.Date = DateTime.UtcNow;
+
+            _uow.AccountVerifications.Update(lastVerification);
+            await _uow.SaveChangesAsync();
+
+            _emailQueueService.QueueResendEmail(user.EmailAddress, user.FullName, lastVerification.Code);
+
+            _logger.LogInformation("Verification code resent: {Email}", email);
+        }
+
+        /// <summary>
+        /// Enhanced signin with better security checks and transaction management.
+        /// </summary>
+        public async Task<SigninResponseDto> SigninAsync(SigninRequestDto input)
+        {
+            var email = input.Email;
+
+            // 1. Check lockout status
+            await CheckAccountLockoutAsync(email);
+
+            // 2. Find user with verifications
+            var user = await GetUserWithVerificationsAsync(email);
+
+            // 3. Validate credentials
+            if (user == null || !AuthHelpers.VerifyPassword(input.Password, user.PasswordHash))
+            {
+                await HandleFailedLoginAsync(email);
+                throw new InvalidOperationException("Invalid login credentials.");
+            }
+
+            // 4. Check account status
+            await ValidateAccountStatusAsync(user);
+
+            // 5. Reset failed attempts and create session
+            _failedLoginTracker.ResetFailedAttempts(email);
+
+            using var transaction = await _uow.BeginTransactionAsync();
+            try
+            {
+                // 6. Log visit
+                await LogUserVisitAsync(user.UserId);
+
+                // 7. Generate tokens
+                var (accessToken, refreshToken) = await GenerateTokensAsync(user);
+
+                await transaction.CommitAsync();
+
+                _logger.LogInformation("Successful login: {Email}", email);
+
+                return new SigninResponseDto
+                {
+                    Token = new JwtSecurityTokenHandler().WriteToken(accessToken),
+                    Expiration = accessToken.ValidTo,
+                    Role = user.Role.ToString(),
+                    RefreshToken = refreshToken.Token,
+                    UserId = user.UserId
+                };
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Enhanced refresh token with better validation.
+        /// </summary>
+        public async Task<RefreshTokenResponseDto> RefreshTokenAsync(RefreshTokenRequestDto input)
+        {
+            using var transaction = await _uow.BeginTransactionAsync();
+            try
+            {
+                // 1. Validate and revoke old token
+                var refreshToken = await ValidateAndRevokeRefreshTokenAsync(input.OldRefreshToken);
+
+                // 2. Get user
+                var user = await _uow.Users.GetByIdAsync(refreshToken.UserId);
+                if (user == null || user.IsDeleted || !user.IsActive)
+                    throw new InvalidOperationException("User account is not available.");
+
+                // 3. Generate new tokens
+                var (newAccessToken, newRefreshToken) = await GenerateTokensAsync(user);
+
+                await transaction.CommitAsync();
+
+                return new RefreshTokenResponseDto
+                {
+                    Token = new JwtSecurityTokenHandler().WriteToken(newAccessToken),
+                    Expiration = newAccessToken.ValidTo,
+                    RefreshToken = newRefreshToken.Token,
+                    UserId = user.UserId
+                };
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Deprecated: Use AutoLoginService instead.
+        /// This method will be removed in the next version.
+        /// </summary>
+        [Obsolete("Use AutoLoginService.AutoLoginFromTokenAsync instead")]
+        public async Task<AutoLoginResponseDto> AutoLoginAsync(string email, string password)
+        {
+            _logger.LogWarning("Deprecated AutoLogin method called. Use AutoLoginService instead.");
+            throw new InvalidOperationException("This method is deprecated. Use AutoLoginService instead.");
+        }
+
+        /// <summary>
+        /// Enhanced password reset request with better error handling.
+        /// </summary>
+        public async Task ForgetPasswordAsync(ForgetPasswordRequestDto input)
+        {
+            // Always process the request to prevent email enumeration
+            var user = await GetUserWithVerificationsAsync(input.Email);
+
+            if (user != null && user.IsActive && !user.IsDeleted)
+            {
+                // Generate and store verification code
+                var code = AuthHelpers.GenerateVerificationCode();
+                var verification = new AccountVerification
+                {
+                    UserId = user.UserId,
+                    Code = code,
+                    CheckedOK = false,
+                    Date = DateTime.UtcNow
+                };
+
+                await _uow.AccountVerifications.AddAsync(verification);
+                await _uow.SaveChangesAsync();
+
+                // Send reset email
+                var resetLink = $"https://yourfrontend.com/reset-password?email={user.EmailAddress}&code={code}";
+                _emailQueueService.QueuePasswordResetEmail(user.EmailAddress, user.FullName, code, resetLink);
+
+                _logger.LogInformation("Password reset requested: {Email}", input.Email);
+            }
+            else
+            {
+                _logger.LogWarning("Password reset requested for non-existent user: {Email}", input.Email);
+            }
+
+            // Always return success for security
+        }
+
+        /// <summary>
+        /// Enhanced password reset with better validation.
+        /// </summary>
+        public async Task ResetPasswordAsync(ResetPasswordRequestDto input)
+        {
+            using var transaction = await _uow.BeginTransactionAsync();
+            try
+            {
+                var user = await GetUserWithVerificationsAsync(input.Email);
+                if (user == null)
+                    throw new InvalidOperationException("Invalid reset request.");
+
+                var verification = user.AccountVerifications
+                    .OrderByDescending(av => av.Date)
+                    .FirstOrDefault();
+
+                ValidateVerificationCode(verification, input.Code);
+
+                // Update password
+                user.PasswordHash = AuthHelpers.HashPassword(input.NewPassword);
+                verification!.CheckedOK = true; // Mark as used
+
+                _uow.Users.Update(user);
+                _uow.AccountVerifications.Update(verification);
+
+                await _uow.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                _logger.LogInformation("Password reset successful: {Email}", input.Email);
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Enhanced logout with better token validation.
+        /// </summary>
+        public async Task LogoutAsync(string accessToken)
+        {
+            if (string.IsNullOrWhiteSpace(accessToken))
+                throw new InvalidOperationException("Invalid token format.");
+
+            try
+            {
+                var handler = new JwtSecurityTokenHandler();
+                var jwtToken = handler.ReadJwtToken(accessToken);
+
+                // Only blacklist if token is still valid
+                if (jwtToken.ValidTo > DateTime.UtcNow)
+                {
+                    var blacklisted = new BlacklistToken
+                    {
+                        Token = accessToken,
+                        ExpiryDate = jwtToken.ValidTo
+                    };
+
+                    await _uow.BlacklistTokens.AddAsync(blacklisted);
+                    await _uow.SaveChangesAsync();
+                }
+
+                _logger.LogInformation("User logged out successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during logout process");
+                throw new InvalidOperationException("Logout failed.");
+            }
+        }
+
+        #region Private Helper Methods
+
+        private async Task<User?> GetUserWithVerificationsAsync(string email)
+        {
+            var users = await _uow.Users.FindAsync(u => u.EmailAddress == email);
+            var user = users.FirstOrDefault();
+
+            if (user != null)
+            {
+                // Load account verifications separately to avoid N+1 query
+                var verifications = await _uow.AccountVerifications.FindAsync(av => av.UserId == user.UserId);
+                user.AccountVerifications = verifications.ToList();
+            }
+
+            return user;
+        }
+
+        private async Task HandleExistingUserSignupAsync(User existingUser)
+        {
+            var lastVerification = existingUser.AccountVerifications
+                .OrderByDescending(av => av.Date)
+                .FirstOrDefault();
+
+            if (lastVerification?.CheckedOK == true)
+                throw new InvalidOperationException("User already exists and is verified.");
+
+            if (lastVerification != null)
+            {
+                var elapsed = DateTime.UtcNow - lastVerification.Date;
+                var cooldownMinutes = _securitySettings.Verification.ResendCodeCooldownMinutes;
+
+                if (elapsed.TotalMinutes < cooldownMinutes)
+                {
+                    var waitMinutes = cooldownMinutes - (int)elapsed.TotalMinutes;
+                    throw new InvalidOperationException(
+                        $"A verification code was already sent. Please wait {waitMinutes} minute(s).");
+                }
+
+                // Generate new code
+                lastVerification.Code = AuthHelpers.GenerateVerificationCode();
+                lastVerification.Date = DateTime.UtcNow;
+                _uow.AccountVerifications.Update(lastVerification);
+            }
+            else
+            {
+                // Create first verification
+                var newVerification = new AccountVerification
+                {
+                    UserId = existingUser.UserId,
+                    Code = AuthHelpers.GenerateVerificationCode(),
+                    CheckedOK = false,
+                    Date = DateTime.UtcNow
+                };
+                await _uow.AccountVerifications.AddAsync(newVerification);
+            }
+
+            await _uow.SaveChangesAsync();
+
+            // Send email
+            var codeToSend = existingUser.AccountVerifications
+                .OrderByDescending(av => av.Date)
+                .First().Code;
+
+            _emailQueueService.QueueResendEmail(existingUser.EmailAddress, existingUser.FullName, codeToSend);
+
+            throw new InvalidOperationException("User already exists. Please verify your email.");
+        }
+
+        private async Task CreateNewUserAsync(SignupRequestDto input)
+        {
+            // Create user
             var newUser = new User
             {
                 FullName = $"{input.FirstName} {input.LastName}",
@@ -127,9 +465,9 @@ namespace LearnQuestV1.Api.Services.Implementations
             };
 
             await _uow.Users.AddAsync(newUser);
-            await _uow.SaveAsync();
+            await _uow.SaveChangesAsync();
 
-            // 3. Create the first verification record
+            // Create verification
             var verificationCode = AuthHelpers.GenerateVerificationCode();
             var accountVerification = new AccountVerification
             {
@@ -138,137 +476,68 @@ namespace LearnQuestV1.Api.Services.Implementations
                 CheckedOK = false,
                 Date = DateTime.UtcNow
             };
-            await _uow.AccountVerifications.AddAsync(accountVerification);
-            await _uow.SaveAsync();
 
-            // 4. Queue the email with the verification code
+            await _uow.AccountVerifications.AddAsync(accountVerification);
+            await _uow.SaveChangesAsync();
+
+            // Queue email
             _emailQueueService.QueueEmail(newUser.EmailAddress, newUser.FullName, verificationCode);
 
-            // 5. Set a cookie to track which email is awaiting verification
-            var cookieOptions = new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
-                Expires = DateTime.UtcNow.AddMinutes(100)
-            };
-            _httpContextAccessor.HttpContext!
-                .Response
-                .Cookies
-                .Append("EmailForVerification", newUser.EmailAddress, cookieOptions);
+            // Set cookie
+            SetVerificationCookie(newUser.EmailAddress);
         }
 
-        /// <summary>
-        /// Verifies a user's account using a code stored in a cookie.
-        /// Throws InvalidOperationException if cookie is missing or code is invalid/expired.
-        /// </summary>
-        public async Task VerifyAccountAsync(VerifyAccountRequestDto input)
+        private void ValidateVerificationCode(AccountVerification? verification, string inputCode)
         {
-            var httpCtx = _httpContextAccessor.HttpContext
-                          ?? throw new InvalidOperationException("HTTP context is unavailable.");
+            if (verification == null)
+                throw new InvalidOperationException("Verification details missing.");
 
-            // 1) Read "EmailForVerification" cookie
-            if (!httpCtx.Request.Cookies.TryGetValue("EmailForVerification", out var email))
-                throw new InvalidOperationException("Verification email not found. Please register again.");
-
-            // 2) Find the user by email
-            var user = (await _uow.Users.FindAsync(u => u.EmailAddress == email))
-                        .FirstOrDefault()
-                       ?? throw new InvalidOperationException("User not found.");
-
-            // 3) Fetch all verification records for this user
-            var verifications = await _uow.AccountVerifications.FindAsync(av => av.UserId == user.UserId);
-            var lastVerif = verifications
-                            .OrderByDescending(av => av.Date)
-                            .FirstOrDefault()
-                          ?? throw new InvalidOperationException("Verification details missing.");
-
-            // 4) Check code match
-            if (!string.Equals(lastVerif.Code, input.VerificationCode, StringComparison.Ordinal))
+            if (!string.Equals(verification.Code, inputCode, StringComparison.Ordinal))
                 throw new InvalidOperationException("Invalid verification code.");
 
-            // 5) Check expiration (30 minutes)
-            if (lastVerif.Date.AddMinutes(30) < DateTime.UtcNow)
+            var expiryMinutes = _securitySettings.Verification.CodeExpiryMinutes;
+            if (verification.Date.AddMinutes(expiryMinutes) < DateTime.UtcNow)
                 throw new InvalidOperationException("Verification code expired.");
-
-            // 6) Activate account and mark verification as successful
-            user.IsActive = true;
-            lastVerif.CheckedOK = true;
-            _uow.Users.Update(user);
-            _uow.AccountVerifications.Update(lastVerif);
-
-            await _uow.SaveAsync();
-
-            // 7) Delete the cookie
-            httpCtx.Response.Cookies.Delete("EmailForVerification");
         }
 
-        /// <summary>
-        /// Resends a fresh verification code if at least 2 minutes have passed since last send.
-        /// Throws InvalidOperationException if cookie is missing or user not found.
-        /// </summary>
-        public async Task ResendVerificationCodeAsync()
+        private async Task CheckAccountLockoutAsync(string email)
         {
-            var httpCtx = _httpContextAccessor.HttpContext!;
-            if (!httpCtx.Request.Cookies.TryGetValue("EmailForVerification", out var email))
-                throw new InvalidOperationException("Verification email not found.");
-
-            var user = (await _uow.Users.FindAsync(u => u.EmailAddress == email))
-                       .FirstOrDefault()
-                      ?? throw new InvalidOperationException("User not found.");
-
-            var lastVerif = user.AccountVerifications.OrderByDescending(av => av.Date).FirstOrDefault();
-            if (lastVerif == null)
-                throw new InvalidOperationException("No verification details to resend.");
-
-            var elapsed = DateTime.UtcNow - lastVerif.Date;
-            if (elapsed.TotalMinutes < 2)
-                throw new InvalidOperationException("Please wait at least 2 minutes before resending.");
-
-            lastVerif.Code = AuthHelpers.GenerateVerificationCode();
-            lastVerif.Date = DateTime.UtcNow;
-            _uow.AccountVerifications.Update(lastVerif);
-            await _uow.SaveAsync();
-
-            _emailQueueService.QueueResendEmail(user.EmailAddress, user.FullName, lastVerif.Code);
-        }
-
-        /// <summary>
-        /// Authenticates a user and issues a JWT + refresh token.
-        /// Throws InvalidOperationException on invalid credentials, account status, or lockout.
-        /// </summary>
-        public async Task<SigninResponseDto> SigninAsync(SigninRequestDto input)
-        {
-            var email = input.Email;
             var failedMap = _failedLoginTracker.GetFailedAttempts();
             if (failedMap.TryGetValue(email, out var data) && data.LockoutEnd > DateTime.UtcNow)
             {
                 var remaining = data.LockoutEnd - DateTime.UtcNow;
-                throw new InvalidOperationException($"Too many failed attempts. Try again after {remaining:mm\\:ss}.");
+                throw new InvalidOperationException($"Account locked. Try again after {remaining:mm\\:ss}.");
             }
+        }
 
-            var user = (await _uow.Users.FindAsync(u => u.EmailAddress == email))
-                       .FirstOrDefault();
+        private async Task HandleFailedLoginAsync(string email)
+        {
+            _failedLoginTracker.RecordFailedAttempt(email);
+            var failedMap = _failedLoginTracker.GetFailedAttempts();
 
-            if (user == null || !AuthHelpers.VerifyPassword(input.Password, user.PasswordHash))
+            if (failedMap.TryGetValue(email, out var attemptData) &&
+                attemptData.Attempts >= _securitySettings.Lockout.MaxFailedAttempts)
             {
-                _failedLoginTracker.RecordFailedAttempt(email);
-                if (failedMap.TryGetValue(email, out var attemptData) && attemptData.Attempts >= 5)
-                {
-                    _failedLoginTracker.LockUser(email);
-                    throw new InvalidOperationException("Too many failed login attempts. Locked for 15 minutes.");
-                }
-                throw new InvalidOperationException("Invalid login credentials.");
+                _failedLoginTracker.LockUser(email);
+                throw new InvalidOperationException("Too many failed login attempts. Account locked.");
             }
+        }
 
-            var lastVerif = user.AccountVerifications.OrderByDescending(av => av.Date).FirstOrDefault();
-            if (lastVerif != null && !lastVerif.CheckedOK)
+        private async Task ValidateAccountStatusAsync(User user)
+        {
+            var lastVerification = user.AccountVerifications
+                .OrderByDescending(av => av.Date)
+                .FirstOrDefault();
+
+            if (lastVerification?.CheckedOK != true)
             {
                 var newCode = AuthHelpers.GenerateVerificationCode();
-                lastVerif.Code = newCode;
-                lastVerif.Date = DateTime.UtcNow;
-                _uow.AccountVerifications.Update(lastVerif);
-                await _uow.SaveAsync();
+                lastVerification!.Code = newCode;
+                lastVerification.Date = DateTime.UtcNow;
+
+                _uow.AccountVerifications.Update(lastVerification);
+                await _uow.SaveChangesAsync();
+
                 _emailQueueService.QueueResendEmail(user.EmailAddress, user.FullName, newCode);
 
                 throw new InvalidOperationException("Your account is not verified. A new code has been sent.");
@@ -279,195 +548,74 @@ namespace LearnQuestV1.Api.Services.Implementations
 
             if (!user.IsActive)
                 throw new InvalidOperationException("Your account is not activated.");
+        }
 
-            _failedLoginTracker.ResetFailedAttempts(email);
-
+        private async Task LogUserVisitAsync(int userId)
+        {
             var visit = new UserVisitHistory
             {
-                UserId = user.UserId,
+                UserId = userId,
                 LastVisit = DateTime.UtcNow
             };
             await _uow.UserVisitHistories.AddAsync(visit);
-            await _uow.SaveAsync();
+            await _uow.SaveChangesAsync();
+        }
 
-            var jwt = AuthHelpers.GenerateAccessToken(
+        private async Task<(JwtSecurityToken accessToken, RefreshToken refreshToken)> GenerateTokensAsync(User user)
+        {
+            var accessToken = AuthHelpers.GenerateAccessToken(
                 user.UserId.ToString(),
                 user.EmailAddress,
                 user.FullName,
                 user.Role,
-                _config
+                _config,
+                TimeSpan.FromHours(_securitySettings.Token.AccessTokenExpiryHours)
             );
 
             var refreshToken = new RefreshToken
             {
-                Token = Guid.NewGuid().ToString(),
-                ExpiryDate = DateTime.UtcNow.AddDays(7),
+                Token = AuthHelpers.GenerateSecureToken(),
+                ExpiryDate = DateTime.UtcNow.AddDays(_securitySettings.Token.RefreshTokenExpiryDays),
                 UserId = user.UserId
             };
 
             await _uow.RefreshTokens.AddAsync(refreshToken);
-            await _uow.SaveAsync();
+            await _uow.SaveChangesAsync();
 
-            return new SigninResponseDto
-            {
-                Token = new JwtSecurityTokenHandler().WriteToken(jwt),
-                Expiration = jwt.ValidTo,
-                Role = user.Role.ToString(),
-                RefreshToken = refreshToken.Token,
-                UserId = user.UserId
-            };
-
+            return (accessToken, refreshToken);
         }
 
-        /// <summary>
-        /// Exchanges an old refresh token for a new JWT + new refresh token.
-        /// Throws InvalidOperationException if token is invalid or expired.
-        /// </summary>
-        public async Task<RefreshTokenResponseDto> RefreshTokenAsync(RefreshTokenRequestDto input)
+        private async Task<RefreshToken> ValidateAndRevokeRefreshTokenAsync(string tokenString)
         {
-            var rt = (await _uow.RefreshTokens.FindAsync(r => r.Token == input.OldRefreshToken && !r.IsRevoked))
-                     .FirstOrDefault();
+            var refreshToken = (await _uow.RefreshTokens.FindAsync(r => r.Token == tokenString && !r.IsRevoked))
+                .FirstOrDefault();
 
-            if (rt == null || rt.ExpiryDate < DateTime.UtcNow)
+            if (refreshToken == null || refreshToken.ExpiryDate < DateTime.UtcNow)
                 throw new InvalidOperationException("Invalid or expired refresh token.");
 
-            rt.IsRevoked = true;
-            _uow.RefreshTokens.Update(rt);
+            refreshToken.IsRevoked = true;
+            _uow.RefreshTokens.Update(refreshToken);
+            await _uow.SaveChangesAsync();
 
-            var user = await _uow.Users.GetByIdAsync(rt.UserId);
-            var newJwt = AuthHelpers.GenerateAccessToken(
-                user!.UserId.ToString(),
-                user.EmailAddress,
-                user.FullName,
-                user.Role,
-                _config
-            );
+            return refreshToken;
+        }
 
-            var newRefresh = new RefreshToken
+        private void SetVerificationCookie(string email)
+        {
+            var cookieOptions = new CookieOptions
             {
-                Token = Guid.NewGuid().ToString(),
-                ExpiryDate = DateTime.UtcNow.AddDays(7),
-                UserId = user.UserId,
-
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict,
+                Expires = DateTime.UtcNow.AddMinutes(_securitySettings.Verification.CodeExpiryMinutes + 10)
             };
-            await _uow.RefreshTokens.AddAsync(newRefresh);
-            await _uow.SaveAsync();
 
-            return new RefreshTokenResponseDto
-            {
-                Token = new JwtSecurityTokenHandler().WriteToken(newJwt),
-                Expiration = newJwt.ValidTo,
-                RefreshToken = newRefresh.Token
-            };
+            _httpContextAccessor.HttpContext!
+                .Response
+                .Cookies
+                .Append("EmailForVerification", email, cookieOptions);
         }
 
-        /// <summary>
-        /// Automatically logs in a user from cookies containing email/password.
-        /// Throws InvalidOperationException if credentials or account status is invalid.
-        /// </summary>
-        public async Task<AutoLoginResponseDto> AutoLoginAsync(string email, string password)
-        {
-            if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password))
-                throw new InvalidOperationException("Auto-login failed: missing cookies.");
-
-            var user = (await _uow.Users.FindAsync(u => u.EmailAddress == email && !u.IsDeleted))
-                       .FirstOrDefault();
-
-            if (user == null || !AuthHelpers.VerifyPassword(password, user.PasswordHash))
-                throw new InvalidOperationException("Invalid credentials.");
-
-            var lastVerif = user.AccountVerifications.OrderByDescending(av => av.Date).FirstOrDefault();
-            if (lastVerif != null && !lastVerif.CheckedOK)
-                throw new InvalidOperationException("Your account is not verified.");
-
-            if (user.IsDeleted)
-                throw new InvalidOperationException("This account has been deleted.");
-
-            if (!user.IsActive)
-                throw new InvalidOperationException("Your account is not activated.");
-
-            var jwt = AuthHelpers.GenerateAccessToken(
-                user.UserId.ToString(),
-                user.EmailAddress,
-                user.FullName,
-                user.Role,
-                _config
-            );
-
-            return new AutoLoginResponseDto
-            {
-                Token = new JwtSecurityTokenHandler().WriteToken(jwt),
-                Expiration = jwt.ValidTo,
-                Role = user.Role.ToString()
-            };
-        }
-
-        /// <summary>
-        /// Initiates a password reset by sending a code and link to the user's email.
-        /// Throws InvalidOperationException if the email is not registered.
-        /// </summary>
-        public async Task ForgetPasswordAsync(ForgetPasswordRequestDto input)
-        {
-            var user = (await _uow.Users.FindAsync(u => u.EmailAddress == input.Email))
-                       .FirstOrDefault();
-
-            if (user == null)
-                throw new InvalidOperationException("User does not exist with the provided email.");
-
-            var code = AuthHelpers.GenerateVerificationCode();
-            var resetLink = $"https://yourfrontend.com/reset-password?email={user.EmailAddress}&code={code}";
-
-            _emailQueueService.QueueEmail(user.EmailAddress, user.FullName, code, resetLink);
-        }
-
-        /// <summary>
-        /// Resets the user's password after verifying the provided code.
-        /// Throws InvalidOperationException if code is invalid or expired.
-        /// </summary>
-        public async Task ResetPasswordAsync(ResetPasswordRequestDto input)
-        {
-            var user = (await _uow.Users.FindAsync(u => u.EmailAddress == input.Email))
-                       .FirstOrDefault();
-
-            if (user == null)
-                throw new InvalidOperationException("Invalid email or verification code.");
-
-            var lastVerif = user.AccountVerifications.OrderByDescending(av => av.Date).FirstOrDefault();
-            if (lastVerif == null)
-                throw new InvalidOperationException("Verification details missing.");
-
-            if (lastVerif.Code != input.Code || lastVerif.Date.AddMinutes(30) < DateTime.UtcNow)
-                throw new InvalidOperationException("Invalid or expired verification code.");
-
-            user.PasswordHash = AuthHelpers.HashPassword(input.NewPassword);
-            _uow.Users.Update(user);
-            await _uow.SaveAsync();
-        }
-
-        /// <summary>
-        /// Logs out a user by blacklisting their access token.
-        /// Throws InvalidOperationException if token format is invalid.
-        /// </summary>
-        public async Task LogoutAsync(string accessToken)
-        {
-            if (string.IsNullOrWhiteSpace(accessToken))
-                throw new InvalidOperationException("Invalid token format.");
-
-            var handler = new JwtSecurityTokenHandler();
-            var jwtToken = handler.ReadJwtToken(accessToken);
-
-            if (jwtToken.ValidTo > DateTime.UtcNow)
-            {
-                var blacklisted = new BlacklistToken
-                {
-                    Token = accessToken,
-                    ExpiryDate = jwtToken.ValidTo
-                };
-                await _uow.BlacklistTokens.AddAsync(blacklisted);
-                await _uow.SaveAsync();
-            }
-        }
-
-        
+        #endregion
     }
 }
