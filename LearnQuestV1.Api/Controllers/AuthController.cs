@@ -145,6 +145,8 @@ namespace LearnQuestV1.Api.Controllers
                 {
                     var autoLoginToken = await _autoLoginService.CreateAutoLoginTokenAsync(response.UserId);
                     SetAutoLoginCookie(autoLoginToken);
+
+                    response.AutoLoginToken = autoLoginToken; // نضيف التوكن للرد
                 }
 
                 // ✅ تسجيل المحاولة في سجل الأمان

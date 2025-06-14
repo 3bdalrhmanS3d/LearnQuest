@@ -8,6 +8,7 @@
         public string RefreshToken { get; set; } = null!;
 
         public int UserId { get; set; }
+        public string? AutoLoginToken { get; set; }
 
     }
 }

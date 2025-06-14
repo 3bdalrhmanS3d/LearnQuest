@@ -193,14 +193,12 @@ Content-Type: application/json
     "code": "AUTH_012",
     "message": "Operation completed successfully.",
     "data": {
-      "userId": 123,
-      "fullName": "John Doe",
-      "email": "user@example.com",
-      "role": 1,                   // 0=Admin,1=RegularUser
-      "accessToken": "<JWT>",
+      "token": "<JWT>",
+      "expiration": "2025-06-14T13:45:00Z",
       "refreshToken": "<REFRESH>",
-      "tokenExpiresAt": "2025-06-14T13:45:00Z",
-      "autoLoginToken": "<AUTO_LOGIN>" // only if rememberMe=true
+      "userId": 123,
+      "role": "RegularUser",
+      "autoLoginToken": "<AUTO_LOGIN_TOKEN>" // included when rememberMe=true
     },
     "timestamp": "2025-06-14T12:55:00Z"
   }
@@ -229,7 +227,7 @@ Content-Type: application/json
 > **Headers to set on client:**
 >
 > * `Authorization: Bearer <accessToken>` for protected calls
-> * If `rememberMe`, also store `AutoLoginToken` in HttpOnly cookie
+> * When `rememberMe=true`, the response body includes `autoLoginToken` AND the server sets a HttpOnly cookie `AutoLoginToken`. Use either for auto-login.
 
 ---
 
