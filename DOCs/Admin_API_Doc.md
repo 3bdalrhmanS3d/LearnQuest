@@ -1,4 +1,4 @@
-# 📄 LearnQuest - AdminController API Documentation (Frontend Contract)
+# LearnQuest - AdminController API Documentation (Frontend Contract)
 
 > **Base URL:** `https://localhost:7217/api/admin`
 
@@ -6,10 +6,9 @@
 
 ## 🔐 Authentication
 
-All endpoints in this controller require a valid **Bearer** token with **Admin** role.
-Include header:
+All endpoints require a valid Bearer token with Admin role.
 
-```
+```http
 Authorization: Bearer <accessToken>
 ```
 
@@ -17,104 +16,108 @@ Authorization: Bearer <accessToken>
 
 ## 🔗 Endpoints Overview
 
-| Action                              | Endpoint                            | Method | Auth | Description                                |
-| ----------------------------------- | ----------------------------------- | ------ | ---- | ------------------------------------------ |
-| Admin Dashboard                     | `/dashboard`                        | GET    | Yes  | Welcome message and basic admin info       |
-| Get All Users                       | `/all-users`                        | GET    | Yes  | Retrieve all users grouped by verification |
-| Get Basic User Info                 | `/get-basic-user-info/{userId}`     | GET    | Yes  | Fetch core profile & last login of a user  |
-| Promote to Instructor               | `/make-instructor/{userId}`         | POST   | Yes  | Elevate user to **Instructor** role        |
-| Promote to Admin                    | `/make-admin/{userId}`              | POST   | Yes  | Elevate user to **Admin** role             |
-| Demote to Regular User              | `/make-regular-user/{userId}`       | POST   | Yes  | Demote user to **RegularUser** role        |
-| Soft Delete User                    | `/delete-user/{userId}`             | DELETE | Yes  | Mark user as deleted (soft delete)         |
-| Recover Soft-Deleted User           | `/recover-user/{userId}`            | POST   | Yes  | Restore a previously soft-deleted user     |
-| Toggle User Activation              | `/toggle-user-activation/{userId}`  | POST   | Yes  | Enable/disable a user account              |
-| Get Admin Actions Log               | `/all-admin-actions`                | GET    | Yes  | Retrieve recent admin action logs          |
-| Get User Visit History              | `/get-history-user?userId={userId}` | GET    | Yes  | Fetch visit history entries for a user     |
-| Send Notification to User(s)        | `/send-notification`                | POST   | Yes  | Send email & in-app notification           |
-| Get Current Admin Info (from token) | `/get-user-info`                    | GET    | Yes  | Retrieve admin’s own profile from token    |
+| Endpoint                            | Method | Description                            | Role  |
+| ----------------------------------- | ------ | -------------------------------------- | ----- |
+| `/dashboard`                        | GET    | Welcome message and token validation   | Admin |
+| `/all-users`                        | GET    | Retrieve users grouped by verification | Admin |
+| `/get-basic-user-info/{userId}`     | GET    | Basic user profile and visit info      | Admin |
+| `/make-instructor/{userId}`         | POST   | Promote user to Instructor             | Admin |
+| `/make-admin/{userId}`              | POST   | Promote user to Admin                  | Admin |
+| `/make-regular-user/{userId}`       | POST   | Demote user to Regular User            | Admin |
+| `/delete-user/{userId}`             | DELETE | Soft delete user                       | Admin |
+| `/recover-user/{userId}`            | POST   | Recover soft-deleted user              | Admin |
+| `/toggle-user-activation/{userId}`  | POST   | Enable/disable user                    | Admin |
+| `/all-admin-actions`                | GET    | List admin actions                     | Admin |
+| `/get-history-user?userId={userId}` | GET    | User visit history                     | Admin |
+| `/send-notification`                | POST   | Send notifications to user             | Admin |
+| `/get-user-info`                    | GET    | Current admin info                     | Admin |
 
 ---
 
-## 1️⃣ Admin Dashboard
+### 1. Admin Dashboard (`GET /dashboard`)
 
-**Endpoint:** `GET /dashboard`
+**Description:** Verifies admin token and returns welcome message.
 
-**Response 200 OK:**
+**Request Body:** None
+
+**Success Response:**
 
 ```json
 {
   "success": true,
+  "message": "Welcome to Admin Dashboard!",
   "data": {
-    "message": "Welcome to Admin Dashboard!",
     "adminId": 42,
     "timestamp": "2025-06-14T14:00:00Z"
   },
-  "error": null
+  "errors": null,
+  "timestamp": "2025-06-15T00:00:00Z",
+  "requestId": "abc123"
 }
 ```
 
 **Errors:**
 
-* `401 Unauthorized` invalid/missing token
-* `403 Forbidden` non-admin role
+* 401 Unauthorized
+* 403 Forbidden
 
 ---
 
-## 2️⃣ Get All Users (Grouped)
+### 2. Get All Users (`GET /all-users`)
 
-**Endpoint:** `GET /all-users`
+**Description:** List of verified and unverified users.
 
-**Description:** Returns counts and arrays of activated vs not activated users. Cached for 2 minutes.
+**Request Body:** None
 
-**Response 200 OK:**
+**Success Response:**
 
 ```json
 {
   "success": true,
+  "message": "Success",
   "data": {
-    "ActivatedCount": 10,
-    "ActivatedUsers": [ /* Array of AdminUserDto */ ],
-    "NotActivatedCount": 3,
-    "NotActivatedUsers": [ /* Array of AdminUserDto */ ]
+    "activatedCount": 1,
+    "activatedUsers": [
+      {
+        "userId": 1,
+        "fullName": "System Administrator",
+        "emailAddress": "admin@learnquest.com",
+        "role": "Admin",
+        "isVerified": true,
+        "createdAt": "2025-06-15T00:02:10.8907662",
+        "isActive": true,
+        "profilePhoto": null,
+        "isSystemProtected": false
+      }
+    ],
+    "notActivatedCount": 0,
+    "notActivatedUsers": []
   },
-  "error": null
-}
-```
-
-**AdminUserDto**:
-
-```json
-{
-  "userId": 1002,
-  "fullName": "Jane Doe",
-  "emailAddress": "jane@example.com",
-  "role": "RegularUser",
-  "isVerified": true,
-  "createdAt": "2025-02-01T10:00:00Z",
-  "isActive": true
+  "errors": null,
+  "timestamp": "2025-06-15T02:53:34.5382427Z",
+  "requestId": "e8911635"
 }
 ```
 
 **Errors:**
 
-* `401 Unauthorized` invalid token
-* `500 Internal Server Error` on failure
+* 401 Unauthorized
+* 500 Internal Server Error
 
 ---
 
-## 3️⃣ Get Basic User Info
+### 3. Get Basic User Info (`GET /get-basic-user-info/{userId}`)
 
-**Endpoint:** `GET /get-basic-user-info/{userId}`
+**Description:** Basic profile, details and last login.
 
-**URL Parameters:**
+**Request Body:** None
 
-* `userId` (int, required)
-
-**Response 200 OK:**
+**Success Response:**
 
 ```json
 {
   "success": true,
+  "message": "Success",
   "data": {
     "user": {
       "userId": 1002,
@@ -123,7 +126,7 @@ Authorization: Bearer <accessToken>
       "role": "RegularUser",
       "isActive": true,
       "createdAt": "2025-02-01T10:00:00Z",
-      "lastLoginAt": "2025-06-14T08:30:00Z", // nullable
+      "lastLoginAt": "2025-06-14T08:30:00Z",
       "details": {
         "birthDate": "1990-05-20",
         "educationLevel": "Bachelor's",
@@ -132,80 +135,122 @@ Authorization: Bearer <accessToken>
       }
     }
   },
-  "error": null
+  "errors": null,
+  "timestamp": "2025-06-15T02:53:34.5382427Z",
+  "requestId": "req-456"
 }
 ```
 
 **Errors:**
 
-* `400 Bad Request` invalid userId
-* `401 Unauthorized` invalid token
-* `404 Not Found` user does not exist
-* `500 Internal Server Error`
+* 400 Bad Request
+* 401 Unauthorized
+* 404 Not Found
+* 500 Internal Server Error
 
 ---
 
-## 4️⃣ Role Management
+### 4. Role Management
 
-### Promote to Instructor
+#### Promote to Instructor (`POST /make-instructor/{userId}`)
 
-* **Endpoint:** `POST /make-instructor/{userId}`
-* **Response 200:** `{ "success": true, "data": null }`
-* **Errors:** `400`, `404`, `401`, `500`
+#### Promote to Admin (`POST /make-admin/{userId}`)
 
-### Promote to Admin
+#### Demote to Regular User (`POST /make-regular-user/{userId}`)
 
-* **Endpoint:** `POST /make-admin/{userId}`
-* **Response 200:** `{ "success": true, "data": null }`
+**Request Body:** None
 
-### Demote to Regular User
-
-* **Endpoint:** `POST /make-regular-user/{userId}`
-* **Response 200:** `{ "success": true, "data": null }`
-
-*All three follow the same pattern:*
-
-* URL param `userId`
-* Cache invalidated for the user
-* Logged via AdminActionLogger
-
----
-
-## 5️⃣ Soft Delete & Recover
-
-### Soft Delete User
-
-* **Endpoint:** `DELETE /delete-user/{userId}`
-* **Response 200:** `{ "success": true, "data": null }`
-* **Errors:** `400`, `404`, `401`, `500`
-
-### Recover Soft-Deleted User
-
-* **Endpoint:** `POST /recover-user/{userId}`
-* **Response 200:** `{ "success": true, "data": null }`
-
-*Invalid operations throw `400`.*
-
----
-
-## 6️⃣ Toggle Activation
-
-* **Endpoint:** `POST /toggle-user-activation/{userId}`
-* **Response 200:** `{ "success": true, "data": null }`
-
----
-
-## 7️⃣ Admin Action Logs
-
-* **Endpoint:** `GET /all-admin-actions`
-* **Response 200 OK:**
+**Success Response:**
 
 ```json
 {
   "success": true,
+  "message": "User promoted successfully",
+  "data": null,
+  "errors": null,
+  "timestamp": "2025-06-15T02:53:34.5382427Z",
+  "requestId": "req-789"
+}
+```
+
+**Errors:**
+
+* 400 Invalid operation
+* 404 Not Found
+* 401 Unauthorized
+* 500 Internal Server Error
+
+---
+
+### 5. Soft Delete & Recover
+
+#### Delete User (`DELETE /delete-user/{userId}`)
+
+#### Recover User (`POST /recover-user/{userId}`)
+
+**Request Body:** None
+
+**Success Response:**
+
+```json
+{
+  "success": true,
+  "message": "User deleted/recovered successfully",
+  "data": null,
+  "errors": null,
+  "timestamp": "2025-06-15T02:53:34.5382427Z",
+  "requestId": "req-001"
+}
+```
+
+**Errors:**
+
+* 400 Invalid operation
+* 404 Not Found
+* 401 Unauthorized
+* 500 Internal Server Error
+
+---
+
+### 6. Toggle User Activation (`POST /toggle-user-activation/{userId}`)
+
+**Request Body:** None
+
+**Success Response:**
+
+```json
+{
+  "success": true,
+  "message": "User activation toggled successfully",
+  "data": null,
+  "errors": null,
+  "timestamp": "2025-06-15T02:53:34.5382427Z",
+  "requestId": "req-002"
+}
+```
+
+**Errors:**
+
+* 400 Invalid operation
+* 404 Not Found
+* 401 Unauthorized
+* 500 Internal Server Error
+
+---
+
+### 7. Admin Action Logs (`GET /all-admin-actions`)
+
+**Request Body:** None
+
+**Success Response:**
+
+```json
+{
+  "success": true,
+  "message": "Success",
   "data": {
-    "Count": 50,
-    "Logs": [
+    "count": 50,
+    "logs": [
       {
         "logId": 1,
         "adminName": "Admin User",
@@ -213,68 +258,124 @@ Authorization: Bearer <accessToken>
         "targetUserName": "Jane Doe",
         "targetUserEmail": "jane@example.com",
         "actionType": "MakeInstructor",
-        "actionDetails": "User jane@example.com promoted to Instructor",
+        "actionDetails": "User promoted to Instructor",
         "actionDate": "2025-06-14T09:00:00Z",
         "ipAddress": "192.168.1.10"
       }
     ]
   },
-  "error": null
+  "errors": null,
+  "timestamp": "2025-06-15T02:53:34.5382427Z",
+  "requestId": "req-003"
 }
 ```
 
-* Cached for 1 minute
+**Errors:**
+
+* 401 Unauthorized
+* 500 Internal Server Error
 
 ---
 
-## 8️⃣ User Visit History
+### 8. User Visit History (`GET /get-history-user?userId={userId}`)
 
-* **Endpoint:** `GET /get-history-user?userId={userId}`
-* **Response 200 OK:** array of `UserVisitHistory`
+**Request Body:** None
 
-```json
-[
-  { "id": 1, "userId": 1002, "lastVisit": "2025-06-14T08:30:00Z" },
-  ...
-]
-```
-
----
-
-## 9️⃣ Send Notification
-
-* **Endpoint:** `POST /send-notification`
-* **Request Body:**
-
-  ```json
-  {
-    "userId": 1002,                // required
-    "templateType": "AccountActivated", // optional enum
-    "subject": "string",          // required if no template
-    "message": "string"           // required if no template
-  }
-  ```
-* **Response 200:** `{ "success": true, "data": null }`
-* **Errors:** `400`, `404`, `401`, `500`
-
----
-
-## 🔟 Get Current Admin Info
-
-* **Endpoint:** `GET /get-user-info`
-* **Response 200 OK:**
+**Success Response:**
 
 ```json
 {
   "success": true,
-  "data": {
-    "message": "Admin retrieved successfully!",
-    "user": { /* BasicUserInfoDto */ }
-  },
-  "error": null
+  "message": "Success",
+  "data": [
+    { "id": 1, "userId": 1002, "lastVisit": "2025-06-14T08:30:00Z" }
+  ],
+  "errors": null,
+  "timestamp": "2025-06-15T02:53:34.5382427Z",
+  "requestId": "req-004"
 }
 ```
 
+**Errors:**
+
+* 401 Unauthorized
+* 500 Internal Server Error
+
 ---
 
-> *Generated on 2025-06-14*
+### 9. Send Notification (`POST /send-notification`)
+
+**Request Body:**
+
+```json
+{
+  "userId": 123,
+  "templateType": "AccountActivated", 
+  "subject": "Custom Subject", 
+  "message": "Custom Message"
+}
+```
+
+**Success Response:**
+
+```json
+{
+  "success": true,
+  "message": "Notification sent successfully",
+  "data": null,
+  "errors": null,
+  "timestamp": "2025-06-15T02:53:34.5382427Z",
+  "requestId": "req-005"
+}
+```
+
+**Errors:**
+
+* 400 Invalid input
+* 404 User not found
+* 401 Unauthorized
+* 500 Internal Server Error
+
+---
+
+### 10. Get Current Admin Info (`GET /get-user-info`)
+
+**Request Body:** None
+
+**Success Response:**
+
+```json
+{
+  "success": true,
+  "message": "Admin retrieved successfully!",
+  "data": {
+    "user": {
+      "userId": 42,
+      "fullName": "Admin User",
+      "emailAddress": "admin@learnquest.com",
+      "role": "Admin",
+      "isActive": true,
+      "createdAt": "2025-02-01T10:00:00Z",
+      "lastLoginAt": "2025-06-14T08:30:00Z",
+      "details": {
+        "birthDate": "1990-01-01",
+        "educationLevel": "Master's",
+        "nationality": "US",
+        "createdAt": "2025-02-01T10:00:00Z"
+      }
+    }
+  },
+  "errors": null,
+  "timestamp": "2025-06-15T02:53:34.5382427Z",
+  "requestId": "req-006"
+}
+```
+
+**Errors:**
+
+* 401 Unauthorized
+* 404 Admin not found
+
+---
+
+*Last updated: 2025-06-15*
