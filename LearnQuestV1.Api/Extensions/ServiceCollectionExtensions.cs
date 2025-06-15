@@ -58,6 +58,7 @@ namespace LearnQuestV1.Api.Extensions
             // Security Services
             services.AddScoped<IAutoLoginService, AutoLoginService>();
             services.AddScoped<ISecurityAuditLogger, SecurityAuditLogger>();
+            services.AddScoped<IAdminActionLogger, AdminActionLogger>();
 
             // Failed Login Tracker (Singleton for cross-request tracking)
             services.AddSingleton<IFailedLoginTracker, FailedLoginTracker>();

@@ -10,5 +10,6 @@
         public string ActionType { get; set; } = string.Empty;
         public string ActionDetails { get; set; } = string.Empty;
         public DateTime ActionDate { get; set; }
+        public string? IpAddress { get; set; }
     }
 }

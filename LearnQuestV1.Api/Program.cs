@@ -35,6 +35,7 @@ namespace LearnQuestV1.Api
             builder.Services.AddProjectDependencies();
             builder.Services.AddAutoMapperProfiles();
             builder.Services.AddQuizServices();
+            builder.Services.AddEnhancedAuthServices();
 
             // === ENHANCED AUTHENTICATION SERVICES ===
             builder.Services.AddSingleton<IFailedLoginTracker, FailedLoginTracker>();
