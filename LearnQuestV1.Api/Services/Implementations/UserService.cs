@@ -5,9 +5,11 @@ using LearnQuestV1.Api.DTOs.User.Response;
 using LearnQuestV1.Api.DTOs.Users.Request;
 using LearnQuestV1.Api.DTOs.Users.Response;
 using LearnQuestV1.Api.Services.Interfaces;
+using LearnQuestV1.Api.Utilities;
 using LearnQuestV1.Core.Enums;
 using LearnQuestV1.Core.Interfaces;
 using LearnQuestV1.Core.Models;
+using LearnQuestV1.Core.Models.CourseOrganization;
 using LearnQuestV1.Core.Models.Financial;
 using LearnQuestV1.Core.Models.LearningAndProgress;
 using LearnQuestV1.Core.Models.UserManagement;
@@ -1271,5 +1273,249 @@ namespace LearnQuestV1.Api.Services.Implementations
                 throw;
             }
         }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public async Task AddToFavoritesAsync(int userId, int courseId)
+        {
+            try
+            {
+                // Check if course exists
+                var course = await _uow.Courses.GetByIdAsync(courseId);
+                if (course == null || course.IsDeleted)
+                {
+                    _logger.LogWarning("Course {CourseId} not found or deleted", courseId);
+                    throw new KeyNotFoundException("Course not found");
+                }
+
+                // Check if already exists in favorites
+                bool alreadyFavorite = await _uow.FavoriteCourses.Query()
+                    .AnyAsync(f => f.UserId == userId && f.CourseId == courseId);
+
+                if (alreadyFavorite)
+                {
+                    _logger.LogWarning("Course {CourseId} already in favorites for user {UserId}", courseId, userId);
+                    throw new InvalidOperationException("Course already added to favorites");
+                }
+
+                // Add new favorite
+                var favorite = new FavoriteCourse
+                {
+                    UserId = userId,
+                    CourseId = courseId,
+                    AddedAt = DateTime.UtcNow
+                };
+
+                await _uow.FavoriteCourses.AddAsync(favorite);
+                await _uow.SaveAsync();
+
+                _logger.LogInformation("Course {CourseId} added to favorites for user {UserId}", courseId, userId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error adding course {CourseId} to favorites for user {UserId}", courseId, userId);
+                throw;
+            }
+        }
+
+        public async Task RemoveFromFavoritesAsync(int userId, int courseId)
+        {
+            try
+            {
+                // Check if exists in favorites
+                var favorite = await _uow.FavoriteCourses.Query()
+                    .FirstOrDefaultAsync(f => f.UserId == userId && f.CourseId == courseId);
+
+                if (favorite == null)
+                {
+                    _logger.LogWarning("Favorite course {CourseId} not found for user {UserId}", courseId, userId);
+                    throw new KeyNotFoundException("Course not found in favorites");
+                }
+
+                _uow.FavoriteCourses.Remove(favorite);
+                await _uow.SaveAsync();
+
+                _logger.LogInformation("Course {CourseId} removed from favorites for user {UserId}", courseId, userId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error removing course {CourseId} from favorites for user {UserId}", courseId, userId);
+                throw;
+            }
+        }
+
+        public async Task<ChangeUserNameResultDto> ChangeUserNameAsync(int userId, ChangeUserNameDto dto)
+        {
+            try
+            {
+                var user = await _uow.Users.GetByIdAsync(userId);
+                if (user == null || user.IsDeleted)
+                {
+                    _logger.LogWarning("User {UserId} not found for name change", userId);
+                    throw new KeyNotFoundException("User not found");
+                }
+
+                var oldName = user.FullName;
+                user.FullName = dto.NewFullName.Trim();
+
+                _uow.Users.Update(user);
+                await _uow.SaveAsync();
+
+                _logger.LogInformation("User {UserId} changed name from '{OldName}' to '{NewName}'",
+                    userId, oldName, dto.NewFullName);
+
+                // حسب نظامك الحالي نفترض إنه يحتاج Refresh للـ Token بعد الاسم الجديد:
+                bool requiresTokenRefresh = true;
+
+                return new ChangeUserNameResultDto
+                {
+                    Success = true,
+                    NewFullName = dto.NewFullName,
+                    RequiresTokenRefresh = requiresTokenRefresh,
+                    ChangedAt = DateTime.UtcNow
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error changing name for user {UserId}", userId);
+                throw;
+            }
+        }
+
+        public async Task ChangePasswordAsync(int userId, ChangePasswordDto dto)
+        {
+            try
+            {
+                // 1️⃣ تأكد إن اليوزر موجود
+                var user = await _uow.Users.GetByIdAsync(userId);
+                if (user == null || user.IsDeleted)
+                {
+                    _logger.LogWarning("User {UserId} not found for password change", userId);
+                    throw new KeyNotFoundException("User not found");
+                }
+
+                // 2️⃣ تحقق من الباسورد الحالي
+                bool isCurrentValid = AuthHelpers.VerifyPassword(dto.CurrentPassword, user.PasswordHash);
+                if (!isCurrentValid)
+                {
+                    _logger.LogWarning("Invalid current password provided for user {UserId}", userId);
+                    throw new UnauthorizedAccessException("Invalid current password");
+                }
+
+                // 3️⃣ عمل Hash للباسورد الجديد
+                string newPasswordHash = AuthHelpers.HashPassword(dto.NewPassword);
+
+                // 4️⃣ تحديث البيانات
+                user.PasswordHash = newPasswordHash;
+                
+                _uow.Users.Update(user);
+                await _uow.SaveAsync();
+
+                _logger.LogInformation("Password changed successfully for user {UserId}", userId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error changing password for user {UserId}", userId);
+                throw;
+            }
+        }
+
+        public async Task RevokeAllRefreshTokensAsync(int userId, string reason)
+        {
+            try
+            {
+                var tokens = await _uow.RefreshTokens.Query()
+                    .Where(rt => rt.UserId == userId && !rt.IsRevoked && rt.ExpiryDate > DateTime.UtcNow)
+                    .ToListAsync();
+
+                if (!tokens.Any())
+                {
+                    _logger.LogInformation("No active refresh tokens to revoke for user {UserId}", userId);
+                    return;
+                }
+
+                foreach (var token in tokens)
+                {
+                    token.IsRevoked = true;
+                }
+
+                await _uow.SaveAsync();
+
+                _logger.LogInformation("Revoked {TokenCount} refresh tokens for user {UserId}. Reason: {Reason}",
+                    tokens.Count, userId, reason);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error revoking refresh tokens for user {UserId}", userId);
+                throw;
+            }
+        }
+
+        public async Task<bool> VerifyCurrentPasswordAsync(int userId, string currentPassword)
+        {
+            try
+            {
+                var user = await _uow.Users.GetByIdAsync(userId);
+                if (user == null || user.IsDeleted)
+                {
+                    _logger.LogWarning("User {UserId} not found for password verification", userId);
+                    return false;
+                }
+
+                bool isValid = AuthHelpers.VerifyPassword(currentPassword, user.PasswordHash);
+                return isValid;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error verifying password for user {UserId}", userId);
+                return false;
+            }
+        }
+
+
+        public async Task<bool> IsCourseInFavoritesAsync(int userId, int courseId)
+        {
+            try
+            {
+                bool exists = await _uow.FavoriteCourses.Query()
+                    .AnyAsync(f => f.UserId == userId && f.CourseId == courseId);
+
+                return exists;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking favorite status for user {UserId} and course {CourseId}", userId, courseId);
+                return false;
+            }
+        }
+
+        public async Task<IEnumerable<UserActivityDto>> GetRecentActivitiesAsync(int userId, int limit = 10)
+        {
+            try
+            {
+                var activities = await _uow.SecurityAuditLogs.Query()
+                    .Where(log => log.UserId == userId)
+                    .OrderByDescending(log => log.Timestamp)
+                    .Take(limit)
+                    .Select(log => new UserActivityDto
+                    {
+                        ActivityType = log.EventType,
+                        Description = log.EventDetails ?? (log.Success ? "Action completed successfully" : "Failed action"),
+                        Timestamp = log.Timestamp,
+                        IpAddress = log.IpAddress,
+                        UserAgent = log.UserAgent
+                    })
+                    .ToListAsync();
+
+                return activities;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving recent activities for user {UserId}", userId);
+                return Enumerable.Empty<UserActivityDto>();
+            }
+        }
+
     }
 }

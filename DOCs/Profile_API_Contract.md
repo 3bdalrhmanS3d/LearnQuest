@@ -6,9 +6,9 @@
 
 ## 🔐 Authentication
 
-All endpoints require Bearer token.
+All endpoints require a valid Bearer token.
 
-* Roles allowed: `Admin`, `Instructor`, `RegularUser`
+**Allowed Roles:** `Admin`, `Instructor`, `RegularUser`
 
 ```http
 Authorization: Bearer <accessToken>
@@ -18,24 +18,29 @@ Authorization: Bearer <accessToken>
 
 ## 🔗 Endpoints Overview
 
-| Endpoint                       | Method | Description                |
-| ------------------------------ | ------ | -------------------------- |
-| `/dashboard`                   | GET    | Load user dashboard info   |
-| `/`                            | GET    | Get current user profile   |
-| `/update`                      | POST   | Update user profile        |
-| `/pay-course`                  | POST   | Register course payment    |
-| `/confirm-payment/{paymentId}` | POST   | Confirm payment and enroll |
-| `/my-courses`                  | GET    | Get enrolled courses       |
-| `/favorite-courses`            | GET    | Get favorite courses       |
-| `/upload-photo`                | POST   | Upload profile photo       |
-| `/delete-photo`                | DELETE | Delete profile photo       |
-| `/stats`                       | GET    | User statistics & progress |
+| Endpoint                       | Method | Description                           |
+| ------------------------------ | ------ | ------------------------------------- |
+| `/dashboard`                   | GET    | Load user dashboard info              |
+| `/`                            | GET    | Get current user profile              |
+| `/update`                      | POST   | Update user profile                   |
+| `/pay-course`                  | POST   | Register course payment               |
+| `/confirm-payment/{paymentId}` | POST   | Confirm payment and enroll            |
+| `/my-courses`                  | GET    | Get enrolled courses                  |
+| `/favorite-courses`            | GET    | Get favorite courses                  |
+| `/favorites/{courseId}`        | POST   | Add course to favorites               |
+| `/favorites/{courseId}`        | DELETE | Remove course from favorites          |
+| `/upload-photo`                | POST   | Upload profile photo                  |
+| `/delete-photo`                | DELETE | Delete profile photo                  |
+| `/change-name`                 | POST   | Change user full name                 |
+| `/change-password`             | POST   | Change user password                  |
+| `/stats`                       | GET    | User statistics & progress            |
+| `/recent-activities`           | GET    | Get recent user activities (limit 10) |
 
 ---
 
 ### 1️⃣ Get Dashboard (`GET /dashboard`)
 
-**Response:**
+**Response 200 OK:**
 
 ```json
 {
@@ -57,7 +62,7 @@ Authorization: Bearer <accessToken>
 
 ### 2️⃣ Get Profile (`GET /`)
 
-**Response:**
+**Response 200 OK:**
 
 ```json
 {
@@ -77,13 +82,13 @@ Authorization: Bearer <accessToken>
 }
 ```
 
-**Errors:** 401, 404, 400, 500
+**Errors:** `401 Unauthorized`, `404 Not Found`, `400 Bad Request`, `500 Internal Server Error`
 
 ---
 
 ### 3️⃣ Update Profile (`POST /update`)
 
-**Request:**
+**Request Body:**
 
 ```json
 {
@@ -93,7 +98,7 @@ Authorization: Bearer <accessToken>
 }
 ```
 
-**Response:**
+**Response 200 OK:**
 
 ```json
 {
@@ -103,13 +108,13 @@ Authorization: Bearer <accessToken>
 }
 ```
 
-**Errors:** Validation Errors, Invalid Dates
+**Errors:** Validation errors (`400 Bad Request`), Invalid dates
 
 ---
 
 ### 4️⃣ Pay For Course (`POST /pay-course`)
 
-**Request:**
+**Request Body:**
 
 ```json
 {
@@ -119,7 +124,7 @@ Authorization: Bearer <accessToken>
 }
 ```
 
-**Response:**
+**Response 200 OK:**
 
 ```json
 {
@@ -134,13 +139,13 @@ Authorization: Bearer <accessToken>
 }
 ```
 
-**Errors:** Validation, Course not found
+**Errors:** Validation errors (`400 Bad Request`), Course not found (`404 Not Found`)
 
 ---
 
 ### 5️⃣ Confirm Payment (`POST /confirm-payment/{paymentId}`)
 
-**Response:**
+**Response 200 OK:**
 
 ```json
 {
@@ -154,13 +159,13 @@ Authorization: Bearer <accessToken>
 }
 ```
 
-**Errors:** Payment not found, Invalid confirmation
+**Errors:** Payment not found (`404 Not Found`), Invalid confirmation (`400 Bad Request`)
 
 ---
 
 ### 6️⃣ My Courses (`GET /my-courses`)
 
-**Response:**
+**Response 200 OK:**
 
 ```json
 {
@@ -179,7 +184,7 @@ Authorization: Bearer <accessToken>
 
 ### 7️⃣ Favorite Courses (`GET /favorite-courses`)
 
-**Response:**
+**Response 200 OK:**
 
 ```json
 {
@@ -196,13 +201,51 @@ Authorization: Bearer <accessToken>
 
 ---
 
-### 8️⃣ Upload Profile Photo (`POST /upload-photo`)
+### 8️⃣ Add To Favorites (`POST /favorites/{courseId}`)
+
+**Response 200 OK:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Course added to favorites successfully",
+    "courseId": 202,
+    "addedAt": "2025-06-15T00:00:00Z"
+  }
+}
+```
+
+**Errors:** Course not found (`404 Not Found`), Already in favorites (`400 Bad Request`)
+
+---
+
+### 9️⃣ Remove From Favorites (`DELETE /favorites/{courseId}`)
+
+**Response 200 OK:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Course removed from favorites successfully",
+    "courseId": 202,
+    "removedAt": "2025-06-15T00:00:00Z"
+  }
+}
+```
+
+**Errors:** Not in favorites (`404 Not Found`)
+
+---
+
+### 🔟 Upload Profile Photo (`POST /upload-photo`)
 
 * **Request:** `multipart/form-data`
 * Allowed formats: `.jpg`, `.jpeg`, `.png`, `.gif`, `.webp`
-* Max file size: 5MB
+* Max file size: 5 MB
 
-**Response:**
+**Response 200 OK:**
 
 ```json
 {
@@ -216,13 +259,16 @@ Authorization: Bearer <accessToken>
 }
 ```
 
-**Errors:** 400, 413 Payload Too Large, Invalid file type
+**Errors:**
+
+* `400 Bad Request` (no file, invalid type)
+* `413 Payload Too Large`
 
 ---
 
-### 9️⃣ Delete Profile Photo (`DELETE /delete-photo`)
+### 1️⃣1️⃣ Delete Profile Photo (`DELETE /delete-photo`)
 
-**Response:**
+**Response 200 OK:**
 
 ```json
 {
@@ -237,9 +283,69 @@ Authorization: Bearer <accessToken>
 
 ---
 
-### 🔟 User Stats (`GET /stats`)
+### 1️⃣2️⃣ Change Name (`POST /change-name`)
 
-**Response:**
+**Request Body:**
+
+```json
+{
+  "newFullName": "Jane Smith",
+  "changeReason": "Updated my official name"
+}
+```
+
+**Response 200 OK:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "message": "User name changed successfully",
+    "newName": "Jane Smith",
+    "changedAt": "2025-06-15T00:00:00Z",
+    "requiresReLogin": true
+  }
+}
+```
+
+**Errors:** Validation errors (`400 Bad Request`), User not found (`404 Not Found`)
+
+---
+
+### 1️⃣3️⃣ Change Password (`POST /change-password`)
+
+**Request Body:**
+
+```json
+{
+  "currentPassword": "OldPass!23",
+  "newPassword": "NewPass!45",
+  "confirmPassword": "NewPass!45",
+  "changeReason": "Routine update"
+}
+```
+
+**Response 200 OK:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Password changed successfully. Please login again.",
+    "changedAt": "2025-06-15T00:00:00Z",
+    "requiresReLogin": true,
+    "allDevicesLoggedOut": true
+  }
+}
+```
+
+**Errors:** Validation errors (`400 Bad Request`), Invalid current password (`400 Bad Request`), User not found (`404 Not Found`)
+
+---
+
+### 1️⃣4️⃣ User Stats (`GET /stats`)
+
+**Response 200 OK:**
 
 ```json
 {
@@ -254,7 +360,7 @@ Authorization: Bearer <accessToken>
     "summary": {
       "totalActiveCourses": 5,
       "averageProgress": 75,
-      "completionRate": 3
+      "completionRate": 0.75
     }
   }
 }
@@ -262,13 +368,55 @@ Authorization: Bearer <accessToken>
 
 ---
 
+### 1️⃣5️⃣ Recent Activities (`GET /recent-activities`)
+
+**Response 200 OK:**
+
+```json
+{
+  "success": true,
+  "message": "Recent activities retrieved successfully",
+  "data": [
+    {
+      "activityType": "Login",
+      "description": "User logged in",
+      "timestamp": "2025-06-15T00:00:00Z",
+      "ipAddress": "127.0.0.1",
+      "userAgent": "PostmanRuntime/7.32.3",
+      "timeAgo": "Just now",
+      "activityIcon": "log-in",
+      "formattedTimestamp": "Jun 15, 2025 00:00"
+    }
+    // … up to 10
+  ]
+}
+```
+
+---
+
 ## 🔧 Common Error Responses
 
-* 401: Unauthorized (invalid token)
-* 404: Not Found (user/profile/payment not found)
-* 400: Validation errors
-* 500: Internal server errors
+* **401 Unauthorized**
+  Invalid or missing token.
+
+* **403 Forbidden**
+  Insufficient role/permissions.
+
+* **404 Not Found**
+  Resource not found (user, course, payment).
+
+* **400 Bad Request**
+  Validation or business rule errors.
+
+* **413 Payload Too Large**
+  Uploaded file exceeds size limit.
+
+* **500 Internal Server Error**
+  Unexpected errors.
 
 ---
 
 *Last Updated: 2025-06-15*
+
+```
+```

@@ -740,6 +740,271 @@ namespace LearnQuestV1.Api.Controllers
                 return StatusCode(500, ApiResponse.Error("An error occurred while retrieving your statistics"));
             }
         }
+
+        /// <summary>
+        /// Add course to user's favorites
+        /// </summary>
+        [HttpPost("favorites/{courseId:int}")]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+        [EnableRateLimiting("UpdatePolicy")]
+        public async Task<IActionResult> AddToFavorites([Range(1, int.MaxValue)] int courseId)
+        {
+            var userId = User.GetCurrentUserId();
+            if (userId == null)
+            {
+                _logger.LogWarning("Add to favorites attempted with invalid token from IP: {IP}",
+                    HttpContext.Connection.RemoteIpAddress);
+                await _securityAuditLogger.LogSecurityEventAsync("InvalidTokenAccess",
+                    "Add to favorites with invalid token", HttpContext, false);
+                return Unauthorized(ApiResponse.Error("Invalid or missing token"));
+            }
+
+            try
+            {
+                await _userService.AddToFavoritesAsync(userId.Value, courseId);
+
+                // Invalidate favorites cache
+                _cache.Remove($"user_favorites_{userId}");
+
+                await _securityAuditLogger.LogUserActionAsync(userId.Value, "CourseAddedToFavorites",
+                    $"User added course {courseId} to favorites", HttpContext);
+
+                _logger.LogInformation("Course {CourseId} added to favorites for user {UserId}", courseId, userId);
+
+                return Ok(ApiResponse.Success(new
+                {
+                    message = "Course added to favorites successfully",
+                    courseId = courseId,
+                    addedAt = DateTime.UtcNow
+                }));
+            }
+            catch (KeyNotFoundException ex)
+            {
+                _logger.LogWarning("Add to favorites failed for user {UserId}, course {CourseId}: {Message}",
+                    userId, courseId, ex.Message);
+                return NotFound(ApiResponse.Error(ex.Message));
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning("Invalid add to favorites operation for user {UserId}, course {CourseId}: {Message}",
+                    userId, courseId, ex.Message);
+                return BadRequest(ApiResponse.Error(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error adding course {CourseId} to favorites for user {UserId}", courseId, userId);
+                return StatusCode(500, ApiResponse.Error("An error occurred while adding course to favorites"));
+            }
+        }
+
+        /// <summary>
+        /// Remove course from user's favorites
+        /// </summary>
+        [HttpDelete("favorites/{courseId:int}")]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+        [EnableRateLimiting("UpdatePolicy")]
+        public async Task<IActionResult> RemoveFromFavorites([Range(1, int.MaxValue)] int courseId)
+        {
+            var userId = User.GetCurrentUserId();
+            if (userId == null)
+            {
+                _logger.LogWarning("Remove from favorites attempted with invalid token from IP: {IP}",
+                    HttpContext.Connection.RemoteIpAddress);
+                return Unauthorized(ApiResponse.Error("Invalid or missing token"));
+            }
+
+            try
+            {
+                await _userService.RemoveFromFavoritesAsync(userId.Value, courseId);
+
+                // Invalidate favorites cache
+                _cache.Remove($"user_favorites_{userId}");
+
+                await _securityAuditLogger.LogUserActionAsync(userId.Value, "CourseRemovedFromFavorites",
+                    $"User removed course {courseId} from favorites", HttpContext);
+
+                _logger.LogInformation("Course {CourseId} removed from favorites for user {UserId}", courseId, userId);
+
+                return Ok(ApiResponse.Success(new
+                {
+                    message = "Course removed from favorites successfully",
+                    courseId = courseId,
+                    removedAt = DateTime.UtcNow
+                }));
+            }
+            catch (KeyNotFoundException)
+            {
+                _logger.LogWarning("Remove from favorites failed - course {CourseId} not in favorites for user {UserId}",
+                    courseId, userId);
+                return NotFound(ApiResponse.Error("Course not found in favorites"));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error removing course {CourseId} from favorites for user {UserId}", courseId, userId);
+                return StatusCode(500, ApiResponse.Error("An error occurred while removing course from favorites"));
+            }
+        }
+
+        // =====================================================
+        // 2) تغيير اسم المستخدم - Change Username
+        // =====================================================
+
+        /// <summary>
+        /// Change user's full name
+        /// </summary>
+        [HttpPost("change-name")]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+        [EnableRateLimiting("UpdatePolicy")]
+        public async Task<IActionResult> ChangeUserName([FromBody] ChangeUserNameDto input)
+        {
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage));
+                _logger.LogWarning("Invalid change name request: {Errors}", string.Join(", ", errors));
+                return BadRequest(ApiResponse.ValidationError(ModelState));
+            }
+
+            var userId = User.GetCurrentUserId();
+            if (userId == null)
+            {
+                _logger.LogWarning("Change name attempted with invalid token from IP: {IP}",
+                    HttpContext.Connection.RemoteIpAddress);
+                await _securityAuditLogger.LogSecurityEventAsync("InvalidTokenAccess",
+                    "Change name with invalid token", HttpContext, false);
+                return Unauthorized(ApiResponse.Error("Invalid or missing token"));
+            }
+
+            try
+            {
+                var result = await _userService.ChangeUserNameAsync(userId.Value, input);
+
+                // Invalidate related caches
+                var cacheKeys = new[]
+                {
+            $"user_profile_{userId}_{User.Identity?.Name}",
+            $"user_profile_{userId}",
+        };
+
+                foreach (var key in cacheKeys)
+                {
+                    _cache.Remove(key);
+                }
+
+                await _securityAuditLogger.LogUserActionAsync(userId.Value, "UserNameChanged",
+                    $"User changed name from previous to: {input.NewFullName}", HttpContext);
+
+                _logger.LogInformation("User name changed successfully for user {UserId}", userId);
+
+                return Ok(ApiResponse.Success(new
+                {
+                    message = "User name changed successfully",
+                    newName = input.NewFullName,
+                    changedAt = DateTime.UtcNow,
+                    requiresReLogin = result.RequiresTokenRefresh // إذا كان يحتاج refresh للـ JWT
+                }));
+            }
+            catch (KeyNotFoundException)
+            {
+                _logger.LogWarning("Change name attempted for non-existent user {UserId}", userId);
+                return NotFound(ApiResponse.Error("User not found"));
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning("Invalid change name operation for user {UserId}: {Message}", userId, ex.Message);
+                return BadRequest(ApiResponse.Error(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error changing name for user {UserId}", userId);
+                return StatusCode(500, ApiResponse.Error("An error occurred while changing your name"));
+            }
+        }
+
+        // =====================================================
+        // 3) تغيير كلمة المرور - Change Password
+        // =====================================================
+
+        /// <summary>
+        /// Change user's password
+        /// </summary>
+        [HttpPost("change-password")]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+        [EnableRateLimiting("UpdatePolicy")]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto input)
+        {
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage));
+                _logger.LogWarning("Invalid change password request: {Errors}", string.Join(", ", errors));
+                return BadRequest(ApiResponse.ValidationError(ModelState));
+            }
+
+            var userId = User.GetCurrentUserId();
+            if (userId == null)
+            {
+                _logger.LogWarning("Change password attempted with invalid token from IP: {IP}",
+                    HttpContext.Connection.RemoteIpAddress);
+                await _securityAuditLogger.LogSecurityEventAsync("InvalidTokenAccess",
+                    "Change password with invalid token", HttpContext, false);
+                return Unauthorized(ApiResponse.Error("Invalid or missing token"));
+            }
+
+            try
+            {
+                await _userService.ChangePasswordAsync(userId.Value, input);
+
+                // إبطال جميع Refresh Tokens للأمان
+                await _userService.RevokeAllRefreshTokensAsync(userId.Value, "Password changed");
+
+                await _securityAuditLogger.LogPasswordChangeAsync(userId.Value,
+                    HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown");
+
+                _logger.LogInformation("Password changed successfully for user {UserId}", userId);
+
+                return Ok(ApiResponse.Success(new
+                {
+                    message = "Password changed successfully. Please login again.",
+                    changedAt = DateTime.UtcNow,
+                    requiresReLogin = true, // إجباري إعادة تسجيل الدخول
+                    allDevicesLoggedOut = true // تم تسجيل الخروج من جميع الأجهزة
+                }));
+            }
+            catch (KeyNotFoundException)
+            {
+                _logger.LogWarning("Change password attempted for non-existent user {UserId}", userId);
+                return NotFound(ApiResponse.Error("User not found"));
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning("Invalid change password operation for user {UserId}: {Message}", userId, ex.Message);
+                return BadRequest(ApiResponse.Error(ex.Message));
+            }
+            catch (UnauthorizedAccessException)
+            {
+                _logger.LogWarning("Invalid current password provided for user {UserId}", userId);
+                await _securityAuditLogger.LogSuspiciousActivityAsync(
+                    User.GetCurrentUserEmail() ?? "Unknown",
+                    "Invalid current password during password change",
+                    HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown");
+                return BadRequest(ApiResponse.Error("Current password is incorrect"));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error changing password for user {UserId}", userId);
+                return StatusCode(500, ApiResponse.Error("An error occurred while changing your password"));
+            }
+        }
     }
 
     /// <summary>

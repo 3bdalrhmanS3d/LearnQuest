@@ -243,5 +243,14 @@ namespace LearnQuestV1.Api.Services.Interfaces
         /// </summary>
         /// <param name="userId">The user's unique identifier</param>
         Task MarkAllNotificationsAsReadAsync(int userId);
+
+        Task AddToFavoritesAsync(int userId, int courseId);
+        Task RemoveFromFavoritesAsync(int userId, int courseId);
+        Task<ChangeUserNameResultDto> ChangeUserNameAsync(int userId, ChangeUserNameDto dto);
+        Task ChangePasswordAsync(int userId, ChangePasswordDto dto);
+        Task RevokeAllRefreshTokensAsync(int userId, string reason);
+        Task<bool> VerifyCurrentPasswordAsync(int userId, string currentPassword);
+        Task<bool> IsCourseInFavoritesAsync(int userId, int courseId);
+        Task<IEnumerable<UserActivityDto>> GetRecentActivitiesAsync(int userId, int limit = 10);
     }
 }
