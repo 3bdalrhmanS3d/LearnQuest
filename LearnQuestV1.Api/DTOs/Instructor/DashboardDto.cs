@@ -6,6 +6,24 @@
     public class DashboardDto
     {
         /// <summary>
+        /// The user role that generated this dashboard (Instructor/Admin)
+        /// </summary>
+        public string Role { get; set; } = string.Empty;
+
+        // Shared for both roles:
+        public DateTime GeneratedAt { get; set; } = DateTime.UtcNow;
+
+        // Admin-specific metrics:
+        public int? TotalUsers { get; set; }
+        public int? TotalStudents { get; set; }
+        public int? TotalInstructors { get; set; }
+        public int? TotalEnrollments { get; set; }
+        public int? ActiveCourses { get; set; }
+        public decimal? TotalRevenue { get; set; }
+
+        // Instructor-specific metrics:
+
+        /// <summary>
         /// Total number of courses owned by the instructor (excluding deleted courses).
         /// </summary>
         public int TotalCourses { get; set; }

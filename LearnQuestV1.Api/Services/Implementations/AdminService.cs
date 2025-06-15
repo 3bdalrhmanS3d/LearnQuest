@@ -359,9 +359,8 @@ namespace LearnQuestV1.Api.Services.Implementations
                 var totalEnrollments = await _uow.CourseEnrollments.Query().CountAsync();
                 var totalRevenue = await _uow.Payments.Query()
                     .Where(p => p.Status == PaymentStatus.Completed)
-                    .Select(p => p.Amount)
-                    .DefaultIfEmpty(0m)
-                    .SumAsync();
+                    .SumAsync(p => (decimal?)p.Amount) ?? 0;
+
 
                 return new SystemStatsDto
                 {
