@@ -10,8 +10,6 @@ namespace LearnQuestV1.Api.DTOs.Profile
 
         [Required(ErrorMessage = "New password is required")]
         [StringLength(100, MinimumLength = 8, ErrorMessage = "Password must be at least 8 characters long")]
-        [RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]",
-            ErrorMessage = "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character")]
         [DataType(DataType.Password)]
         public string NewPassword { get; set; } = string.Empty;
 

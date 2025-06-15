@@ -1395,7 +1395,6 @@ namespace LearnQuestV1.Api.Services.Implementations
                     throw new KeyNotFoundException("User not found");
                 }
 
-                // 2️⃣ تحقق من الباسورد الحالي
                 bool isCurrentValid = AuthHelpers.VerifyPassword(dto.CurrentPassword, user.PasswordHash);
                 if (!isCurrentValid)
                 {
