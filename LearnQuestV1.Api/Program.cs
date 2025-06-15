@@ -198,6 +198,7 @@ namespace LearnQuestV1.Api
             app.UseRateLimiting();
             app.UseCors("AllowReactApp");
             app.UseSession();
+            app.UseStaticFiles();
             app.UseMiddleware<ExceptionHandlingMiddleware>();
             app.UseAuthentication();
             app.UseAuthorization();

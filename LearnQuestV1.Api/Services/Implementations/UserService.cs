@@ -14,9 +14,9 @@ using LearnQuestV1.Core.Models.UserManagement;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
-
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -27,11 +27,13 @@ namespace LearnQuestV1.Api.Services.Implementations
     {
         private readonly IUnitOfWork _uow;
         private readonly IWebHostEnvironment _env;
+        private readonly ILogger<UserService> _logger;
 
-        public UserService(IUnitOfWork uow, IWebHostEnvironment env)
+        public UserService(IUnitOfWork uow, IWebHostEnvironment env, ILogger<UserService> logger)
         {
             _uow = uow;
             _env = env;
+            _logger = logger;
         }
 
         // =====================================================
@@ -45,40 +47,59 @@ namespace LearnQuestV1.Api.Services.Implementations
         /// </summary>
         public async Task<UserProfileDto> GetUserProfileAsync(int userId)
         {
-            // Include UserDetail and UserProgresses → Course for each progress
-            var user = await _uow.Users.Query()
-                .Include(u => u.UserDetail)
-                .Include(u => u.UserProgresses)
-                    .ThenInclude(up => up.Course)
-                .FirstOrDefaultAsync(u => u.UserId == userId);
-
-            if (user == null)
-                throw new KeyNotFoundException($"User with ID {userId} not found.");
-
-            if (user.UserDetail == null)
-                throw new InvalidOperationException($"UserDetail for user ID {userId} is missing.");
-
-            var progressDtos = user.UserProgresses.Select(up => new UserProgressDto
+            try
             {
-                CourseId = up.CourseId,
-                CourseName = up.Course?.CourseName ?? string.Empty,
-                CurrentLevelId = up.CurrentLevelId,
-                CurrentSectionId = up.CurrentSectionId,
-                LastUpdated = up.LastUpdated
-            }).ToList();
+                _logger.LogInformation("Retrieving profile for user {UserId}", userId);
 
-            return new UserProfileDto
+                // Include UserDetail and UserProgresses → Course for each progress
+                var user = await _uow.Users.Query()
+                    .Include(u => u.UserDetail)
+                    .Include(u => u.UserProgresses)
+                        .ThenInclude(up => up.Course)
+                    .FirstOrDefaultAsync(u => u.UserId == userId);
+
+                if (user == null)
+                {
+                    _logger.LogWarning("User with ID {UserId} not found", userId);
+                    throw new KeyNotFoundException($"User with ID {userId} not found.");
+                }
+
+                if (user.UserDetail == null)
+                {
+                    _logger.LogWarning("UserDetail for user ID {UserId} is missing", userId);
+                    throw new InvalidOperationException($"UserDetail for user ID {userId} is missing.");
+                }
+
+                var progressDtos = user.UserProgresses.Select(up => new UserProgressDto
+                {
+                    CourseId = up.CourseId,
+                    CourseName = up.Course?.CourseName ?? string.Empty,
+                    CurrentLevelId = up.CurrentLevelId,
+                    CurrentSectionId = up.CurrentSectionId,
+                    LastUpdated = up.LastUpdated
+                }).ToList();
+
+                var profile = new UserProfileDto
+                {
+                    FullName = user.FullName,
+                    EmailAddress = user.EmailAddress,
+                    Role = user.Role.ToString(),
+                    ProfilePhoto = user.ProfilePhoto ?? string.Empty,
+                    CreatedAt = user.CreatedAt,
+                    BirthDate = user.UserDetail.BirthDate,
+                    Edu = user.UserDetail.EducationLevel,
+                    National = user.UserDetail.Nationality,
+                    Progress = progressDtos
+                };
+
+                _logger.LogInformation("Profile retrieved successfully for user {UserId}", userId);
+                return profile;
+            }
+            catch (Exception ex) when (!(ex is KeyNotFoundException || ex is InvalidOperationException))
             {
-                FullName = user.FullName,
-                EmailAddress = user.EmailAddress,
-                Role = user.Role.ToString(),
-                ProfilePhoto = user.ProfilePhoto ?? string.Empty,
-                CreatedAt = user.CreatedAt,
-                BirthDate = user.UserDetail.BirthDate,
-                Edu = user.UserDetail.EducationLevel,
-                National = user.UserDetail.Nationality,
-                Progress = progressDtos
-            };
+                _logger.LogError(ex, "Error retrieving profile for user {UserId}", userId);
+                throw;
+            }
         }
 
         /// <summary>
@@ -87,34 +108,50 @@ namespace LearnQuestV1.Api.Services.Implementations
         /// </summary>
         public async Task UpdateUserProfileAsync(int userId, UserProfileUpdateDto dto)
         {
-            var user = await _uow.Users.GetByIdAsync(userId);
-            if (user == null)
-                throw new KeyNotFoundException($"User with ID {userId} not found.");
-
-            var detail = (await _uow.UserDetails.FindAsync(d => d.UserId == userId))
-                         .FirstOrDefault();
-
-            if (detail == null)
+            try
             {
-                detail = new UserDetail
+                _logger.LogInformation("Updating profile for user {UserId}", userId);
+
+                var user = await _uow.Users.GetByIdAsync(userId);
+                if (user == null)
                 {
-                    UserId = userId,
-                    BirthDate = dto.BirthDate,
-                    EducationLevel = dto.Edu,
-                    Nationality = dto.National,
-                    CreatedAt = DateTime.UtcNow
-                };
-                await _uow.UserDetails.AddAsync(detail);
-            }
-            else
-            {
-                detail.BirthDate = dto.BirthDate;
-                detail.EducationLevel = dto.Edu;
-                detail.Nationality = dto.National;
-                _uow.UserDetails.Update(detail);
-            }
+                    _logger.LogWarning("User with ID {UserId} not found for profile update", userId);
+                    throw new KeyNotFoundException($"User with ID {userId} not found.");
+                }
 
-            await _uow.SaveAsync();
+                var detail = (await _uow.UserDetails.FindAsync(d => d.UserId == userId))
+                             .FirstOrDefault();
+
+                if (detail == null)
+                {
+                    detail = new UserDetail
+                    {
+                        UserId = userId,
+                        BirthDate = dto.BirthDate,
+                        EducationLevel = dto.Edu,
+                        Nationality = dto.National,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    await _uow.UserDetails.AddAsync(detail);
+                    _logger.LogInformation("Created new UserDetail for user {UserId}", userId);
+                }
+                else
+                {
+                    detail.BirthDate = dto.BirthDate;
+                    detail.EducationLevel = dto.Edu;
+                    detail.Nationality = dto.National;
+                    _uow.UserDetails.Update(detail);
+                    _logger.LogInformation("Updated existing UserDetail for user {UserId}", userId);
+                }
+
+                await _uow.SaveAsync();
+                _logger.LogInformation("Profile update completed for user {UserId}", userId);
+            }
+            catch (Exception ex) when (!(ex is KeyNotFoundException))
+            {
+                _logger.LogError(ex, "Error updating profile for user {UserId}", userId);
+                throw;
+            }
         }
 
         // =====================================================
@@ -128,29 +165,49 @@ namespace LearnQuestV1.Api.Services.Implementations
         /// </summary>
         public async Task RegisterPaymentAsync(int userId, PaymentRequestDto dto)
         {
-            var course = await _uow.Courses.GetByIdAsync(dto.CourseId);
-            if (course == null)
-                throw new KeyNotFoundException($"Course with ID {dto.CourseId} not found.");
-
-            var existingPayment = (await _uow.Payments.FindAsync(p =>
-                p.UserId == userId &&
-                p.CourseId == dto.CourseId &&
-                p.Status == PaymentStatus.Completed))
-                .Any();
-            if (existingPayment)
-                throw new InvalidOperationException("You have already paid for this course.");
-
-            var payment = new Payment
+            try
             {
-                UserId = userId,
-                CourseId = dto.CourseId,
-                Amount = dto.Amount,
-                PaymentDate = DateTime.UtcNow,
-                Status = PaymentStatus.Pending,
-                TransactionId = dto.TransactionId
-            };
-            await _uow.Payments.AddAsync(payment);
-            await _uow.SaveAsync();
+                _logger.LogInformation("Registering payment for user {UserId}, course {CourseId}", userId, dto.CourseId);
+
+                var course = await _uow.Courses.GetByIdAsync(dto.CourseId);
+                if (course == null)
+                {
+                    _logger.LogWarning("Course with ID {CourseId} not found for payment", dto.CourseId);
+                    throw new KeyNotFoundException($"Course with ID {dto.CourseId} not found.");
+                }
+
+                var existingPayment = (await _uow.Payments.FindAsync(p =>
+                    p.UserId == userId &&
+                    p.CourseId == dto.CourseId &&
+                    p.Status == PaymentStatus.Completed))
+                    .Any();
+
+                if (existingPayment)
+                {
+                    _logger.LogWarning("User {UserId} already paid for course {CourseId}", userId, dto.CourseId);
+                    throw new InvalidOperationException("You have already paid for this course.");
+                }
+
+                var payment = new Payment
+                {
+                    UserId = userId,
+                    CourseId = dto.CourseId,
+                    Amount = dto.Amount,
+                    PaymentDate = DateTime.UtcNow,
+                    Status = PaymentStatus.Pending,
+                    TransactionId = dto.TransactionId
+                };
+
+                await _uow.Payments.AddAsync(payment);
+                await _uow.SaveAsync();
+
+                _logger.LogInformation("Payment registered successfully for user {UserId}, course {CourseId}", userId, dto.CourseId);
+            }
+            catch (Exception ex) when (!(ex is KeyNotFoundException || ex is InvalidOperationException))
+            {
+                _logger.LogError(ex, "Error registering payment for user {UserId}, course {CourseId}", userId, dto.CourseId);
+                throw;
+            }
         }
 
         /// <summary>
@@ -160,25 +217,49 @@ namespace LearnQuestV1.Api.Services.Implementations
         /// </summary>
         public async Task ConfirmPaymentAsync(int paymentId)
         {
-            var payment = await _uow.Payments.GetByIdAsync(paymentId);
-            if (payment == null)
-                throw new KeyNotFoundException($"Payment with ID {paymentId} not found.");
-
-            if (payment.Status == PaymentStatus.Completed)
-                throw new InvalidOperationException("Payment already completed.");
-
-            payment.Status = PaymentStatus.Completed;
-            _uow.Payments.Update(payment);
-            await _uow.SaveAsync();
-
-            var enrollment = new CourseEnrollment
+            try
             {
-                UserId = payment.UserId,
-                CourseId = payment.CourseId,
-                EnrolledAt = DateTime.UtcNow
-            };
-            await _uow.CourseEnrollments.AddAsync(enrollment);
-            await _uow.SaveAsync();
+                _logger.LogInformation("Confirming payment {PaymentId}", paymentId);
+
+                var payment = await _uow.Payments.GetByIdAsync(paymentId);
+                if (payment == null)
+                {
+                    _logger.LogWarning("Payment with ID {PaymentId} not found", paymentId);
+                    throw new KeyNotFoundException($"Payment with ID {paymentId} not found.");
+                }
+
+                if (payment.Status == PaymentStatus.Completed)
+                {
+                    _logger.LogWarning("Payment {PaymentId} already completed", paymentId);
+                    throw new InvalidOperationException("Payment already completed.");
+                }
+
+                payment.Status = PaymentStatus.Completed;
+                _uow.Payments.Update(payment);
+
+                // Check if enrollment already exists
+                var existingEnrollment = await _uow.CourseEnrollments.Query()
+                    .AnyAsync(e => e.UserId == payment.UserId && e.CourseId == payment.CourseId);
+
+                if (!existingEnrollment)
+                {
+                    var enrollment = new CourseEnrollment
+                    {
+                        UserId = payment.UserId,
+                        CourseId = payment.CourseId,
+                        EnrolledAt = DateTime.UtcNow
+                    };
+                    await _uow.CourseEnrollments.AddAsync(enrollment);
+                }
+
+                await _uow.SaveAsync();
+                _logger.LogInformation("Payment {PaymentId} confirmed and enrollment created", paymentId);
+            }
+            catch (Exception ex) when (!(ex is KeyNotFoundException || ex is InvalidOperationException))
+            {
+                _logger.LogError(ex, "Error confirming payment {PaymentId}", paymentId);
+                throw;
+            }
         }
 
         // =====================================================
@@ -191,31 +272,47 @@ namespace LearnQuestV1.Api.Services.Implementations
         /// </summary>
         public async Task<IEnumerable<MyCourseDto>> GetMyCoursesAsync(int userId)
         {
-            var enrollments = await _uow.CourseEnrollments.FindAsync(e => e.UserId == userId);
-            var result = new List<MyCourseDto>();
-
-            foreach (var e in enrollments)
+            try
             {
-                var course = await _uow.Courses.GetByIdAsync(e.CourseId);
-                if (course == null)
-                    continue;
+                _logger.LogInformation("Retrieving courses for user {UserId}", userId);
 
-                var isPaid = (await _uow.Payments.FindAsync(p =>
-                    p.UserId == userId && p.CourseId == e.CourseId && p.Status == PaymentStatus.Completed))
-                    .Any();
-                if (!isPaid)
-                    continue;
+                var enrollments = await _uow.CourseEnrollments.Query()
+                    .Include(e => e.Course)
+                    .Where(e => e.UserId == userId)
+                    .ToListAsync();
 
-                result.Add(new MyCourseDto
+                var result = new List<MyCourseDto>();
+
+                foreach (var e in enrollments)
                 {
-                    CourseId = e.CourseId,
-                    CourseName = course.CourseName,
-                    Description = course.Description,
-                    EnrolledAt = e.EnrolledAt
-                });
-            }
+                    if (e.Course == null)
+                        continue;
 
-            return result;
+                    var isPaid = await _uow.Payments.Query()
+                        .AnyAsync(p => p.UserId == userId &&
+                                 p.CourseId == e.CourseId &&
+                                 p.Status == PaymentStatus.Completed);
+
+                    if (!isPaid)
+                        continue;
+
+                    result.Add(new MyCourseDto
+                    {
+                        CourseId = e.CourseId,
+                        CourseName = e.Course.CourseName,
+                        Description = e.Course.Description,
+                        EnrolledAt = e.EnrolledAt
+                    });
+                }
+
+                _logger.LogInformation("Retrieved {CourseCount} courses for user {UserId}", result.Count, userId);
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving courses for user {UserId}", userId);
+                throw;
+            }
         }
 
         /// <summary>
@@ -224,26 +321,35 @@ namespace LearnQuestV1.Api.Services.Implementations
         /// </summary>
         public async Task<IEnumerable<CourseDto>> GetFavoriteCoursesAsync(int userId)
         {
-            var favorites = await _uow.FavoriteCourses.FindAsync(f => f.UserId == userId);
-            var list = new List<CourseDto>();
-
-            foreach (var f in favorites)
+            try
             {
-                var course = await _uow.Courses.GetByIdAsync(f.CourseId);
-                if (course == null)
-                    continue;
+                _logger.LogInformation("Retrieving favorite courses for user {UserId}", userId);
 
-                list.Add(new CourseDto
-                {
-                    CourseId = course.CourseId,
-                    CourseName = course.CourseName,
-                    Description = course.Description,
-                    CourseImage = course.CourseImage ?? string.Empty,
-                    CoursePrice = course.CoursePrice
-                });
+                var favorites = await _uow.FavoriteCourses.Query()
+                    .Include(f => f.Course)
+                    .Where(f => f.UserId == userId)
+                    .ToListAsync();
+
+                var list = favorites
+                    .Where(f => f.Course != null)
+                    .Select(f => new CourseDto
+                    {
+                        CourseId = f.Course.CourseId,
+                        CourseName = f.Course.CourseName,
+                        Description = f.Course.Description,
+                        CourseImage = f.Course.CourseImage ?? string.Empty,
+                        CoursePrice = f.Course.CoursePrice
+                    })
+                    .ToList();
+
+                _logger.LogInformation("Retrieved {FavoriteCount} favorite courses for user {UserId}", list.Count, userId);
+                return list;
             }
-
-            return list;
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving favorite courses for user {UserId}", userId);
+                throw;
+            }
         }
 
         // =====================================================
@@ -257,27 +363,59 @@ namespace LearnQuestV1.Api.Services.Implementations
         /// </summary>
         public async Task UploadProfilePhotoAsync(int userId, IFormFile file)
         {
-            var user = await _uow.Users.GetByIdAsync(userId);
-            if (user == null)
-                throw new KeyNotFoundException($"User with ID {userId} not found.");
+            try
+            {
+                _logger.LogInformation("Uploading profile photo for user {UserId}", userId);
 
-            if (file == null || file.Length == 0)
-                throw new InvalidOperationException("No file uploaded.");
+                var user = await _uow.Users.GetByIdAsync(userId);
+                if (user == null)
+                {
+                    _logger.LogWarning("User with ID {UserId} not found for photo upload", userId);
+                    throw new KeyNotFoundException($"User with ID {userId} not found.");
+                }
 
-            var uploadsFolder = Path.Combine(_env.WebRootPath, "uploads/profile-pictures");
-            if (!Directory.Exists(uploadsFolder))
-                Directory.CreateDirectory(uploadsFolder);
+                if (file == null || file.Length == 0)
+                {
+                    _logger.LogWarning("No file provided for photo upload by user {UserId}", userId);
+                    throw new InvalidOperationException("No file uploaded.");
+                }
 
-            var ext = Path.GetExtension(file.FileName);
-            var fileName = $"user_{userId}{ext}";
-            var filePath = Path.Combine(uploadsFolder, fileName);
+                var uploadsFolder = Path.Combine(_env.WebRootPath, "uploads/profile-pictures");
+                if (!Directory.Exists(uploadsFolder))
+                {
+                    Directory.CreateDirectory(uploadsFolder);
+                    _logger.LogInformation("Created uploads directory: {Directory}", uploadsFolder);
+                }
 
-            using var stream = new FileStream(filePath, FileMode.Create);
-            await file.CopyToAsync(stream);
+                // Delete old photo if exists
+                if (!string.IsNullOrEmpty(user.ProfilePhoto) && !user.ProfilePhoto.EndsWith("default.png"))
+                {
+                    var oldFilePath = Path.Combine(_env.WebRootPath, user.ProfilePhoto.TrimStart('/'));
+                    if (File.Exists(oldFilePath))
+                    {
+                        File.Delete(oldFilePath);
+                        _logger.LogInformation("Deleted old profile photo for user {UserId}", userId);
+                    }
+                }
 
-            user.ProfilePhoto = $"/uploads/profile-pictures/{fileName}";
-            _uow.Users.Update(user);
-            await _uow.SaveAsync();
+                var ext = Path.GetExtension(file.FileName);
+                var fileName = $"user_{userId}_{DateTime.UtcNow:yyyyMMddHHmmss}{ext}";
+                var filePath = Path.Combine(uploadsFolder, fileName);
+
+                using var stream = new FileStream(filePath, FileMode.Create);
+                await file.CopyToAsync(stream);
+
+                user.ProfilePhoto = $"/uploads/profile-pictures/{fileName}";
+                _uow.Users.Update(user);
+                await _uow.SaveAsync();
+
+                _logger.LogInformation("Profile photo uploaded successfully for user {UserId}", userId);
+            }
+            catch (Exception ex) when (!(ex is KeyNotFoundException || ex is InvalidOperationException))
+            {
+                _logger.LogError(ex, "Error uploading profile photo for user {UserId}", userId);
+                throw;
+            }
         }
 
         /// <summary>
@@ -287,20 +425,41 @@ namespace LearnQuestV1.Api.Services.Implementations
         /// </summary>
         public async Task DeleteProfilePhotoAsync(int userId)
         {
-            var user = await _uow.Users.GetByIdAsync(userId);
-            if (user == null)
-                throw new KeyNotFoundException($"User with ID {userId} not found.");
+            try
+            {
+                _logger.LogInformation("Deleting profile photo for user {UserId}", userId);
 
-            if (string.IsNullOrEmpty(user.ProfilePhoto) || user.ProfilePhoto.EndsWith("default.png"))
-                throw new InvalidOperationException("No custom profile photo to delete.");
+                var user = await _uow.Users.GetByIdAsync(userId);
+                if (user == null)
+                {
+                    _logger.LogWarning("User with ID {UserId} not found for photo deletion", userId);
+                    throw new KeyNotFoundException($"User with ID {userId} not found.");
+                }
 
-            var filePath = Path.Combine(_env.WebRootPath, user.ProfilePhoto.TrimStart('/'));
-            if (File.Exists(filePath))
-                File.Delete(filePath);
+                if (string.IsNullOrEmpty(user.ProfilePhoto) || user.ProfilePhoto.EndsWith("default.png"))
+                {
+                    _logger.LogWarning("No custom profile photo to delete for user {UserId}", userId);
+                    throw new InvalidOperationException("No custom profile photo to delete.");
+                }
 
-            user.ProfilePhoto = "/uploads/profile-pictures/default.png";
-            _uow.Users.Update(user);
-            await _uow.SaveAsync();
+                var filePath = Path.Combine(_env.WebRootPath, user.ProfilePhoto.TrimStart('/'));
+                if (File.Exists(filePath))
+                {
+                    File.Delete(filePath);
+                    _logger.LogInformation("Profile photo file deleted for user {UserId}", userId);
+                }
+
+                user.ProfilePhoto = "/uploads/profile-pictures/default.png";
+                _uow.Users.Update(user);
+                await _uow.SaveAsync();
+
+                _logger.LogInformation("Profile photo deleted and reset to default for user {UserId}", userId);
+            }
+            catch (Exception ex) when (!(ex is KeyNotFoundException || ex is InvalidOperationException))
+            {
+                _logger.LogError(ex, "Error deleting profile photo for user {UserId}", userId);
+                throw;
+            }
         }
 
         // =====================================================
@@ -313,22 +472,38 @@ namespace LearnQuestV1.Api.Services.Implementations
         /// </summary>
         public async Task<IEnumerable<TrackDto>> GetAllTracksAsync()
         {
-            var tracks = await _uow.CourseTracks.Query()
-                .Include(t => t.CourseTrackCourses)
-                    .ThenInclude(ctc => ctc.Course)
-                .ToListAsync();
-
-            if (!tracks.Any())
-                return Array.Empty<TrackDto>();
-
-            return tracks.Select(t => new TrackDto
+            try
             {
-                TrackId = t.TrackId,
-                TrackName = t.TrackName,
-                TrackDescription = t.TrackDescription ?? string.Empty,
-                CourseCount = t.CourseTrackCourses.Count(ctc =>
-                    !ctc.Course.IsDeleted && ctc.Course.IsActive)
-            }).ToList();
+                _logger.LogInformation("Retrieving all course tracks");
+
+                var tracks = await _uow.CourseTracks.Query()
+                    .Include(t => t.CourseTrackCourses)
+                        .ThenInclude(ctc => ctc.Course)
+                    .ToListAsync();
+
+                if (!tracks.Any())
+                {
+                    _logger.LogInformation("No course tracks found");
+                    return Array.Empty<TrackDto>();
+                }
+
+                var result = tracks.Select(t => new TrackDto
+                {
+                    TrackId = t.TrackId,
+                    TrackName = t.TrackName,
+                    TrackDescription = t.TrackDescription ?? string.Empty,
+                    CourseCount = t.CourseTrackCourses.Count(ctc =>
+                        !ctc.Course.IsDeleted && ctc.Course.IsActive)
+                }).ToList();
+
+                _logger.LogInformation("Retrieved {TrackCount} course tracks", result.Count);
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving course tracks");
+                throw;
+            }
         }
 
         /// <summary>
@@ -337,41 +512,57 @@ namespace LearnQuestV1.Api.Services.Implementations
         /// </summary>
         public async Task<TrackCoursesDto> GetCoursesInTrackAsync(int trackId)
         {
-            var track = await _uow.CourseTracks.Query()
-                .Include(t => t.CourseTrackCourses)
-                    .ThenInclude(ctc => ctc.Course)
-                        .ThenInclude(c => c.Instructor)
-                .Include(t => t.CourseTrackCourses)
-                    .ThenInclude(ctc => ctc.Course)
-                        .ThenInclude(c => c.Levels)
-                .FirstOrDefaultAsync(t => t.TrackId == trackId);
-
-            if (track == null)
-                throw new KeyNotFoundException($"Track with ID {trackId} not found.");
-
-            var courses = track.CourseTrackCourses
-                .Where(ctc => !ctc.Course.IsDeleted && ctc.Course.IsActive)
-                .Select(ctc => new CourseInTrackDto
-                {
-                    CourseId = ctc.Course.CourseId,
-                    CourseName = ctc.Course.CourseName,
-                    Description = ctc.Course.Description,
-                    CourseImage = ctc.Course.CourseImage ?? string.Empty,
-                    CoursePrice = ctc.Course.CoursePrice,
-                    CreatedAt = ctc.Course.CreatedAt,
-                    InstructorName = ctc.Course.Instructor.FullName,
-                    LevelsCount = ctc.Course.Levels?.Count ?? 0
-                })
-                .ToList();
-
-            return new TrackCoursesDto
+            try
             {
-                TrackId = track.TrackId,
-                TrackName = track.TrackName,
-                TrackDescription = track.TrackDescription ?? string.Empty,
-                TotalCourses = courses.Count,
-                Courses = courses
-            };
+                _logger.LogInformation("Retrieving courses for track {TrackId}", trackId);
+
+                var track = await _uow.CourseTracks.Query()
+                    .Include(t => t.CourseTrackCourses)
+                        .ThenInclude(ctc => ctc.Course)
+                            .ThenInclude(c => c.Instructor)
+                    .Include(t => t.CourseTrackCourses)
+                        .ThenInclude(ctc => ctc.Course)
+                            .ThenInclude(c => c.Levels)
+                    .FirstOrDefaultAsync(t => t.TrackId == trackId);
+
+                if (track == null)
+                {
+                    _logger.LogWarning("Track with ID {TrackId} not found", trackId);
+                    throw new KeyNotFoundException($"Track with ID {trackId} not found.");
+                }
+
+                var courses = track.CourseTrackCourses
+                    .Where(ctc => !ctc.Course.IsDeleted && ctc.Course.IsActive)
+                    .Select(ctc => new CourseInTrackDto
+                    {
+                        CourseId = ctc.Course.CourseId,
+                        CourseName = ctc.Course.CourseName,
+                        Description = ctc.Course.Description,
+                        CourseImage = ctc.Course.CourseImage ?? string.Empty,
+                        CoursePrice = ctc.Course.CoursePrice,
+                        CreatedAt = ctc.Course.CreatedAt,
+                        InstructorName = ctc.Course.Instructor.FullName,
+                        LevelsCount = ctc.Course.Levels?.Count ?? 0
+                    })
+                    .ToList();
+
+                var result = new TrackCoursesDto
+                {
+                    TrackId = track.TrackId,
+                    TrackName = track.TrackName,
+                    TrackDescription = track.TrackDescription ?? string.Empty,
+                    TotalCourses = courses.Count,
+                    Courses = courses
+                };
+
+                _logger.LogInformation("Retrieved {CourseCount} courses for track {TrackId}", courses.Count, trackId);
+                return result;
+            }
+            catch (Exception ex) when (!(ex is KeyNotFoundException))
+            {
+                _logger.LogError(ex, "Error retrieving courses for track {TrackId}", trackId);
+                throw;
+            }
         }
 
         // =====================================================
@@ -384,29 +575,45 @@ namespace LearnQuestV1.Api.Services.Implementations
         /// </summary>
         public async Task<IEnumerable<CourseDto>> SearchCoursesAsync(string? search)
         {
-            var query = _uow.Courses.Query()
-                .Where(c => !c.IsDeleted && c.IsActive);
-
-            if (!string.IsNullOrWhiteSpace(search))
+            try
             {
-                var lower = search.ToLower();
-                query = query.Where(c =>
-                    c.CourseName.ToLower().Contains(lower) ||
-                    c.Description.ToLower().Contains(lower));
+                _logger.LogInformation("Searching courses with query: {SearchQuery}", search ?? "empty");
+
+                var query = _uow.Courses.Query()
+                    .Where(c => !c.IsDeleted && c.IsActive);
+
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    var lower = search.ToLower();
+                    query = query.Where(c =>
+                        c.CourseName.ToLower().Contains(lower) ||
+                        c.Description.ToLower().Contains(lower));
+                }
+
+                var list = await query.ToListAsync();
+                if (!list.Any())
+                {
+                    _logger.LogInformation("No courses found for search query: {SearchQuery}", search ?? "empty");
+                    return Array.Empty<CourseDto>();
+                }
+
+                var result = list.Select(c => new CourseDto
+                {
+                    CourseId = c.CourseId,
+                    CourseName = c.CourseName,
+                    Description = c.Description,
+                    CourseImage = c.CourseImage ?? string.Empty,
+                    CoursePrice = c.CoursePrice
+                }).ToList();
+
+                _logger.LogInformation("Found {CourseCount} courses for search query: {SearchQuery}", result.Count, search ?? "empty");
+                return result;
             }
-
-            var list = await query.ToListAsync();
-            if (!list.Any())
-                return Array.Empty<CourseDto>();
-
-            return list.Select(c => new CourseDto
+            catch (Exception ex)
             {
-                CourseId = c.CourseId,
-                CourseName = c.CourseName,
-                Description = c.Description,
-                CourseImage = c.CourseImage ?? string.Empty,
-                CoursePrice = c.CoursePrice
-            }).ToList();
+                _logger.LogError(ex, "Error searching courses with query: {SearchQuery}", search ?? "empty");
+                throw;
+            }
         }
 
         // =====================================================
@@ -421,37 +628,56 @@ namespace LearnQuestV1.Api.Services.Implementations
         /// </summary>
         public async Task<LevelsResponseDto> GetCourseLevelsAsync(int userId, int courseId)
         {
-            var enrolled = await _uow.CourseEnrollments.Query()
-                .AnyAsync(e => e.UserId == userId && e.CourseId == courseId);
-            if (!enrolled)
-                throw new InvalidOperationException("User is not enrolled in this course.");
-
-            var course = await _uow.Courses.Query()
-                .Include(c => c.Levels.Where(l => !l.IsDeleted && l.IsVisible)
-                    .OrderBy(l => l.LevelOrder))
-                .FirstOrDefaultAsync(c => c.CourseId == courseId && !c.IsDeleted);
-
-            if (course == null)
-                throw new KeyNotFoundException($"Course with ID {courseId} not found.");
-
-            var levels = course.Levels.Select(l => new LevelDto
+            try
             {
-                LevelId = l.LevelId,
-                LevelName = l.LevelName,
-                LevelDetails = l.LevelDetails,
-                LevelOrder = l.LevelOrder,
-                IsVisible = l.IsVisible
-            }).ToList();
+                _logger.LogInformation("Retrieving levels for course {CourseId} for user {UserId}", courseId, userId);
 
-            return new LevelsResponseDto
+                var enrolled = await _uow.CourseEnrollments.Query()
+                    .AnyAsync(e => e.UserId == userId && e.CourseId == courseId);
+                if (!enrolled)
+                {
+                    _logger.LogWarning("User {UserId} not enrolled in course {CourseId}", userId, courseId);
+                    throw new InvalidOperationException("User is not enrolled in this course.");
+                }
+
+                var course = await _uow.Courses.Query()
+                    .Include(c => c.Levels.Where(l => !l.IsDeleted && l.IsVisible)
+                        .OrderBy(l => l.LevelOrder))
+                    .FirstOrDefaultAsync(c => c.CourseId == courseId && !c.IsDeleted);
+
+                if (course == null)
+                {
+                    _logger.LogWarning("Course with ID {CourseId} not found", courseId);
+                    throw new KeyNotFoundException($"Course with ID {courseId} not found.");
+                }
+
+                var levels = course.Levels.Select(l => new LevelDto
+                {
+                    LevelId = l.LevelId,
+                    LevelName = l.LevelName,
+                    LevelDetails = l.LevelDetails,
+                    LevelOrder = l.LevelOrder,
+                    IsVisible = l.IsVisible
+                }).ToList();
+
+                var result = new LevelsResponseDto
+                {
+                    CourseId = course.CourseId,
+                    CourseName = course.CourseName,
+                    Description = course.Description,
+                    CourseImage = course.CourseImage ?? string.Empty,
+                    LevelsCount = levels.Count,
+                    Levels = levels
+                };
+
+                _logger.LogInformation("Retrieved {LevelCount} levels for course {CourseId}", levels.Count, courseId);
+                return result;
+            }
+            catch (Exception ex) when (!(ex is KeyNotFoundException || ex is InvalidOperationException))
             {
-                CourseId = course.CourseId,
-                CourseName = course.CourseName,
-                Description = course.Description,
-                CourseImage = course.CourseImage ?? string.Empty,
-                LevelsCount = levels.Count,
-                Levels = levels
-            };
+                _logger.LogError(ex, "Error retrieving levels for course {CourseId} for user {UserId}", courseId, userId);
+                throw;
+            }
         }
 
         /// <summary>
@@ -462,44 +688,63 @@ namespace LearnQuestV1.Api.Services.Implementations
         /// </summary>
         public async Task<SectionsResponseDto> GetLevelSectionsAsync(int userId, int levelId)
         {
-            var level = await _uow.Levels.Query()
-                .Include(l => l.Sections.OrderBy(s => s.SectionOrder))
-                .Include(l => l.Course)
-                .FirstOrDefaultAsync(l => l.LevelId == levelId && !l.IsDeleted);
-
-            if (level == null)
-                throw new KeyNotFoundException($"Level with ID {levelId} not found.");
-
-            var enrolled = await _uow.CourseEnrollments.Query()
-                .AnyAsync(e => e.UserId == userId && e.CourseId == level.CourseId);
-            if (!enrolled)
-                throw new InvalidOperationException("User is not enrolled in this course.");
-
-            var userProgress = (await _uow.UserProgresses.FindAsync(p =>
-                    p.UserId == userId && p.CourseId == level.CourseId))
-                .FirstOrDefault();
-
-            var sections = level.Sections
-                .Where(s => !s.IsDeleted && s.IsVisible)
-                .Select(s => new SectionDto
-                {
-                    SectionId = s.SectionId,
-                    SectionName = s.SectionName,
-                    SectionOrder = s.SectionOrder,
-                    IsCurrent = userProgress != null && userProgress.CurrentSectionId == s.SectionId,
-                    IsCompleted = userProgress != null &&
-                                  s.SectionOrder <
-                                  level.Sections.First(sec => sec.SectionId == userProgress.CurrentSectionId).SectionOrder
-                })
-                .ToList();
-
-            return new SectionsResponseDto
+            try
             {
-                LevelId = level.LevelId,
-                LevelName = level.LevelName,
-                LevelDetails = level.LevelDetails,
-                Sections = sections
-            };
+                _logger.LogInformation("Retrieving sections for level {LevelId} for user {UserId}", levelId, userId);
+
+                var level = await _uow.Levels.Query()
+                    .Include(l => l.Sections.OrderBy(s => s.SectionOrder))
+                    .Include(l => l.Course)
+                    .FirstOrDefaultAsync(l => l.LevelId == levelId && !l.IsDeleted);
+
+                if (level == null)
+                {
+                    _logger.LogWarning("Level with ID {LevelId} not found", levelId);
+                    throw new KeyNotFoundException($"Level with ID {levelId} not found.");
+                }
+
+                var enrolled = await _uow.CourseEnrollments.Query()
+                    .AnyAsync(e => e.UserId == userId && e.CourseId == level.CourseId);
+                if (!enrolled)
+                {
+                    _logger.LogWarning("User {UserId} not enrolled in course for level {LevelId}", userId, levelId);
+                    throw new InvalidOperationException("User is not enrolled in this course.");
+                }
+
+                var userProgress = (await _uow.UserProgresses.FindAsync(p =>
+                        p.UserId == userId && p.CourseId == level.CourseId))
+                    .FirstOrDefault();
+
+                var sections = level.Sections
+                    .Where(s => !s.IsDeleted && s.IsVisible)
+                    .Select(s => new SectionDto
+                    {
+                        SectionId = s.SectionId,
+                        SectionName = s.SectionName,
+                        SectionOrder = s.SectionOrder,
+                        IsCurrent = userProgress != null && userProgress.CurrentSectionId == s.SectionId,
+                        IsCompleted = userProgress != null &&
+                                      s.SectionOrder <
+                                      level.Sections.First(sec => sec.SectionId == userProgress.CurrentSectionId).SectionOrder
+                    })
+                    .ToList();
+
+                var result = new SectionsResponseDto
+                {
+                    LevelId = level.LevelId,
+                    LevelName = level.LevelName,
+                    LevelDetails = level.LevelDetails,
+                    Sections = sections
+                };
+
+                _logger.LogInformation("Retrieved {SectionCount} sections for level {LevelId}", sections.Count, levelId);
+                return result;
+            }
+            catch (Exception ex) when (!(ex is KeyNotFoundException || ex is InvalidOperationException))
+            {
+                _logger.LogError(ex, "Error retrieving sections for level {LevelId} for user {UserId}", levelId, userId);
+                throw;
+            }
         }
 
         /// <summary>
@@ -510,38 +755,57 @@ namespace LearnQuestV1.Api.Services.Implementations
         /// </summary>
         public async Task<ContentsResponseDto> GetSectionContentsAsync(int userId, int sectionId)
         {
-            var section = await _uow.Sections.Query()
-                .Include(s => s.Level)
-                    .ThenInclude(l => l.Course)
-                .Include(s => s.Contents.Where(c => c.IsVisible).OrderBy(c => c.ContentOrder))
-                .FirstOrDefaultAsync(s => s.SectionId == sectionId && !s.IsDeleted && s.IsVisible);
-
-            if (section == null)
-                throw new KeyNotFoundException($"Section with ID {sectionId} not found.");
-
-            var enrolled = await _uow.CourseEnrollments.Query()
-                .AnyAsync(e => e.UserId == userId && e.CourseId == section.Level.CourseId);
-            if (!enrolled)
-                throw new InvalidOperationException("User is not enrolled in this course.");
-
-            var contents = section.Contents.Select(c => new ContentDto
+            try
             {
-                ContentId = c.ContentId,
-                Title = c.Title,
-                ContentType = c.ContentType.ToString(),
-                ContentText = c.ContentText ?? string.Empty,
-                ContentDoc = c.ContentDoc ?? string.Empty,
-                ContentUrl = c.ContentUrl ?? string.Empty,
-                DurationInMinutes = c.DurationInMinutes,
-                ContentDescription = c.ContentDescription ?? string.Empty
-            }).ToList();
+                _logger.LogInformation("Retrieving contents for section {SectionId} for user {UserId}", sectionId, userId);
 
-            return new ContentsResponseDto
+                var section = await _uow.Sections.Query()
+                    .Include(s => s.Level)
+                        .ThenInclude(l => l.Course)
+                    .Include(s => s.Contents.Where(c => c.IsVisible).OrderBy(c => c.ContentOrder))
+                    .FirstOrDefaultAsync(s => s.SectionId == sectionId && !s.IsDeleted && s.IsVisible);
+
+                if (section == null)
+                {
+                    _logger.LogWarning("Section with ID {SectionId} not found", sectionId);
+                    throw new KeyNotFoundException($"Section with ID {sectionId} not found.");
+                }
+
+                var enrolled = await _uow.CourseEnrollments.Query()
+                    .AnyAsync(e => e.UserId == userId && e.CourseId == section.Level.CourseId);
+                if (!enrolled)
+                {
+                    _logger.LogWarning("User {UserId} not enrolled in course for section {SectionId}", userId, sectionId);
+                    throw new InvalidOperationException("User is not enrolled in this course.");
+                }
+
+                var contents = section.Contents.Select(c => new ContentDto
+                {
+                    ContentId = c.ContentId,
+                    Title = c.Title,
+                    ContentType = c.ContentType.ToString(),
+                    ContentText = c.ContentText ?? string.Empty,
+                    ContentDoc = c.ContentDoc ?? string.Empty,
+                    ContentUrl = c.ContentUrl ?? string.Empty,
+                    DurationInMinutes = c.DurationInMinutes,
+                    ContentDescription = c.ContentDescription ?? string.Empty
+                }).ToList();
+
+                var result = new ContentsResponseDto
+                {
+                    SectionId = section.SectionId,
+                    SectionName = section.SectionName,
+                    Contents = contents
+                };
+
+                _logger.LogInformation("Retrieved {ContentCount} contents for section {SectionId}", contents.Count, sectionId);
+                return result;
+            }
+            catch (Exception ex) when (!(ex is KeyNotFoundException || ex is InvalidOperationException))
             {
-                SectionId = section.SectionId,
-                SectionName = section.SectionName,
-                Contents = contents
-            };
+                _logger.LogError(ex, "Error retrieving contents for section {SectionId} for user {UserId}", sectionId, userId);
+                throw;
+            }
         }
 
         // =====================================================
@@ -554,20 +818,37 @@ namespace LearnQuestV1.Api.Services.Implementations
         /// </summary>
         public async Task StartContentAsync(int userId, int contentId)
         {
-            var exists = (await _uow.UserContentActivities.FindAsync(a =>
-                a.UserId == userId && a.ContentId == contentId && a.EndTime == null))
-                .FirstOrDefault();
-            if (exists != null)
-                throw new InvalidOperationException("Content session already started and not yet ended.");
-
-            var activity = new UserContentActivity
+            try
             {
-                UserId = userId,
-                ContentId = contentId,
-                StartTime = DateTime.UtcNow
-            };
-            await _uow.UserContentActivities.AddAsync(activity);
-            await _uow.SaveAsync();
+                _logger.LogInformation("Starting content activity for user {UserId}, content {ContentId}", userId, contentId);
+
+                var exists = (await _uow.UserContentActivities.FindAsync(a =>
+                    a.UserId == userId && a.ContentId == contentId && a.EndTime == null))
+                    .FirstOrDefault();
+
+                if (exists != null)
+                {
+                    _logger.LogWarning("Content session already active for user {UserId}, content {ContentId}", userId, contentId);
+                    throw new InvalidOperationException("Content session already started and not yet ended.");
+                }
+
+                var activity = new UserContentActivity
+                {
+                    UserId = userId,
+                    ContentId = contentId,
+                    StartTime = DateTime.UtcNow
+                };
+
+                await _uow.UserContentActivities.AddAsync(activity);
+                await _uow.SaveAsync();
+
+                _logger.LogInformation("Content activity started for user {UserId}, content {ContentId}", userId, contentId);
+            }
+            catch (Exception ex) when (!(ex is InvalidOperationException))
+            {
+                _logger.LogError(ex, "Error starting content activity for user {UserId}, content {ContentId}", userId, contentId);
+                throw;
+            }
         }
 
         /// <summary>
@@ -576,15 +857,31 @@ namespace LearnQuestV1.Api.Services.Implementations
         /// </summary>
         public async Task EndContentAsync(int userId, int contentId)
         {
-            var activity = (await _uow.UserContentActivities.FindAsync(a =>
-                a.UserId == userId && a.ContentId == contentId && a.EndTime == null))
-                .FirstOrDefault();
-            if (activity == null)
-                throw new KeyNotFoundException("No active content session found to end.");
+            try
+            {
+                _logger.LogInformation("Ending content activity for user {UserId}, content {ContentId}", userId, contentId);
 
-            activity.EndTime = DateTime.UtcNow;
-            _uow.UserContentActivities.Update(activity);
-            await _uow.SaveAsync();
+                var activity = (await _uow.UserContentActivities.FindAsync(a =>
+                    a.UserId == userId && a.ContentId == contentId && a.EndTime == null))
+                    .FirstOrDefault();
+
+                if (activity == null)
+                {
+                    _logger.LogWarning("No active content session found for user {UserId}, content {ContentId}", userId, contentId);
+                    throw new KeyNotFoundException("No active content session found to end.");
+                }
+
+                activity.EndTime = DateTime.UtcNow;
+                _uow.UserContentActivities.Update(activity);
+                await _uow.SaveAsync();
+
+                _logger.LogInformation("Content activity ended for user {UserId}, content {ContentId}", userId, contentId);
+            }
+            catch (Exception ex) when (!(ex is KeyNotFoundException))
+            {
+                _logger.LogError(ex, "Error ending content activity for user {UserId}, content {ContentId}", userId, contentId);
+                throw;
+            }
         }
 
         // =====================================================
@@ -598,49 +895,72 @@ namespace LearnQuestV1.Api.Services.Implementations
         /// </summary>
         public async Task<CompleteSectionResultDto> CompleteSectionAsync(int userId, int currentSectionId)
         {
-            var current = await _uow.Sections.Query()
-                .Include(s => s.Level)
-                .FirstOrDefaultAsync(s => s.SectionId == currentSectionId);
-            if (current == null)
-                throw new KeyNotFoundException($"Section with ID {currentSectionId} not found.");
-
-            var allSections = await _uow.Sections.Query()
-                .Where(s => s.LevelId == current.LevelId)
-                .OrderBy(s => s.SectionOrder)
-                .ToListAsync();
-            var idx = allSections.FindIndex(s => s.SectionId == currentSectionId);
-            var next = idx + 1 < allSections.Count ? allSections[idx + 1] : null;
-
-            var progress = (await _uow.UserProgresses.FindAsync(p =>
-                p.UserId == userId && p.CourseId == current.Level.CourseId))
-                .FirstOrDefault();
-
-            if (progress == null)
+            try
             {
-                progress = new UserProgress
+                _logger.LogInformation("Completing section {SectionId} for user {UserId}", currentSectionId, userId);
+
+                var current = await _uow.Sections.Query()
+                    .Include(s => s.Level)
+                    .FirstOrDefaultAsync(s => s.SectionId == currentSectionId);
+
+                if (current == null)
                 {
-                    UserId = userId,
-                    CourseId = current.Level.CourseId,
-                    CurrentLevelId = current.LevelId,
-                    CurrentSectionId = next?.SectionId ?? currentSectionId,
-                    LastUpdated = DateTime.UtcNow
-                };
-                await _uow.UserProgresses.AddAsync(progress);
-            }
-            else
-            {
-                progress.CurrentLevelId = current.LevelId;
-                progress.CurrentSectionId = next?.SectionId ?? currentSectionId;
-                progress.LastUpdated = DateTime.UtcNow;
-                _uow.UserProgresses.Update(progress);
-            }
-            await _uow.SaveAsync();
+                    _logger.LogWarning("Section with ID {SectionId} not found", currentSectionId);
+                    throw new KeyNotFoundException($"Section with ID {currentSectionId} not found.");
+                }
 
-            return new CompleteSectionResultDto
+                var allSections = await _uow.Sections.Query()
+                    .Where(s => s.LevelId == current.LevelId)
+                    .OrderBy(s => s.SectionOrder)
+                    .ToListAsync();
+
+                var idx = allSections.FindIndex(s => s.SectionId == currentSectionId);
+                var next = idx + 1 < allSections.Count ? allSections[idx + 1] : null;
+
+                var progress = (await _uow.UserProgresses.FindAsync(p =>
+                    p.UserId == userId && p.CourseId == current.Level.CourseId))
+                    .FirstOrDefault();
+
+                if (progress == null)
+                {
+                    progress = new UserProgress
+                    {
+                        UserId = userId,
+                        CourseId = current.Level.CourseId,
+                        CurrentLevelId = current.LevelId,
+                        CurrentSectionId = next?.SectionId ?? currentSectionId,
+                        LastUpdated = DateTime.UtcNow
+                    };
+                    await _uow.UserProgresses.AddAsync(progress);
+                    _logger.LogInformation("Created new progress record for user {UserId}", userId);
+                }
+                else
+                {
+                    progress.CurrentLevelId = current.LevelId;
+                    progress.CurrentSectionId = next?.SectionId ?? currentSectionId;
+                    progress.LastUpdated = DateTime.UtcNow;
+                    _uow.UserProgresses.Update(progress);
+                    _logger.LogInformation("Updated progress record for user {UserId}", userId);
+                }
+
+                await _uow.SaveAsync();
+
+                var result = new CompleteSectionResultDto
+                {
+                    Message = next != null ? "Moved to next section." : "This was the last section in this level.",
+                    NextSectionId = next?.SectionId
+                };
+
+                _logger.LogInformation("Section {SectionId} completed for user {UserId}. Next section: {NextSectionId}",
+                    currentSectionId, userId, next?.SectionId);
+
+                return result;
+            }
+            catch (Exception ex) when (!(ex is KeyNotFoundException))
             {
-                Message = next != null ? "Moved to next section." : "This was the last section in this level.",
-                NextSectionId = next?.SectionId
-            };
+                _logger.LogError(ex, "Error completing section {SectionId} for user {UserId}", currentSectionId, userId);
+                throw;
+            }
         }
 
         /// <summary>
@@ -650,40 +970,68 @@ namespace LearnQuestV1.Api.Services.Implementations
         /// </summary>
         public async Task<NextSectionDto> GetNextSectionAsync(int userId, int courseId)
         {
-            var progress = (await _uow.UserProgresses.FindAsync(p =>
-                p.UserId == userId && p.CourseId == courseId))
-                .FirstOrDefault();
-            if (progress == null)
-                throw new KeyNotFoundException($"No progress record found for user {userId} in course {courseId}.");
-
-            var currentSection = await _uow.Sections.GetByIdAsync(progress.CurrentSectionId);
-            if (currentSection == null)
-                throw new KeyNotFoundException($"Section with ID {progress.CurrentSectionId} not found.");
-
-            var next = await _uow.Sections.Query()
-                .Where(s => s.LevelId == currentSection.LevelId && s.SectionOrder > currentSection.SectionOrder)
-                .OrderBy(s => s.SectionOrder)
-                .FirstOrDefaultAsync();
-
-            if (next != null)
-                return new NextSectionDto { SectionId = next.SectionId, SectionName = next.SectionName };
-
-            var nextLevel = await _uow.Levels.Query()
-                .Where(l => l.CourseId == courseId && l.LevelOrder > currentSection.Level.LevelOrder)
-                .OrderBy(l => l.LevelOrder)
-                .FirstOrDefaultAsync();
-
-            if (nextLevel != null)
+            try
             {
-                var firstSection = await _uow.Sections.Query()
-                    .Where(s => s.LevelId == nextLevel.LevelId)
+                _logger.LogInformation("Getting next section for user {UserId}, course {CourseId}", userId, courseId);
+
+                var progress = (await _uow.UserProgresses.FindAsync(p =>
+                    p.UserId == userId && p.CourseId == courseId))
+                    .FirstOrDefault();
+
+                if (progress == null)
+                {
+                    _logger.LogWarning("No progress record found for user {UserId}, course {CourseId}", userId, courseId);
+                    throw new KeyNotFoundException($"No progress record found for user {userId} in course {courseId}.");
+                }
+
+                var currentSection = await _uow.Sections.Query()
+                    .Include(s => s.Level)
+                    .FirstOrDefaultAsync(s => s.SectionId == progress.CurrentSectionId);
+
+                if (currentSection == null)
+                {
+                    _logger.LogWarning("Current section {SectionId} not found", progress.CurrentSectionId);
+                    throw new KeyNotFoundException($"Section with ID {progress.CurrentSectionId} not found.");
+                }
+
+                var next = await _uow.Sections.Query()
+                    .Where(s => s.LevelId == currentSection.LevelId && s.SectionOrder > currentSection.SectionOrder)
                     .OrderBy(s => s.SectionOrder)
                     .FirstOrDefaultAsync();
-                if (firstSection != null)
-                    return new NextSectionDto { SectionId = firstSection.SectionId, SectionName = firstSection.SectionName };
-            }
 
-            return new NextSectionDto { Message = "You have completed the course 🎉" };
+                if (next != null)
+                {
+                    _logger.LogInformation("Found next section {SectionId} in same level", next.SectionId);
+                    return new NextSectionDto { SectionId = next.SectionId, SectionName = next.SectionName };
+                }
+
+                var nextLevel = await _uow.Levels.Query()
+                    .Where(l => l.CourseId == courseId && l.LevelOrder > currentSection.Level.LevelOrder)
+                    .OrderBy(l => l.LevelOrder)
+                    .FirstOrDefaultAsync();
+
+                if (nextLevel != null)
+                {
+                    var firstSection = await _uow.Sections.Query()
+                        .Where(s => s.LevelId == nextLevel.LevelId)
+                        .OrderBy(s => s.SectionOrder)
+                        .FirstOrDefaultAsync();
+
+                    if (firstSection != null)
+                    {
+                        _logger.LogInformation("Found first section {SectionId} in next level", firstSection.SectionId);
+                        return new NextSectionDto { SectionId = firstSection.SectionId, SectionName = firstSection.SectionName };
+                    }
+                }
+
+                _logger.LogInformation("Course completed for user {UserId}, course {CourseId}", userId, courseId);
+                return new NextSectionDto { Message = "You have completed the course 🎉" };
+            }
+            catch (Exception ex) when (!(ex is KeyNotFoundException))
+            {
+                _logger.LogError(ex, "Error getting next section for user {UserId}, course {CourseId}", userId, courseId);
+                throw;
+            }
         }
 
         // =====================================================
@@ -698,49 +1046,64 @@ namespace LearnQuestV1.Api.Services.Implementations
         /// </summary>
         public async Task<UserStatsDto> GetUserStatsAsync(int userId)
         {
-            var enrolledCourseIds = (await _uow.CourseEnrollments.FindAsync(e => e.UserId == userId))
-                .Select(e => e.CourseId)
-                .ToList();
-
-            var completedSectionIds = (await _uow.UserContentActivities.FindAsync(a =>
-                    a.UserId == userId && a.EndTime != null))
-                .Select(a => a.Content.SectionId)
-                .Distinct()
-                .ToList();
-
-            var allProgress = await _uow.UserProgresses.Query()
-                .Where(p => p.UserId == userId)
-                .ToListAsync();
-
-            var progressDtos = new List<CourseProgressDto>();
-            foreach (var p in allProgress)
+            try
             {
-                var totalSections = await _uow.Sections.Query()
-                    .Where(s => s.Level.CourseId == p.CourseId && !s.IsDeleted && s.IsVisible)
-                    .CountAsync();
+                _logger.LogInformation("Retrieving statistics for user {UserId}", userId);
 
-                var currentOrder = await _uow.Sections.Query()
-                    .Where(s => s.SectionId == p.CurrentSectionId)
-                    .Select(s => s.SectionOrder)
-                    .FirstOrDefaultAsync();
+                var enrolledCourseIds = (await _uow.CourseEnrollments.FindAsync(e => e.UserId == userId))
+                    .Select(e => e.CourseId)
+                    .ToList();
 
-                var percentage = totalSections > 0
-                    ? (int)((double)currentOrder / totalSections * 100)
-                    : 0;
+                var completedSectionIds = (await _uow.UserContentActivities.FindAsync(a =>
+                        a.UserId == userId && a.EndTime != null))
+                    .Select(a => a.Content.SectionId)
+                    .Distinct()
+                    .ToList();
 
-                progressDtos.Add(new CourseProgressDto
+                var allProgress = await _uow.UserProgresses.Query()
+                    .Where(p => p.UserId == userId)
+                    .ToListAsync();
+
+                var progressDtos = new List<CourseProgressDto>();
+                foreach (var p in allProgress)
                 {
-                    CourseId = p.CourseId,
-                    ProgressPercentage = percentage
-                });
-            }
+                    var totalSections = await _uow.Sections.Query()
+                        .Where(s => s.Level.CourseId == p.CourseId && !s.IsDeleted && s.IsVisible)
+                        .CountAsync();
 
-            return new UserStatsDto
+                    var currentOrder = await _uow.Sections.Query()
+                        .Where(s => s.SectionId == p.CurrentSectionId)
+                        .Select(s => s.SectionOrder)
+                        .FirstOrDefaultAsync();
+
+                    var percentage = totalSections > 0
+                        ? (int)((double)currentOrder / totalSections * 100)
+                        : 0;
+
+                    progressDtos.Add(new CourseProgressDto
+                    {
+                        CourseId = p.CourseId,
+                        ProgressPercentage = percentage
+                    });
+                }
+
+                var result = new UserStatsDto
+                {
+                    SharedCourses = enrolledCourseIds.Count,
+                    CompletedSections = completedSectionIds.Count,
+                    Progress = progressDtos
+                };
+
+                _logger.LogInformation("Retrieved statistics for user {UserId}: {EnrolledCourses} courses, {CompletedSections} sections",
+                    userId, result.SharedCourses, result.CompletedSections);
+
+                return result;
+            }
+            catch (Exception ex)
             {
-                SharedCourses = enrolledCourseIds.Count,
-                CompletedSections = completedSectionIds.Count,
-                Progress = progressDtos
-            };
+                _logger.LogError(ex, "Error retrieving statistics for user {UserId}", userId);
+                throw;
+            }
         }
 
         /// <summary>
@@ -749,22 +1112,37 @@ namespace LearnQuestV1.Api.Services.Implementations
         /// </summary>
         public async Task<CourseCompletionDto> HasCompletedCourseAsync(int userId, int courseId)
         {
-            var totalSections = await _uow.Sections.Query()
-                .Where(s => s.Level.CourseId == courseId && !s.IsDeleted && s.IsVisible)
-                .CountAsync();
-
-            var completedCount = (await _uow.UserContentActivities.FindAsync(a =>
-                    a.UserId == userId && a.EndTime != null && a.Content.Section.Level.CourseId == courseId))
-                .Select(a => a.Content.SectionId)
-                .Distinct()
-                .Count();
-
-            return new CourseCompletionDto
+            try
             {
-                TotalSections = totalSections,
-                CompletedSections = completedCount,
-                IsCompleted = completedCount == totalSections
-            };
+                _logger.LogInformation("Checking course completion for user {UserId}, course {CourseId}", userId, courseId);
+
+                var totalSections = await _uow.Sections.Query()
+                    .Where(s => s.Level.CourseId == courseId && !s.IsDeleted && s.IsVisible)
+                    .CountAsync();
+
+                var completedCount = (await _uow.UserContentActivities.FindAsync(a =>
+                        a.UserId == userId && a.EndTime != null && a.Content.Section.Level.CourseId == courseId))
+                    .Select(a => a.Content.SectionId)
+                    .Distinct()
+                    .Count();
+
+                var result = new CourseCompletionDto
+                {
+                    TotalSections = totalSections,
+                    CompletedSections = completedCount,
+                    IsCompleted = completedCount == totalSections
+                };
+
+                _logger.LogInformation("Course completion for user {UserId}, course {CourseId}: {CompletedSections}/{TotalSections} = {IsCompleted}",
+                    userId, courseId, completedCount, totalSections, result.IsCompleted);
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking course completion for user {UserId}, course {CourseId}", userId, courseId);
+                throw;
+            }
         }
 
         // =====================================================
@@ -777,17 +1155,30 @@ namespace LearnQuestV1.Api.Services.Implementations
         /// </summary>
         public async Task<IEnumerable<NotificationDto>> GetUserNotificationsAsync(int userId)
         {
-            var notifications = (await _uow.Notifications.FindAsync(n => n.UserId == userId))
-                .OrderByDescending(n => n.CreatedAt)
-                .ToList();
-
-            return notifications.Select(n => new NotificationDto
+            try
             {
-                NotificationId = n.NotificationId,
-                Message = n.Message,
-                IsRead = n.IsRead,
-                CreatedAt = n.CreatedAt
-            }).ToList();
+                _logger.LogInformation("Retrieving notifications for user {UserId}", userId);
+
+                var notifications = (await _uow.Notifications.FindAsync(n => n.UserId == userId))
+                    .OrderByDescending(n => n.CreatedAt)
+                    .ToList();
+
+                var result = notifications.Select(n => new NotificationDto
+                {
+                    NotificationId = n.NotificationId,
+                    Message = n.Message,
+                    IsRead = n.IsRead,
+                    CreatedAt = n.CreatedAt
+                }).ToList();
+
+                _logger.LogInformation("Retrieved {NotificationCount} notifications for user {UserId}", result.Count, userId);
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving notifications for user {UserId}", userId);
+                throw;
+            }
         }
 
         /// <summary>
@@ -795,8 +1186,21 @@ namespace LearnQuestV1.Api.Services.Implementations
         /// </summary>
         public async Task<int> GetUnreadNotificationsCountAsync(int userId)
         {
-            return await _uow.Notifications.Query()
-                .CountAsync(n => n.UserId == userId && !n.IsRead);
+            try
+            {
+                _logger.LogInformation("Getting unread notifications count for user {UserId}", userId);
+
+                var count = await _uow.Notifications.Query()
+                    .CountAsync(n => n.UserId == userId && !n.IsRead);
+
+                _logger.LogInformation("User {UserId} has {UnreadCount} unread notifications", userId, count);
+                return count;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting unread notifications count for user {UserId}", userId);
+                throw;
+            }
         }
 
         /// <summary>
@@ -805,16 +1209,35 @@ namespace LearnQuestV1.Api.Services.Implementations
         /// </summary>
         public async Task MarkNotificationAsReadAsync(int userId, int notificationId)
         {
-            var notification = await _uow.Notifications.Query()
-                .FirstOrDefaultAsync(n => n.NotificationId == notificationId && n.UserId == userId);
-            if (notification == null)
-                throw new KeyNotFoundException($"Notification with ID {notificationId} not found.");
-
-            if (!notification.IsRead)
+            try
             {
-                notification.IsRead = true;
-                _uow.Notifications.Update(notification);
-                await _uow.SaveAsync();
+                _logger.LogInformation("Marking notification {NotificationId} as read for user {UserId}", notificationId, userId);
+
+                var notification = await _uow.Notifications.Query()
+                    .FirstOrDefaultAsync(n => n.NotificationId == notificationId && n.UserId == userId);
+
+                if (notification == null)
+                {
+                    _logger.LogWarning("Notification {NotificationId} not found for user {UserId}", notificationId, userId);
+                    throw new KeyNotFoundException($"Notification with ID {notificationId} not found.");
+                }
+
+                if (!notification.IsRead)
+                {
+                    notification.IsRead = true;
+                    _uow.Notifications.Update(notification);
+                    await _uow.SaveAsync();
+                    _logger.LogInformation("Notification {NotificationId} marked as read for user {UserId}", notificationId, userId);
+                }
+                else
+                {
+                    _logger.LogInformation("Notification {NotificationId} already read for user {UserId}", notificationId, userId);
+                }
+            }
+            catch (Exception ex) when (!(ex is KeyNotFoundException))
+            {
+                _logger.LogError(ex, "Error marking notification {NotificationId} as read for user {UserId}", notificationId, userId);
+                throw;
             }
         }
 
@@ -823,16 +1246,30 @@ namespace LearnQuestV1.Api.Services.Implementations
         /// </summary>
         public async Task MarkAllNotificationsAsReadAsync(int userId)
         {
-            var notifs = (await _uow.Notifications.FindAsync(n => n.UserId == userId && !n.IsRead))
-                .ToList();
+            try
+            {
+                _logger.LogInformation("Marking all notifications as read for user {UserId}", userId);
 
-            if (!notifs.Any())
-                return;
+                var notifs = (await _uow.Notifications.FindAsync(n => n.UserId == userId && !n.IsRead))
+                    .ToList();
 
-            foreach (var n in notifs)
-                n.IsRead = true;
+                if (!notifs.Any())
+                {
+                    _logger.LogInformation("No unread notifications found for user {UserId}", userId);
+                    return;
+                }
 
-            await _uow.SaveAsync();
+                foreach (var n in notifs)
+                    n.IsRead = true;
+
+                await _uow.SaveAsync();
+                _logger.LogInformation("Marked {NotificationCount} notifications as read for user {UserId}", notifs.Count, userId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error marking all notifications as read for user {UserId}", userId);
+                throw;
+            }
         }
     }
 }
