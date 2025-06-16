@@ -1,48 +1,85 @@
-﻿using System.Collections.Generic;
-using System.Threading.Tasks;
+﻿using LearnQuestV1.Api.DTOs.Courses;
 using LearnQuestV1.Api.DTOs.Levels;
 
 namespace LearnQuestV1.Api.Services.Interfaces
 {
     /// <summary>
-    /// Encapsulates all “level”–related operations for instructors (create, update, delete, reorder, stats, etc.).
+    /// Service for managing course levels with role-based access control
     /// </summary>
     public interface ILevelService
     {
-        /// <summary>
-        /// Creates a new level under the specified course (only if the current user owns that course).
-        /// Returns the newly created LevelId.
-        /// </summary>
+        // Level CRUD Operations
         Task<int> CreateLevelAsync(CreateLevelDto input);
-
-        /// <summary>
-        /// Updates name/details of an existing level (only if the current user owns that level’s course).
-        /// </summary>
         Task UpdateLevelAsync(UpdateLevelDto input);
-
-        /// <summary>
-        /// Soft-deletes a level (sets IsDeleted = true) if the level belongs to a course owned by the current user.
-        /// </summary>
         Task DeleteLevelAsync(int levelId);
+        Task<LevelDetailsDto> GetLevelDetailsAsync(int levelId);
+        Task<IEnumerable<LevelSummaryDto>> GetCourseLevelsAsync(int courseId, bool includeHidden = false);
 
-        /// <summary>
-        /// Retrieves all levels (ordered by LevelOrder) for a given course, if the current user owns that course.
-        /// </summary>
-        Task<IEnumerable<LevelSummaryDto>> GetCourseLevelsAsync(int courseId);
-
-        /// <summary>
-        /// Toggles the IsVisible flag on a level (if owned by current user).
-        /// </summary>
+        // Level Management
         Task<VisibilityToggleResultDto> ToggleLevelVisibilityAsync(int levelId);
-
-        /// <summary>
-        /// Reorders multiple levels in bulk. Each item has { LevelId, NewOrder }.
-        /// </summary>
         Task ReorderLevelsAsync(IEnumerable<ReorderLevelDto> reorderItems);
+        Task<int> CopyLevelAsync(CopyLevelDto input);
+        Task<BulkLevelActionResultDto> BulkLevelActionAsync(BulkLevelActionDto request);
 
-        /// <summary>
-        /// Returns a count of how many distinct users have reached this level.
-        /// </summary>
+        // Level Statistics and Analytics
         Task<LevelStatsDto> GetLevelStatsAsync(int levelId);
+        Task<LevelAnalyticsDto> GetLevelAnalyticsAsync(int levelId, DateTime? startDate = null, DateTime? endDate = null);
+        Task<IEnumerable<LevelProgressDto>> GetLevelProgressAsync(int levelId, int pageNumber = 1, int pageSize = 20);
+
+        // Search and Filtering
+        Task<IEnumerable<LevelSummaryDto>> SearchLevelsAsync(LevelSearchFilterDto filter);
+        Task<IEnumerable<LevelSummaryDto>> GetInstructorLevelsAsync(int? instructorId = null, int pageNumber = 1, int pageSize = 20);
+
+        // Validation and Access Control
+        Task<bool> ValidateLevelAccessAsync(int levelId, int? requestingUserId = null);
+        Task<bool> IsInstructorOwnerOfLevelAsync(int levelId, int instructorId);
+        Task<bool> CanUserAccessLevelAsync(int levelId, int userId);
+
+        // Level Prerequisites and Progress
+        Task<bool> HasUserCompletedPreviousLevelAsync(int levelId, int userId);
+        Task<bool> CanUserStartLevelAsync(int levelId, int userId);
+        Task MarkLevelAsStartedAsync(int levelId, int userId);
+        Task UpdateUserLevelProgressAsync(int levelId, int userId, decimal progressPercentage);
+
+        // Level Content Management
+        Task<int> GetLevelContentCountAsync(int levelId);
+        Task<int> GetLevelQuizCountAsync(int levelId);
+        Task<TimeSpan> GetLevelEstimatedDurationAsync(int levelId);
+
+        // Admin-specific operations
+        Task<IEnumerable<LevelSummaryDto>> GetAllLevelsForAdminAsync(int pageNumber = 1, int pageSize = 20, string? searchTerm = null);
+        Task TransferLevelOwnershipAsync(int levelId, int newInstructorId);
+        Task<IEnumerable<LevelSummaryDto>> GetLevelsByInstructorAsync(int instructorId, int pageNumber = 1, int pageSize = 20);
+
+        // Level Performance and Insights
+        Task<IEnumerable<LevelContentPerformanceDto>> GetLevelContentPerformanceAsync(int levelId);
+        Task<decimal> GetLevelCompletionRateAsync(int levelId);
+        Task<TimeSpan> GetLevelAverageCompletionTimeAsync(int levelId);
+        Task<IEnumerable<DailyProgressDto>> GetLevelProgressTrendAsync(int levelId, DateTime? startDate = null, DateTime? endDate = null);
+
+        // Level Dependencies
+        Task<IEnumerable<LevelSummaryDto>> GetPrerequisiteLevelsAsync(int levelId);
+        Task<IEnumerable<LevelSummaryDto>> GetDependentLevelsAsync(int levelId);
+        Task SetLevelPrerequisitesAsync(int levelId, bool requiresPrevious);
+
+        // Export and Reporting
+        Task<IEnumerable<LevelProgressDto>> GetLevelProgressReportAsync(int levelId, DateTime? startDate = null, DateTime? endDate = null);
+        Task<byte[]> ExportLevelDataAsync(int levelId, string format = "csv"); // csv, excel, pdf
+
+        // Level Templates and Duplication
+        Task<IEnumerable<LevelSummaryDto>> GetLevelTemplatesAsync();
+        Task<int> CreateLevelFromTemplateAsync(int templateLevelId, int targetCourseId, string newLevelName);
+        Task SaveLevelAsTemplateAsync(int levelId, string templateName);
+
+        // Level Quality and Validation
+        Task<IEnumerable<string>> ValidateLevelQualityAsync(int levelId);
+        Task<bool> IsLevelCompleteAsync(int levelId); // Has sections, content, etc.
+        Task<decimal> GetLevelQualityScoreAsync(int levelId);
+
+        // Student Experience
+        Task<IEnumerable<LevelSummaryDto>> GetRecommendedNextLevelsAsync(int userId, int courseId);
+        Task<IEnumerable<LevelSummaryDto>> GetUserAvailableLevelsAsync(int userId, int courseId);
+        Task<LevelProgressDto?> GetUserLevelProgressAsync(int levelId, int userId);
+
     }
 }

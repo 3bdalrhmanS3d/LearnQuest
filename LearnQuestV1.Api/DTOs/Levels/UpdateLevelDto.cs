@@ -1,20 +1,20 @@
-﻿namespace LearnQuestV1.Api.DTOs.Levels
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace LearnQuestV1.Api.DTOs.Levels
 {
     public class UpdateLevelDto
     {
-        /// <summary>
-        /// ID of the level to update.
-        /// </summary>
+        [Required(ErrorMessage = "Level ID is required")]
         public int LevelId { get; set; }
 
-        /// <summary>
-        /// New name/title for the level. If null/empty, name will not change.
-        /// </summary>
+        [StringLength(200, ErrorMessage = "Level name cannot exceed 200 characters")]
         public string? LevelName { get; set; }
 
-        /// <summary>
-        /// New details/description for the level. If null/empty, details will not change.
-        /// </summary>
+        [StringLength(1000, ErrorMessage = "Level details cannot exceed 1000 characters")]
         public string? LevelDetails { get; set; }
+
+        public bool? IsVisible { get; set; }
+
+        public bool? RequiresPreviousLevelCompletion { get; set; }
     }
 }

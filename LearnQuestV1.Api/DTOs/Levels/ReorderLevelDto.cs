@@ -1,15 +1,14 @@
-﻿namespace LearnQuestV1.Api.DTOs.Levels
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace LearnQuestV1.Api.DTOs.Levels
 {
     public class ReorderLevelDto
     {
-        /// <summary>
-        /// ID of the level to reorder.
-        /// </summary>
+        [Required]
         public int LevelId { get; set; }
 
-        /// <summary>
-        /// The new “LevelOrder” value for this level.
-        /// </summary>
+        [Required]
+        [Range(1, int.MaxValue, ErrorMessage = "New order must be greater than 0")]
         public int NewOrder { get; set; }
     }
 }

@@ -1,25 +1,23 @@
-﻿namespace LearnQuestV1.Api.DTOs.Levels
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace LearnQuestV1.Api.DTOs.Levels
 {
     public class CreateLevelDto
     {
-        /// <summary>
-        /// ID of the course under which this level will be created.
-        /// </summary>
+
+        [Required(ErrorMessage = "Course ID is required")]
         public int CourseId { get; set; }
 
-        /// <summary>
-        /// Name/title of the new level.
-        /// </summary>
+        [Required(ErrorMessage = "Level name is required")]
+        [StringLength(200, ErrorMessage = "Level name cannot exceed 200 characters")]
         public string LevelName { get; set; } = string.Empty;
 
-        /// <summary>
-        /// Detailed description of the level (optional).
-        /// </summary>
+        [StringLength(1000, ErrorMessage = "Level details cannot exceed 1000 characters")]
         public string? LevelDetails { get; set; }
 
-        /// <summary>
-        /// Whether the level should start as visible. (False = hidden, True = visible)
-        /// </summary>
-        public bool IsVisible { get; set; }
+        public bool IsVisible { get; set; } = true;
+
+        [Range(1, int.MaxValue, ErrorMessage = "Level order must be greater than 0")]
+        public int? LevelOrder { get; set; } // Optional, will auto-assign if null
     }
 }
