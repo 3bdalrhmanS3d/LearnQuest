@@ -75,14 +75,13 @@ namespace LearnQuestV1.Api.Profiles
             CreateMap<AboutCourse, AboutCourseItem>()
                 .ForMember(dest => dest.OutcomeType, opt => opt.MapFrom(src => src.OutcomeType.ToString()));
 
-            CreateMap<CourseSkill, CourseSkillItem>();
+            CreateMap<CourseSkill, AvailableSkillsDto>();
 
             CreateMap<CreateCourseDto, Course>()
                 .ForMember(dest => dest.CourseId, opt => opt.Ignore())
                 .ForMember(dest => dest.InstructorId, opt => opt.Ignore())
                 .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => DateTime.UtcNow))
-                .ForMember(dest => dest.CourseImage, opt => opt.MapFrom(src =>
-                    string.IsNullOrWhiteSpace(src.CourseImage) ? "/uploads/courses/default.jpg" : src.CourseImage));
+                .ForMember(dest => dest.CourseImage, opt => opt.MapFrom(_ => "/uploads/courses/default.jpg"));
 
             // Level Mappings
             CreateMap<Level, LevelSummaryDto>();
