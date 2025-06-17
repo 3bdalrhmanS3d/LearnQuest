@@ -8,5 +8,7 @@
         /// Optional initial set of Course IDs to assign to this track.
         /// </summary>
         public List<int>? CourseIds { get; set; }
+
+        public IFormFile? TrackImage { get; set; } // Optional image upload
     }
 }

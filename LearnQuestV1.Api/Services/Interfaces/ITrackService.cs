@@ -5,7 +5,7 @@ namespace LearnQuestV1.Api.Services.Interfaces
     public interface ITrackService
     {
         Task<int> CreateTrackAsync(CreateTrackRequestDto dto);
-        Task UploadTrackImageAsync(int trackId, IFormFile file);
+        Task<string> UploadTrackImageAsync(int trackId, IFormFile file);
         Task UpdateTrackAsync(UpdateTrackRequestDto dto);
         Task DeleteTrackAsync(int trackId);
         Task AddCourseToTrackAsync(AddCourseToTrackRequestDto dto);
