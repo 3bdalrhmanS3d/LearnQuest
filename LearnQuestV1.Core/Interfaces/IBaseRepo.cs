@@ -16,6 +16,9 @@ namespace LearnQuestV1.Core.Interfaces
         void Update(T entity);
         void Remove(T entity);
 
+        Task UpdateAsync(T entity); // Add this
+        Task DeleteAsync(T entity); // Add this
+
         // Additional methods for Entity Framework operations
         IQueryable<T> Where(Expression<Func<T, bool>> predicate);
         Task<bool> AnyAsync(Expression<Func<T, bool>> predicate);

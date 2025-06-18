@@ -55,6 +55,18 @@ namespace LearnQuestV1.EF.Repositories
             _dbSet.Remove(entity);
         }
 
+        public Task UpdateAsync(T entity)
+        {
+            _context.Entry(entity).State = EntityState.Modified;
+            return Task.CompletedTask;
+        }
+
+        public Task DeleteAsync(T entity)
+        {
+            _dbSet.Remove(entity);
+            return Task.CompletedTask;
+        }
+
         // Additional methods for Entity Framework operations
         public IQueryable<T> Where(Expression<Func<T, bool>> predicate)
         {
