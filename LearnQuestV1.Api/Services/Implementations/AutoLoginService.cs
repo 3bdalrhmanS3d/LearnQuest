@@ -78,6 +78,7 @@ namespace LearnQuestV1.Api.Services.Implementations
                 user.FullName,
                 user.Role,
                 _config,
+                user.ProfilePhoto!, 
                 TimeSpan.FromHours(3) // Standard 3-hour token
             );
 

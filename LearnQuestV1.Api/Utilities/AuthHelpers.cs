@@ -1,4 +1,5 @@
 ﻿using LearnQuestV1.Core.Enums;
+using LearnQuestV1.Core.Models;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -31,6 +32,7 @@ namespace LearnQuestV1.Api.Utilities
             string fullName,
             UserRole role,
             IConfiguration config,
+            string profilePicture = "/uploads/profile-pictures/default.png",
             TimeSpan? customExpiry = null)
         {
             // Validate inputs
@@ -53,6 +55,7 @@ namespace LearnQuestV1.Api.Utilities
                 new Claim(ClaimTypes.NameIdentifier, userId),
                 new Claim(ClaimTypes.Email, email),
                 new Claim(ClaimTypes.Name, fullName),
+                new Claim("profilePicture", profilePicture),
                 new Claim(ClaimTypes.Role, role.ToString()),
                 new Claim("jti", Guid.NewGuid().ToString()), // JWT ID for tracking
                 new Claim("iat", DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64)

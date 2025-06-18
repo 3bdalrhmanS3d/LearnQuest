@@ -569,6 +569,7 @@ namespace LearnQuestV1.Api.Services.Implementations
                 user.FullName,
                 user.Role,
                 _config,
+                user.ProfilePhoto!,
                 TimeSpan.FromHours(_securitySettings.Token.AccessTokenExpiryHours)
             );
 
