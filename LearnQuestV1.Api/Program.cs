@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using Microsoft.AspNetCore.DataProtection.Repositories;
 
 namespace LearnQuestV1.Api
 {
@@ -123,6 +124,7 @@ namespace LearnQuestV1.Api
                     Scheme = "Bearer",
                     Description = "Enter 'Bearer {your JWT token}'"
                 });
+
                 c.AddSecurityRequirement(new OpenApiSecurityRequirement
                 {
                     {

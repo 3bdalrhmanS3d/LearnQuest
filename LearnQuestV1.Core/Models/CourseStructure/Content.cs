@@ -1,5 +1,6 @@
-﻿using System.ComponentModel.DataAnnotations.Schema;
+﻿using System;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using LearnQuestV1.Core.Enums;
 
 namespace LearnQuestV1.Core.Models.CourseStructure
@@ -17,8 +18,7 @@ namespace LearnQuestV1.Core.Models.CourseStructure
         [ForeignKey(nameof(SectionId))]
         public virtual Section Section { get; set; } = null!;
 
-        [Required]
-        [MaxLength(200)]
+        [Required, MaxLength(200)]
         public string Title { get; set; } = string.Empty;
 
         [Required]
@@ -36,9 +36,15 @@ namespace LearnQuestV1.Core.Models.CourseStructure
         [Required]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+        public DateTime? UpdatedAt { get; set; }
+
         [MaxLength(1000)]
         public string? ContentDescription { get; set; }
 
         public bool IsVisible { get; set; } = true;
+
+        public bool IsDeleted { get; set; } = false;
+
+        public DateTime? DeletedAt { get; set; }
     }
 }

@@ -24,7 +24,10 @@ namespace LearnQuestV1.Api.Extensions
             services.AddScoped<ISectionService, SectionService>();
             services.AddScoped<ILevelService, LevelService>();
             services.AddScoped<IActionLogService, ActionLogService>();
-
+            services.AddScoped<IContentService, ContentService>();
+            services.AddScoped<IContentCachingService, ContentCachingService>();
+            services.AddScoped<Services.Implementations.IContentAnalyticsService, ContentAnalyticsService>();
+            services.AddHttpClient<IContentValidationService, ContentValidationService>();
             // === ENHANCED SECURITY SERVICES ===
             // Note: These are now registered in Program.cs for better control
             // but keeping here for backward compatibility if needed

@@ -10,6 +10,7 @@ namespace LearnQuestV1.Core.Models.LearningAndProgress
         public UserProgress()
         {
             LastUpdated = DateTime.UtcNow;
+            LastAccessed = DateTime.UtcNow;
         }
 
         [Key]
@@ -48,5 +49,8 @@ namespace LearnQuestV1.Core.Models.LearningAndProgress
         [Required]
         public DateTime LastUpdated { get; set; }
 
+        public DateTime? LastAccessed { get; set; }
+
+        public DateTime? CompletedAt { get; set; }
     }
 }
