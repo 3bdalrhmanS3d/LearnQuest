@@ -4,6 +4,7 @@ using LearnQuestV1.Core.DTOs.Quiz;
 using LearnQuestV1.Core.Enums;
 using LearnQuestV1.Core.Interfaces;
 using LearnQuestV1.Core.Models;
+using LearnQuestV1.Core.Models.LearningAndProgress;
 using LearnQuestV1.Core.Models.Quiz;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
@@ -14,11 +15,15 @@ namespace LearnQuestV1.Api.Services.Implementations
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
+        private readonly IPointsService _pointsService;
+        private readonly ILogger<QuizService> _logger;
 
-        public QuizService(IUnitOfWork unitOfWork, IMapper mapper)
+        public QuizService(IUnitOfWork unitOfWork, IMapper mapper, IPointsService pointsService, ILogger<QuizService> logger)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
+            _pointsService = pointsService;
+            _logger = logger;
         }
 
         #region Quiz Management
@@ -613,10 +618,35 @@ namespace LearnQuestV1.Api.Services.Implementations
                 _unitOfWork.QuizAttempts.Update(activeAttempt);
                 await _unitOfWork.SaveChangesAsync();
                 await transaction.CommitAsync();
+                
+                try
+                {
+                    // Award points based on quiz performance
+                    var pointsToAward = CalculateQuizPoints(activeAttempt.ScorePercentage, quiz.PassingScore);
+                    var pointSource = DeterminePointSource(activeAttempt.ScorePercentage, quiz.PassingScore);
 
+                    if (pointsToAward > 0)
+                    {
+                        await _pointsService.AwardQuizPointsAsync(
+                            userId,
+                            quiz.CourseId,
+                            activeAttempt.AttemptId,
+                            pointsToAward,
+                            pointSource);
+
+                        _logger.LogInformation("Awarded {Points} points to user {UserId} for quiz {QuizId} with score {Score}%",
+                            pointsToAward, userId, quiz.QuizId, activeAttempt.ScorePercentage);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error awarding points for quiz attempt {AttemptId}", activeAttempt.AttemptId);
+                    // Don't fail the quiz submission if points awarding fails
+                }
                 var completedAttempt = await _unitOfWork.QuizAttempts.GetAttemptWithAnswersAsync(activeAttempt.AttemptId);
                 return _mapper.Map<QuizAttemptResponseDto>(completedAttempt);
             }
+
             catch
             {
                 await transaction.RollbackAsync();
@@ -758,5 +788,21 @@ namespace LearnQuestV1.Api.Services.Implementations
         }
 
         #endregion
+
+        private int CalculateQuizPoints(decimal scorePercentage, decimal passingScore)
+        {
+            if (scorePercentage < passingScore) return 0;
+            if (scorePercentage == 100) return 25; // Perfect score
+            if (scorePercentage >= 90) return 20;  // Excellent
+            if (scorePercentage >= 80) return 15;  // Good
+            return 10; // Pass
+        }
+
+        private PointSource DeterminePointSource(decimal scorePercentage, decimal passingScore)
+        {
+            if (scorePercentage < passingScore) return PointSource.QuizCompletion;
+            if (scorePercentage == 100) return PointSource.QuizPerfectScore;
+            return PointSource.QuizCompletion;
+        }
     }
 }

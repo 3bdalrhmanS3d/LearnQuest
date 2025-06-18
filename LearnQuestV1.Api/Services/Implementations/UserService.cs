@@ -30,12 +30,14 @@ namespace LearnQuestV1.Api.Services.Implementations
         private readonly IUnitOfWork _uow;
         private readonly IWebHostEnvironment _env;
         private readonly ILogger<UserService> _logger;
+        private readonly IPointsService _pointsService;
 
-        public UserService(IUnitOfWork uow, IWebHostEnvironment env, ILogger<UserService> logger)
+        public UserService(IUnitOfWork uow, IWebHostEnvironment env, ILogger<UserService> logger, IPointsService pointsService)
         {
             _uow = uow;
             _env = env;
             _logger = logger;
+            _pointsService = pointsService;
         }
 
         // =====================================================
@@ -1137,6 +1139,20 @@ namespace LearnQuestV1.Api.Services.Implementations
 
                 _logger.LogInformation("Course completion for user {UserId}, course {CourseId}: {CompletedSections}/{TotalSections} = {IsCompleted}",
                     userId, courseId, completedCount, totalSections, result.IsCompleted);
+
+                if (result.IsCompleted)
+                {
+                    try
+                    {
+                        await _pointsService.AwardCourseCompletionPointsAsync(userId, courseId);
+                        _logger.LogInformation("Course completion points awarded to user {UserId} for course {CourseId}", userId, courseId);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error awarding course completion points for user {UserId}, course {CourseId}", userId, courseId);
+                        // Don't fail the completion check if points awarding fails
+                    }
+                }
 
                 return result;
             }

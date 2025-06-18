@@ -75,6 +75,9 @@ namespace LearnQuestV1.EF.UnitOfWork
             UserAchievements = new BaseRepo<UserAchievement>(context);
             UserLearningSessions = new BaseRepo<UserLearningSession>(context);
             SecurityAuditLogs = new BaseRepo<SecurityAuditLog>(context);
+
+            CoursePoints = new CoursePointsRepository(context);
+            PointTransactions = new PointTransactionRepository(context);
         }
 
         // User Management
@@ -128,6 +131,8 @@ namespace LearnQuestV1.EF.UnitOfWork
         public IBaseRepo<UserPreferences> UserPreferences { get; }
         public IBaseRepo<UserAchievement> UserAchievements { get; }
         public IBaseRepo<UserLearningSession> UserLearningSessions { get; }
+        public ICoursePointsRepository CoursePoints { get; }
+        public IPointTransactionRepository PointTransactions { get; }
 
         // Transaction Methods
         public async Task<int> SaveAsync()

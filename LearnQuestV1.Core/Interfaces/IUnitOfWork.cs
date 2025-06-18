@@ -72,6 +72,10 @@ namespace LearnQuestV1.Core.Interfaces
 
         IBaseRepo<SecurityAuditLog> SecurityAuditLogs { get; }
 
+        // في قسم الـ repositories، أضف:
+        public ICoursePointsRepository CoursePoints { get; }
+        public IPointTransactionRepository PointTransactions { get; }
+
         // Transaction Methods
         Task<int> SaveAsync();
         Task<int> SaveChangesAsync();

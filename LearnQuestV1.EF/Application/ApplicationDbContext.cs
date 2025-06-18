@@ -67,6 +67,8 @@ namespace LearnQuestV1.EF.Application
         public DbSet<UserLearningSession> UserLearningSessions { get; set; }
         public DbSet<UserAchievement> UserAchievements { get; set; }
 
+        public DbSet<CoursePoints> CoursePoints { get; set; }
+        public DbSet<PointTransaction> PointTransactions { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
