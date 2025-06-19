@@ -65,10 +65,59 @@ namespace LearnQuestV1.EF.Application
         public DbSet<PaymentTransaction> PaymentTransactions { get; set; }
         public DbSet<UserPreferences> UserPreferences { get; set; }
         public DbSet<UserLearningSession> UserLearningSessions { get; set; }
-        public DbSet<UserAchievement> UserAchievements { get; set; }
-
         public DbSet<CoursePoints> CoursePoints { get; set; }
         public DbSet<PointTransaction> PointTransactions { get; set; }
+
+        /// <summary>
+        /// User bookmarks for content
+        /// </summary>
+        public DbSet<UserBookmark> UserBookmarks { get; set; }
+
+        /// <summary>
+        /// User learning goals
+        /// </summary>
+        public DbSet<UserLearningGoal> UserLearningGoals { get; set; }
+
+        /// <summary>
+        /// User study plans
+        /// </summary>
+        public DbSet<UserStudyPlan> UserStudyPlans { get; set; }
+
+        /// <summary>
+        /// Study sessions within plans
+        /// </summary>
+        public DbSet<StudySession> StudySessions { get; set; }
+
+        /// <summary>
+        /// Content planned for study sessions
+        /// </summary>
+        public DbSet<StudySessionContent> StudySessionContents { get; set; }
+
+        /// <summary>
+        /// User achievements earned
+        /// </summary>
+        public DbSet<UserAchievement> UserAchievements { get; set; }
+
+        /// <summary>
+        /// Available achievements/badges
+        /// </summary>
+        public DbSet<Achievement> Achievements { get; set; }
+
+        /// <summary>
+        /// User learning streaks
+        /// </summary>
+        public DbSet<UserLearningStreak> UserLearningStreaks { get; set; }
+
+        /// <summary>
+        /// Student-specific notifications
+        /// </summary>
+        public DbSet<UserNotification> UserNotifications { get; set; }
+
+        /// <summary>
+        /// User learning analytics data
+        /// </summary>
+        public DbSet<UserLearningAnalytics> UserLearningAnalytics { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -620,6 +669,72 @@ namespace LearnQuestV1.EF.Application
             });
 
             #endregion
+
+
+            // User ↔ UserLearningAnalytics
+            modelBuilder.Entity<UserLearningAnalytics>()
+                .HasOne(ula => ula.User)
+                .WithMany(u => u.UserLearningAnalytics)
+                .HasForeignKey(ula => ula.UserId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // User ↔ UserLearningStreak
+            modelBuilder.Entity<UserLearningStreak>()
+                .HasOne(s => s.User)
+                .WithMany(u => u.UserLearningStreaks)
+                .HasForeignKey(s => s.UserId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // User ↔ UserStudyPlan
+            modelBuilder.Entity<UserStudyPlan>()
+                .HasOne(p => p.User)
+                .WithMany(u => u.UserStudyPlans)
+                .HasForeignKey(p => p.UserId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Course ↔ UserStudyPlan
+            modelBuilder.Entity<UserStudyPlan>()
+                .HasOne(p => p.Course)
+                .WithMany(c => c.UserStudyPlans)
+                .HasForeignKey(p => p.CourseId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // StudyPlan ↔ StudySession
+            modelBuilder.Entity<StudySession>()
+                .HasOne(s => s.StudyPlan)
+                .WithMany(p => p.StudySessions)
+                .HasForeignKey(s => s.StudyPlanId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // StudySession ↔ StudySessionContent
+            modelBuilder.Entity<StudySessionContent>()
+                .HasOne(sc => sc.StudySession)
+                .WithMany(s => s.Contents)
+                .HasForeignKey(sc => sc.SessionId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Content ↔ StudySessionContent
+            modelBuilder.Entity<StudySessionContent>()
+                .HasOne(sc => sc.Content)
+                .WithMany(c => c.StudySessionContents)
+                .HasForeignKey(sc => sc.ContentId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<UserLearningAnalytics>()
+                .Property(a => a.AverageQuizScore)
+                .HasPrecision(5, 2);
+
+            modelBuilder.Entity<UserLearningAnalytics>()
+                .Property(a => a.CompletionRate)
+                .HasPrecision(5, 2);
+
+            modelBuilder.Entity<UserLearningAnalytics>()
+                .Property(a => a.DailyAverageSessionLength)
+                .HasPrecision(5, 2);
+
+            modelBuilder.Entity<UserStudyPlan>()
+                .Property(p => p.PlanProgressPercentage)
+                .HasPrecision(5, 2);
 
             //ConfigureQuizEntities(modelBuilder);
         }

@@ -50,7 +50,6 @@ namespace LearnQuestV1.Core.Interfaces
         // User Enhancement Repositories
         // =====================================================
         IBaseRepo<UserPreferences> UserPreferences { get; }
-        IBaseRepo<UserAchievement> UserAchievements { get; }
         IBaseRepo<UserLearningSession> UserLearningSessions { get; }
         IBaseRepo<UserCoursePoint> UserCoursePoints { get; }
         IBaseRepo<UserProgress> UserProgresses { get; }
@@ -71,6 +70,20 @@ namespace LearnQuestV1.Core.Interfaces
         IBaseRepo<UserAnswer> UserAnswers { get; }
 
         IBaseRepo<SecurityAuditLog> SecurityAuditLogs { get; }
+
+        // =====================================================
+        // Learning and Progress Repositories
+        // =====================================================
+        IBaseRepo<UserBookmark> UserBookmarks { get; }
+        IBaseRepo<UserLearningGoal> UserLearningGoals { get; }
+        IBaseRepo<UserStudyPlan> UserStudyPlans { get; }
+        IBaseRepo<StudySession> StudySessions { get; }
+        IBaseRepo<StudySessionContent> StudySessionContents { get; }
+        IBaseRepo<UserAchievement> UserAchievements { get; }
+        IBaseRepo<Achievement> Achievements { get; }
+        IBaseRepo<UserLearningStreak> UserLearningStreaks { get; }
+        IBaseRepo<UserNotification> UserNotifications { get; }
+        IBaseRepo<UserLearningAnalytics> UserLearningAnalytics { get; }
 
         // في قسم الـ repositories، أضف:
         public ICoursePointsRepository CoursePoints { get; }

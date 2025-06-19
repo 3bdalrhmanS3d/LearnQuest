@@ -1048,7 +1048,7 @@ namespace LearnQuestV1.Api.Services.Implementations
         /// - Number of completed sections
         /// - Progress percentage per course
         /// </summary>
-        public async Task<UserStatsDto> GetUserStatsAsync(int userId)
+        public async Task<StudentStatsDto> GetUserStatsAsync(int userId)
         {
             try
             {
@@ -1091,7 +1091,7 @@ namespace LearnQuestV1.Api.Services.Implementations
                     });
                 }
 
-                var result = new UserStatsDto
+                var result = new StudentStatsDto
                 {
                     SharedCourses = enrolledCourseIds.Count,
                     CompletedSections = completedSectionIds.Count,

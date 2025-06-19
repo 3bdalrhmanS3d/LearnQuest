@@ -202,7 +202,7 @@ namespace LearnQuestV1.Api.Services.Interfaces
         /// </summary>
         /// <param name="userId">The user's unique identifier</param>
         /// <returns>User statistics including progress and completion data</returns>
-        Task<UserStatsDto> GetUserStatsAsync(int userId);
+        Task<StudentStatsDto> GetUserStatsAsync(int userId);
 
         /// <summary>
         /// Checks if a user has completed all sections in a course

@@ -2,6 +2,7 @@
 using LearnQuestV1.Core.Models.FeedbackAndReviews;
 using LearnQuestV1.Core.Models.Financial;
 using LearnQuestV1.Core.Models.LearningAndProgress;
+using LearnQuestV1.Core.Models.UserManagement;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -33,6 +34,9 @@ namespace LearnQuestV1.Core.Models.CourseStructure
             CourseFeedbacks = new HashSet<CourseFeedback>();
             FavoriteCourses = new HashSet<FavoriteCourse>();
             CourseTrackCourses = new HashSet<CourseTrackCourse>();
+            UserLearningGoals = new HashSet<UserLearningGoal>();
+            UserAchievements = new HashSet<UserAchievement>();
+            CourseLevel = CourseLevelType.Beginner; // Default level
         }
 
 
@@ -79,6 +83,15 @@ namespace LearnQuestV1.Core.Models.CourseStructure
         public bool IsActive { get; set; } = false;
         public bool IsDeleted { get; set; } = false;
 
+        [Required]
+        public CourseLevelType CourseLevel { get; set; } = CourseLevelType.Beginner;
+
+        [Required]
+        public bool HasCertificate { get; set; } = false;
+
+        [Required]
+        public bool IsFeatured { get; set; } = false;
+
         public virtual ICollection<AboutCourse> AboutCourses { get; set; }
         public virtual ICollection<CourseSkill> CourseSkills { get; set; }
         public virtual ICollection<Level> Levels { get; set; }
@@ -90,5 +103,17 @@ namespace LearnQuestV1.Core.Models.CourseStructure
         public virtual ICollection<CourseFeedback> CourseFeedbacks { get; set; }
         public virtual ICollection<FavoriteCourse> FavoriteCourses { get; set; }
         public virtual ICollection<CourseTrackCourse> CourseTrackCourses { get; set; }
+        public virtual ICollection<UserLearningGoal> UserLearningGoals { get; set; } = new List<UserLearningGoal>();
+        public virtual ICollection<UserAchievement> UserAchievements { get; set; } = new List<UserAchievement>();
+        public virtual ICollection<UserStudyPlan> UserStudyPlans { get; set; } = new List<UserStudyPlan>();
+
     }
+    public enum CourseLevelType
+    {
+        Beginner = 1,
+        Intermediate = 2,
+        Advanced = 3,
+        AllLevels = 4
+    }
+
 }

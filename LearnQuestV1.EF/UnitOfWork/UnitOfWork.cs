@@ -76,6 +76,18 @@ namespace LearnQuestV1.EF.UnitOfWork
             UserLearningSessions = new BaseRepo<UserLearningSession>(context);
             SecurityAuditLogs = new BaseRepo<SecurityAuditLog>(context);
 
+            // User Enhancements
+            UserBookmarks = new BaseRepo<UserBookmark>(_context);
+            UserLearningGoals = new BaseRepo<UserLearningGoal>(_context);
+            UserStudyPlans = new BaseRepo<UserStudyPlan>(_context);
+            StudySessions = new BaseRepo<StudySession>(_context);
+            StudySessionContents = new BaseRepo<StudySessionContent>(_context);
+            UserAchievements = new BaseRepo<UserAchievement>(_context);
+            Achievements = new BaseRepo<Achievement>(_context);
+            UserLearningStreaks = new BaseRepo<UserLearningStreak>(_context);
+            UserNotifications = new BaseRepo<UserNotification>(_context);
+            UserLearningAnalytics = new BaseRepo<UserLearningAnalytics>(_context);
+
             CoursePoints = new CoursePointsRepository(context);
             PointTransactions = new PointTransactionRepository(context);
         }
@@ -131,6 +143,17 @@ namespace LearnQuestV1.EF.UnitOfWork
         public IBaseRepo<UserPreferences> UserPreferences { get; }
         public IBaseRepo<UserAchievement> UserAchievements { get; }
         public IBaseRepo<UserLearningSession> UserLearningSessions { get; }
+
+        public IBaseRepo<UserBookmark> UserBookmarks { get; private set; }
+        public IBaseRepo<UserLearningGoal> UserLearningGoals { get; private set; }
+        public IBaseRepo<UserStudyPlan> UserStudyPlans { get; private set; }
+        public IBaseRepo<StudySession> StudySessions { get; private set; }
+        public IBaseRepo<StudySessionContent> StudySessionContents { get; private set; }
+        public IBaseRepo<Achievement> Achievements { get; private set; }
+        public IBaseRepo<UserLearningStreak> UserLearningStreaks { get; private set; }
+        public IBaseRepo<UserNotification> UserNotifications { get; private set; }
+        public IBaseRepo<UserLearningAnalytics> UserLearningAnalytics { get; private set; }
+
         public ICoursePointsRepository CoursePoints { get; }
         public IPointTransactionRepository PointTransactions { get; }
 

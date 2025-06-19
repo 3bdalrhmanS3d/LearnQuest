@@ -6,11 +6,33 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace LearnQuestV1.EF.Migrations
 {
     /// <inheritdoc />
-    public partial class EditModels : Migration
+    public partial class LQV122 : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.CreateTable(
+                name: "Achievements",
+                columns: table => new
+                {
+                    AchievementId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Title = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
+                    BadgeIcon = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    BadgeColor = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    Category = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    IsRare = table.Column<bool>(type: "bit", nullable: false),
+                    DefaultPoints = table.Column<int>(type: "int", nullable: false),
+                    Criteria = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Achievements", x => x.AchievementId);
+                });
+
             migrationBuilder.CreateTable(
                 name: "CourseTracks",
                 columns: table => new
@@ -157,7 +179,10 @@ namespace LearnQuestV1.EF.Migrations
                     CourseImage = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
                     CoursePrice = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
                     IsActive = table.Column<bool>(type: "bit", nullable: false),
-                    IsDeleted = table.Column<bool>(type: "bit", nullable: false)
+                    IsDeleted = table.Column<bool>(type: "bit", nullable: false),
+                    CourseLevel = table.Column<int>(type: "int", nullable: false),
+                    HasCertificate = table.Column<bool>(type: "bit", nullable: false),
+                    IsFeatured = table.Column<bool>(type: "bit", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -167,7 +192,7 @@ namespace LearnQuestV1.EF.Migrations
                         column: x => x.InstructorId,
                         principalTable: "Users",
                         principalColumn: "UserId",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.NoAction);
                 });
 
             migrationBuilder.CreateTable(
@@ -193,7 +218,7 @@ namespace LearnQuestV1.EF.Migrations
                         column: x => x.UserId,
                         principalTable: "Users",
                         principalColumn: "UserId",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.NoAction);
                 });
 
             migrationBuilder.CreateTable(
@@ -248,32 +273,6 @@ namespace LearnQuestV1.EF.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "UserAchievements",
-                columns: table => new
-                {
-                    AchievementId = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    UserId = table.Column<int>(type: "int", nullable: false),
-                    AchievementType = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    Title = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
-                    Description = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
-                    BadgeImageUrl = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
-                    EarnedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    Points = table.Column<int>(type: "int", nullable: true),
-                    Metadata = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_UserAchievements", x => x.AchievementId);
-                    table.ForeignKey(
-                        name: "FK_UserAchievements_Users_UserId",
-                        column: x => x.UserId,
-                        principalTable: "Users",
-                        principalColumn: "UserId",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "UserDetails",
                 columns: table => new
                 {
@@ -288,6 +287,66 @@ namespace LearnQuestV1.EF.Migrations
                     table.PrimaryKey("PK_UserDetails", x => x.UserId);
                     table.ForeignKey(
                         name: "FK_UserDetails_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
+                        principalColumn: "UserId");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "UserLearningAnalytics",
+                columns: table => new
+                {
+                    AnalyticsId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    UserId = table.Column<int>(type: "int", nullable: false),
+                    AnalyticsDate = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    DailyLearningMinutes = table.Column<int>(type: "int", nullable: false),
+                    DailyContentCompleted = table.Column<int>(type: "int", nullable: false),
+                    DailySessions = table.Column<int>(type: "int", nullable: false),
+                    DailyAverageSessionLength = table.Column<decimal>(type: "decimal(5,2)", precision: 5, scale: 2, nullable: false),
+                    PreferredLearningHour = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
+                    MostActiveDay = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
+                    PreferredContentType = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    CompletionRate = table.Column<decimal>(type: "decimal(5,2)", precision: 5, scale: 2, nullable: false),
+                    AverageQuizScore = table.Column<decimal>(type: "decimal(5,2)", precision: 5, scale: 2, nullable: false),
+                    TotalPointsEarned = table.Column<int>(type: "int", nullable: false),
+                    MetDailyGoal = table.Column<bool>(type: "bit", nullable: false),
+                    MetWeeklyGoal = table.Column<bool>(type: "bit", nullable: false),
+                    LastUpdated = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UserLearningAnalytics", x => x.AnalyticsId);
+                    table.ForeignKey(
+                        name: "FK_UserLearningAnalytics_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
+                        principalColumn: "UserId");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "UserLearningStreaks",
+                columns: table => new
+                {
+                    StreakId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    UserId = table.Column<int>(type: "int", nullable: false),
+                    CurrentStreak = table.Column<int>(type: "int", nullable: false),
+                    LongestStreak = table.Column<int>(type: "int", nullable: false),
+                    StreakStartDate = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    LastLearningDate = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    IsStreakActive = table.Column<bool>(type: "bit", nullable: false),
+                    WeeklyGoalDays = table.Column<int>(type: "int", nullable: false),
+                    CurrentWeekDays = table.Column<int>(type: "int", nullable: false),
+                    WeekStartDate = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    HasMetWeeklyGoal = table.Column<bool>(type: "bit", nullable: false),
+                    LastUpdated = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UserLearningStreaks", x => x.StreakId);
+                    table.ForeignKey(
+                        name: "FK_UserLearningStreaks_Users_UserId",
                         column: x => x.UserId,
                         principalTable: "Users",
                         principalColumn: "UserId");
@@ -323,7 +382,7 @@ namespace LearnQuestV1.EF.Migrations
                         column: x => x.UserId,
                         principalTable: "Users",
                         principalColumn: "UserId",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.NoAction);
                 });
 
             migrationBuilder.CreateTable(
@@ -418,6 +477,39 @@ namespace LearnQuestV1.EF.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "CoursePoints",
+                columns: table => new
+                {
+                    CoursePointsId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    UserId = table.Column<int>(type: "int", nullable: false),
+                    CourseId = table.Column<int>(type: "int", nullable: false),
+                    TotalPoints = table.Column<int>(type: "int", nullable: false),
+                    QuizPoints = table.Column<int>(type: "int", nullable: false),
+                    BonusPoints = table.Column<int>(type: "int", nullable: false),
+                    PenaltyPoints = table.Column<int>(type: "int", nullable: false),
+                    CurrentRank = table.Column<int>(type: "int", nullable: true),
+                    LastUpdated = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_CoursePoints", x => x.CoursePointsId);
+                    table.ForeignKey(
+                        name: "FK_CoursePoints_Courses_CourseId",
+                        column: x => x.CourseId,
+                        principalTable: "Courses",
+                        principalColumn: "CourseId",
+                        onDelete: ReferentialAction.NoAction);
+                    table.ForeignKey(
+                        name: "FK_CoursePoints_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
+                        principalColumn: "UserId",
+                        onDelete: ReferentialAction.NoAction);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "CourseReviews",
                 columns: table => new
                 {
@@ -427,7 +519,8 @@ namespace LearnQuestV1.EF.Migrations
                     CourseId = table.Column<int>(type: "int", nullable: false),
                     Rating = table.Column<int>(type: "int", nullable: false),
                     ReviewComment = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    IsDeleted = table.Column<bool>(type: "bit", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -565,6 +658,40 @@ namespace LearnQuestV1.EF.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "UserAchievements",
+                columns: table => new
+                {
+                    UserAchievementId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    UserId = table.Column<int>(type: "int", nullable: false),
+                    AchievementId = table.Column<int>(type: "int", nullable: false),
+                    EarnedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    PointsAwarded = table.Column<int>(type: "int", nullable: false),
+                    CourseId = table.Column<int>(type: "int", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UserAchievements", x => x.UserAchievementId);
+                    table.ForeignKey(
+                        name: "FK_UserAchievements_Achievements_AchievementId",
+                        column: x => x.AchievementId,
+                        principalTable: "Achievements",
+                        principalColumn: "AchievementId",
+                        onDelete: ReferentialAction.NoAction);
+                    table.ForeignKey(
+                        name: "FK_UserAchievements_Courses_CourseId",
+                        column: x => x.CourseId,
+                        principalTable: "Courses",
+                        principalColumn: "CourseId");
+                    table.ForeignKey(
+                        name: "FK_UserAchievements_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
+                        principalColumn: "UserId",
+                        onDelete: ReferentialAction.NoAction);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "UserCoursePoints",
                 columns: table => new
                 {
@@ -587,6 +714,44 @@ namespace LearnQuestV1.EF.Migrations
                         column: x => x.UserId,
                         principalTable: "Users",
                         principalColumn: "UserId");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "UserLearningGoals",
+                columns: table => new
+                {
+                    GoalId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    UserId = table.Column<int>(type: "int", nullable: false),
+                    CourseId = table.Column<int>(type: "int", nullable: false),
+                    GoalType = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    GoalDescription = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    TargetDate = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    IsAchieved = table.Column<bool>(type: "bit", nullable: false),
+                    AchievedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    DailyTargetMinutes = table.Column<int>(type: "int", nullable: true),
+                    WeeklyTargetMinutes = table.Column<int>(type: "int", nullable: true),
+                    SendReminders = table.Column<bool>(type: "bit", nullable: false),
+                    PreferredStudyTime = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    PreferredStudyDays = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UserLearningGoals", x => x.GoalId);
+                    table.ForeignKey(
+                        name: "FK_UserLearningGoals_Courses_CourseId",
+                        column: x => x.CourseId,
+                        principalTable: "Courses",
+                        principalColumn: "CourseId",
+                        onDelete: ReferentialAction.NoAction);
+                    table.ForeignKey(
+                        name: "FK_UserLearningGoals_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
+                        principalColumn: "UserId",
+                        onDelete: ReferentialAction.NoAction);
                 });
 
             migrationBuilder.CreateTable(
@@ -618,7 +783,41 @@ namespace LearnQuestV1.EF.Migrations
                         column: x => x.UserId,
                         principalTable: "Users",
                         principalColumn: "UserId",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.NoAction);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "UserStudyPlans",
+                columns: table => new
+                {
+                    StudyPlanId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    UserId = table.Column<int>(type: "int", nullable: false),
+                    CourseId = table.Column<int>(type: "int", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    TargetCompletionDate = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    DailyStudyMinutes = table.Column<int>(type: "int", nullable: false),
+                    PreferredStudyDays = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    PreferredStudyTime = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    LastAdjustedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    PlanProgressPercentage = table.Column<decimal>(type: "decimal(5,2)", precision: 5, scale: 2, nullable: false),
+                    IsOnTrack = table.Column<bool>(type: "bit", nullable: false),
+                    DaysAhead = table.Column<int>(type: "int", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UserStudyPlans", x => x.StudyPlanId);
+                    table.ForeignKey(
+                        name: "FK_UserStudyPlans_Courses_CourseId",
+                        column: x => x.CourseId,
+                        principalTable: "Courses",
+                        principalColumn: "CourseId");
+                    table.ForeignKey(
+                        name: "FK_UserStudyPlans_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
+                        principalColumn: "UserId");
                 });
 
             migrationBuilder.CreateTable(
@@ -668,7 +867,32 @@ namespace LearnQuestV1.EF.Migrations
                         column: x => x.PaymentId,
                         principalTable: "Payments",
                         principalColumn: "PaymentId",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.NoAction);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "StudySessions",
+                columns: table => new
+                {
+                    SessionId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    StudyPlanId = table.Column<int>(type: "int", nullable: false),
+                    ScheduledDate = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    PlannedDurationMinutes = table.Column<int>(type: "int", nullable: false),
+                    ActualDurationMinutes = table.Column<int>(type: "int", nullable: true),
+                    IsCompleted = table.Column<bool>(type: "bit", nullable: false),
+                    CompletedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    SessionNotes = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    EffectivenessRating = table.Column<int>(type: "int", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_StudySessions", x => x.SessionId);
+                    table.ForeignKey(
+                        name: "FK_StudySessions_UserStudyPlans_StudyPlanId",
+                        column: x => x.StudyPlanId,
+                        principalTable: "UserStudyPlans",
+                        principalColumn: "StudyPlanId");
                 });
 
             migrationBuilder.CreateTable(
@@ -686,8 +910,11 @@ namespace LearnQuestV1.EF.Migrations
                     DurationInMinutes = table.Column<int>(type: "int", nullable: false),
                     ContentOrder = table.Column<int>(type: "int", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     ContentDescription = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
-                    IsVisible = table.Column<bool>(type: "bit", nullable: false)
+                    IsVisible = table.Column<bool>(type: "bit", nullable: false),
+                    IsDeleted = table.Column<bool>(type: "bit", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -801,6 +1028,63 @@ namespace LearnQuestV1.EF.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "StudySessionContents",
+                columns: table => new
+                {
+                    SessionContentId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    SessionId = table.Column<int>(type: "int", nullable: false),
+                    ContentId = table.Column<int>(type: "int", nullable: false),
+                    EstimatedDurationMinutes = table.Column<int>(type: "int", nullable: false),
+                    IsCompleted = table.Column<bool>(type: "bit", nullable: false),
+                    Priority = table.Column<int>(type: "int", nullable: false),
+                    CompletedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_StudySessionContents", x => x.SessionContentId);
+                    table.ForeignKey(
+                        name: "FK_StudySessionContents_Contents_ContentId",
+                        column: x => x.ContentId,
+                        principalTable: "Contents",
+                        principalColumn: "ContentId");
+                    table.ForeignKey(
+                        name: "FK_StudySessionContents_StudySessions_SessionId",
+                        column: x => x.SessionId,
+                        principalTable: "StudySessions",
+                        principalColumn: "SessionId");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "UserBookmarks",
+                columns: table => new
+                {
+                    BookmarkId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    UserId = table.Column<int>(type: "int", nullable: false),
+                    ContentId = table.Column<int>(type: "int", nullable: false),
+                    BookmarkedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    Notes = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Tags = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UserBookmarks", x => x.BookmarkId);
+                    table.ForeignKey(
+                        name: "FK_UserBookmarks_Contents_ContentId",
+                        column: x => x.ContentId,
+                        principalTable: "Contents",
+                        principalColumn: "ContentId",
+                        onDelete: ReferentialAction.NoAction);
+                    table.ForeignKey(
+                        name: "FK_UserBookmarks_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
+                        principalColumn: "UserId",
+                        onDelete: ReferentialAction.NoAction);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "UserContentActivities",
                 columns: table => new
                 {
@@ -819,13 +1103,59 @@ namespace LearnQuestV1.EF.Migrations
                         column: x => x.ContentId,
                         principalTable: "Contents",
                         principalColumn: "ContentId",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.NoAction);
                     table.ForeignKey(
                         name: "FK_UserContentActivities_Users_UserId",
                         column: x => x.UserId,
                         principalTable: "Users",
                         principalColumn: "UserId",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.NoAction);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "UserNotifications",
+                columns: table => new
+                {
+                    NotificationId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    UserId = table.Column<int>(type: "int", nullable: false),
+                    Title = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    Message = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
+                    Type = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    IsRead = table.Column<bool>(type: "bit", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    ReadAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CourseId = table.Column<int>(type: "int", nullable: true),
+                    ContentId = table.Column<int>(type: "int", nullable: true),
+                    AchievementId = table.Column<int>(type: "int", nullable: true),
+                    ActionUrl = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    Icon = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    Priority = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UserNotifications", x => x.NotificationId);
+                    table.ForeignKey(
+                        name: "FK_UserNotifications_Achievements_AchievementId",
+                        column: x => x.AchievementId,
+                        principalTable: "Achievements",
+                        principalColumn: "AchievementId");
+                    table.ForeignKey(
+                        name: "FK_UserNotifications_Contents_ContentId",
+                        column: x => x.ContentId,
+                        principalTable: "Contents",
+                        principalColumn: "ContentId");
+                    table.ForeignKey(
+                        name: "FK_UserNotifications_Courses_CourseId",
+                        column: x => x.CourseId,
+                        principalTable: "Courses",
+                        principalColumn: "CourseId");
+                    table.ForeignKey(
+                        name: "FK_UserNotifications_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
+                        principalColumn: "UserId",
+                        onDelete: ReferentialAction.NoAction);
                 });
 
             migrationBuilder.CreateTable(
@@ -839,7 +1169,9 @@ namespace LearnQuestV1.EF.Migrations
                     CurrentLevelId = table.Column<int>(type: "int", nullable: false),
                     CurrentSectionId = table.Column<int>(type: "int", nullable: false),
                     CurrentContentId = table.Column<int>(type: "int", nullable: true),
-                    LastUpdated = table.Column<DateTime>(type: "datetime2", nullable: false)
+                    LastUpdated = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    LastAccessed = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CompletedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -893,7 +1225,7 @@ namespace LearnQuestV1.EF.Migrations
                         column: x => x.QuestionId,
                         principalTable: "Questions",
                         principalColumn: "QuestionId",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.NoAction);
                 });
 
             migrationBuilder.CreateTable(
@@ -920,7 +1252,7 @@ namespace LearnQuestV1.EF.Migrations
                         column: x => x.QuizId,
                         principalTable: "Quizzes",
                         principalColumn: "QuizId",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.NoAction);
                     table.ForeignKey(
                         name: "FK_QuizAttempts_Users_UserId",
                         column: x => x.UserId,
@@ -948,13 +1280,65 @@ namespace LearnQuestV1.EF.Migrations
                         column: x => x.QuestionId,
                         principalTable: "Questions",
                         principalColumn: "QuestionId",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.NoAction);
                     table.ForeignKey(
                         name: "FK_QuizQuestions_Quizzes_QuizId",
                         column: x => x.QuizId,
                         principalTable: "Quizzes",
                         principalColumn: "QuizId",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.NoAction);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "PointTransactions",
+                columns: table => new
+                {
+                    TransactionId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    UserId = table.Column<int>(type: "int", nullable: false),
+                    CourseId = table.Column<int>(type: "int", nullable: false),
+                    CoursePointsId = table.Column<int>(type: "int", nullable: false),
+                    PointsChanged = table.Column<int>(type: "int", nullable: false),
+                    PointsAfterTransaction = table.Column<int>(type: "int", nullable: false),
+                    Source = table.Column<int>(type: "int", nullable: false),
+                    TransactionType = table.Column<int>(type: "int", nullable: false),
+                    QuizAttemptId = table.Column<int>(type: "int", nullable: true),
+                    AwardedByUserId = table.Column<int>(type: "int", nullable: true),
+                    Description = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    Metadata = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_PointTransactions", x => x.TransactionId);
+                    table.ForeignKey(
+                        name: "FK_PointTransactions_CoursePoints_CoursePointsId",
+                        column: x => x.CoursePointsId,
+                        principalTable: "CoursePoints",
+                        principalColumn: "CoursePointsId",
+                        onDelete: ReferentialAction.NoAction);
+                    table.ForeignKey(
+                        name: "FK_PointTransactions_Courses_CourseId",
+                        column: x => x.CourseId,
+                        principalTable: "Courses",
+                        principalColumn: "CourseId",
+                        onDelete: ReferentialAction.NoAction);
+                    table.ForeignKey(
+                        name: "FK_PointTransactions_QuizAttempts_QuizAttemptId",
+                        column: x => x.QuizAttemptId,
+                        principalTable: "QuizAttempts",
+                        principalColumn: "AttemptId");
+                    table.ForeignKey(
+                        name: "FK_PointTransactions_Users_AwardedByUserId",
+                        column: x => x.AwardedByUserId,
+                        principalTable: "Users",
+                        principalColumn: "UserId");
+                    table.ForeignKey(
+                        name: "FK_PointTransactions_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
+                        principalColumn: "UserId",
+                        onDelete: ReferentialAction.NoAction);
                 });
 
             migrationBuilder.CreateTable(
@@ -991,7 +1375,7 @@ namespace LearnQuestV1.EF.Migrations
                         column: x => x.AttemptId,
                         principalTable: "QuizAttempts",
                         principalColumn: "AttemptId",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.NoAction);
                 });
 
             migrationBuilder.CreateIndex(
@@ -1043,6 +1427,16 @@ namespace LearnQuestV1.EF.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_CourseFeedbacks_UserId",
                 table: "CourseFeedbacks",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CoursePoints_CourseId",
+                table: "CoursePoints",
+                column: "CourseId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CoursePoints_UserId",
+                table: "CoursePoints",
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
@@ -1109,6 +1503,31 @@ namespace LearnQuestV1.EF.Migrations
                 name: "IX_PaymentTransactions_PaymentId",
                 table: "PaymentTransactions",
                 column: "PaymentId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PointTransactions_AwardedByUserId",
+                table: "PointTransactions",
+                column: "AwardedByUserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PointTransactions_CourseId",
+                table: "PointTransactions",
+                column: "CourseId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PointTransactions_CoursePointsId",
+                table: "PointTransactions",
+                column: "CoursePointsId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PointTransactions_QuizAttemptId",
+                table: "PointTransactions",
+                column: "QuizAttemptId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PointTransactions_UserId",
+                table: "PointTransactions",
+                column: "UserId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_QuestionOptions_QuestionId",
@@ -1218,6 +1637,31 @@ namespace LearnQuestV1.EF.Migrations
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_StudySessionContents_ContentId",
+                table: "StudySessionContents",
+                column: "ContentId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StudySessionContents_SessionId",
+                table: "StudySessionContents",
+                column: "SessionId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StudySessions_StudyPlanId",
+                table: "StudySessions",
+                column: "StudyPlanId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserAchievements_AchievementId",
+                table: "UserAchievements",
+                column: "AchievementId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserAchievements_CourseId",
+                table: "UserAchievements",
+                column: "CourseId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_UserAchievements_UserId",
                 table: "UserAchievements",
                 column: "UserId");
@@ -1244,6 +1688,16 @@ namespace LearnQuestV1.EF.Migrations
                 column: "SelectedOptionId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_UserBookmarks_ContentId",
+                table: "UserBookmarks",
+                column: "ContentId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserBookmarks_UserId",
+                table: "UserBookmarks",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_UserContentActivities_ContentId",
                 table: "UserContentActivities",
                 column: "ContentId");
@@ -1264,6 +1718,21 @@ namespace LearnQuestV1.EF.Migrations
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_UserLearningAnalytics_UserId",
+                table: "UserLearningAnalytics",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserLearningGoals_CourseId",
+                table: "UserLearningGoals",
+                column: "CourseId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserLearningGoals_UserId",
+                table: "UserLearningGoals",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_UserLearningSessions_CourseId",
                 table: "UserLearningSessions",
                 column: "CourseId");
@@ -1271,6 +1740,31 @@ namespace LearnQuestV1.EF.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_UserLearningSessions_UserId",
                 table: "UserLearningSessions",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserLearningStreaks_UserId",
+                table: "UserLearningStreaks",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserNotifications_AchievementId",
+                table: "UserNotifications",
+                column: "AchievementId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserNotifications_ContentId",
+                table: "UserNotifications",
+                column: "ContentId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserNotifications_CourseId",
+                table: "UserNotifications",
+                column: "CourseId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserNotifications_UserId",
+                table: "UserNotifications",
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
@@ -1303,6 +1797,16 @@ namespace LearnQuestV1.EF.Migrations
                 table: "Users",
                 column: "EmailAddress",
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserStudyPlans_CourseId",
+                table: "UserStudyPlans",
+                column: "CourseId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserStudyPlans_UserId",
+                table: "UserStudyPlans",
+                column: "UserId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_UserVisitHistory_UserId",
@@ -1353,6 +1857,9 @@ namespace LearnQuestV1.EF.Migrations
                 name: "PaymentTransactions");
 
             migrationBuilder.DropTable(
+                name: "PointTransactions");
+
+            migrationBuilder.DropTable(
                 name: "QuizQuestions");
 
             migrationBuilder.DropTable(
@@ -1362,10 +1869,16 @@ namespace LearnQuestV1.EF.Migrations
                 name: "SecurityAuditLogs");
 
             migrationBuilder.DropTable(
+                name: "StudySessionContents");
+
+            migrationBuilder.DropTable(
                 name: "UserAchievements");
 
             migrationBuilder.DropTable(
                 name: "UserAnswers");
+
+            migrationBuilder.DropTable(
+                name: "UserBookmarks");
 
             migrationBuilder.DropTable(
                 name: "UserContentActivities");
@@ -1377,7 +1890,19 @@ namespace LearnQuestV1.EF.Migrations
                 name: "UserDetails");
 
             migrationBuilder.DropTable(
+                name: "UserLearningAnalytics");
+
+            migrationBuilder.DropTable(
+                name: "UserLearningGoals");
+
+            migrationBuilder.DropTable(
                 name: "UserLearningSessions");
+
+            migrationBuilder.DropTable(
+                name: "UserLearningStreaks");
+
+            migrationBuilder.DropTable(
+                name: "UserNotifications");
 
             migrationBuilder.DropTable(
                 name: "UserPreferences");
@@ -1395,10 +1920,22 @@ namespace LearnQuestV1.EF.Migrations
                 name: "Payments");
 
             migrationBuilder.DropTable(
+                name: "CoursePoints");
+
+            migrationBuilder.DropTable(
+                name: "StudySessions");
+
+            migrationBuilder.DropTable(
                 name: "QuestionOptions");
 
             migrationBuilder.DropTable(
                 name: "QuizAttempts");
+
+            migrationBuilder.DropTable(
+                name: "Achievements");
+
+            migrationBuilder.DropTable(
+                name: "UserStudyPlans");
 
             migrationBuilder.DropTable(
                 name: "Questions");

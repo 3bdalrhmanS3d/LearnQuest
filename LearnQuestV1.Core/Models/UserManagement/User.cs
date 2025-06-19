@@ -37,6 +37,15 @@ namespace LearnQuestV1.Core.Models
             FavoriteCourses = new HashSet<FavoriteCourse>();
             AdminActionsPerformed = new HashSet<AdminActionLog>();
             AdminActionsReceived = new HashSet<AdminActionLog>();
+            SecurityAuditLogs = new HashSet<SecurityAuditLog>();
+            UserBookmarks = new HashSet<UserBookmark>();
+            UserLearningGoals = new HashSet<UserLearningGoal>();
+            UserStudyPlans = new HashSet<UserStudyPlan>();
+            UserAchievements = new HashSet<UserAchievement>();
+            UserLearningStreaks = new HashSet<UserLearningStreak>();
+            UserNotifications = new HashSet<UserNotification>();
+            UserLearningAnalytics = new HashSet<UserLearningAnalytics>();
+            
             CreatedAt = DateTime.UtcNow;
             IsActive = false;
             IsDeleted = false;
@@ -166,6 +175,14 @@ namespace LearnQuestV1.Core.Models
         public virtual ICollection<AdminActionLog> AdminActionsReceived { get; set; }
 
         public virtual ICollection<SecurityAuditLog> SecurityAuditLogs { get; set; }
+
+        public virtual ICollection<UserBookmark> UserBookmarks { get; set; } = new List<UserBookmark>();
+        public virtual ICollection<UserLearningGoal> UserLearningGoals { get; set; } = new List<UserLearningGoal>();
+        public virtual ICollection<UserStudyPlan> UserStudyPlans { get; set; } = new List<UserStudyPlan>();
+        public virtual ICollection<UserAchievement> UserAchievements { get; set; } = new List<UserAchievement>();
+        public virtual ICollection<UserLearningStreak> UserLearningStreaks { get; set; } = new List<UserLearningStreak>();
+        public virtual ICollection<UserNotification> UserNotifications { get; set; } = new List<UserNotification>();
+        public virtual ICollection<UserLearningAnalytics> UserLearningAnalytics { get; set; } = new List<UserLearningAnalytics>();
 
     }
 }

@@ -38,5 +38,7 @@ namespace LearnQuestV1.Core.Models.FeedbackAndReviews
 
         [Required]
         public DateTime CreatedAt { get; set; }
+
+        public bool IsDeleted { get; set; } = false;
     }
 }

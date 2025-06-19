@@ -10,5 +10,9 @@
         public string ContentUrl { get; set; } = string.Empty;
         public int DurationInMinutes { get; set; }
         public string ContentDescription { get; set; } = string.Empty;
+
+        public bool? IsCompleted { get; set; }
+
+        public DateTime? CompletedAt { get; set; }
     }
 }

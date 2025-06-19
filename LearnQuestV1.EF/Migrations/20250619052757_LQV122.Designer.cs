@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace LearnQuestV1.EF.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250618045131_EditContentAndProgressModel")]
-    partial class EditContentAndProgressModel
+    [Migration("20250619052757_LQV122")]
+    partial class LQV122
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -344,6 +344,9 @@ namespace LearnQuestV1.EF.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<int>("CourseLevel")
+                        .HasColumnType("int");
+
                     b.Property<string>("CourseName")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -359,6 +362,9 @@ namespace LearnQuestV1.EF.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<bool>("HasCertificate")
+                        .HasColumnType("bit");
+
                     b.Property<int>("InstructorId")
                         .HasColumnType("int");
 
@@ -366,6 +372,9 @@ namespace LearnQuestV1.EF.Migrations
                         .HasColumnType("bit");
 
                     b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsFeatured")
                         .HasColumnType("bit");
 
                     b.HasKey("CourseId");
@@ -520,6 +529,9 @@ namespace LearnQuestV1.EF.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
 
                     b.Property<int>("Rating")
                         .HasColumnType("int");
@@ -709,6 +721,111 @@ namespace LearnQuestV1.EF.Migrations
                         .IsUnique();
 
                     b.ToTable("CourseEnrollments");
+                });
+
+            modelBuilder.Entity("LearnQuestV1.Core.Models.LearningAndProgress.CoursePoints", b =>
+                {
+                    b.Property<int>("CoursePointsId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("CoursePointsId"));
+
+                    b.Property<int>("BonusPoints")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CourseId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CurrentRank")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("LastUpdated")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("PenaltyPoints")
+                        .HasColumnType("int");
+
+                    b.Property<int>("QuizPoints")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TotalPoints")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("CoursePointsId");
+
+                    b.HasIndex("CourseId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("CoursePoints");
+                });
+
+            modelBuilder.Entity("LearnQuestV1.Core.Models.LearningAndProgress.PointTransaction", b =>
+                {
+                    b.Property<int>("TransactionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TransactionId"));
+
+                    b.Property<int?>("AwardedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CourseId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CoursePointsId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Metadata")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("PointsAfterTransaction")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PointsChanged")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("QuizAttemptId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TransactionType")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("TransactionId");
+
+                    b.HasIndex("AwardedByUserId");
+
+                    b.HasIndex("CourseId");
+
+                    b.HasIndex("CoursePointsId");
+
+                    b.HasIndex("QuizAttemptId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("PointTransactions");
                 });
 
             modelBuilder.Entity("LearnQuestV1.Core.Models.LearningAndProgress.UserContentActivity", b =>
@@ -1200,6 +1317,58 @@ namespace LearnQuestV1.EF.Migrations
                     b.ToTable("AccountVerifications");
                 });
 
+            modelBuilder.Entity("LearnQuestV1.Core.Models.UserManagement.Achievement", b =>
+                {
+                    b.Property<int>("AchievementId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("AchievementId"));
+
+                    b.Property<string>("BadgeColor")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("BadgeIcon")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Criteria")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("DefaultPoints")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsRare")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("AchievementId");
+
+                    b.ToTable("Achievements");
+                });
+
             modelBuilder.Entity("LearnQuestV1.Core.Models.UserManagement.BlacklistToken", b =>
                 {
                     b.Property<int>("Id")
@@ -1254,50 +1423,146 @@ namespace LearnQuestV1.EF.Migrations
                     b.ToTable("RefreshTokens");
                 });
 
-            modelBuilder.Entity("LearnQuestV1.Core.Models.UserManagement.UserAchievement", b =>
+            modelBuilder.Entity("LearnQuestV1.Core.Models.UserManagement.StudySession", b =>
                 {
-                    b.Property<int>("AchievementId")
+                    b.Property<int>("SessionId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("AchievementId"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("SessionId"));
 
-                    b.Property<string>("AchievementType")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                    b.Property<int?>("ActualDurationMinutes")
+                        .HasColumnType("int");
 
-                    b.Property<string>("BadgeImageUrl")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
 
-                    b.Property<string>("Description")
+                    b.Property<int?>("EffectivenessRating")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsCompleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("PlannedDurationMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("ScheduledDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SessionNotes")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("StudyPlanId")
+                        .HasColumnType("int");
+
+                    b.HasKey("SessionId");
+
+                    b.HasIndex("StudyPlanId");
+
+                    b.ToTable("StudySessions");
+                });
+
+            modelBuilder.Entity("LearnQuestV1.Core.Models.UserManagement.StudySessionContent", b =>
+                {
+                    b.Property<int>("SessionContentId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("SessionContentId"));
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("ContentId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EstimatedDurationMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsCompleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SessionId")
+                        .HasColumnType("int");
+
+                    b.HasKey("SessionContentId");
+
+                    b.HasIndex("ContentId");
+
+                    b.HasIndex("SessionId");
+
+                    b.ToTable("StudySessionContents");
+                });
+
+            modelBuilder.Entity("LearnQuestV1.Core.Models.UserManagement.UserAchievement", b =>
+                {
+                    b.Property<int>("UserAchievementId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("UserAchievementId"));
+
+                    b.Property<int>("AchievementId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CourseId")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("EarnedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("Metadata")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<int?>("Points")
+                    b.Property<int>("PointsAwarded")
                         .HasColumnType("int");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
 
                     b.Property<int>("UserId")
                         .HasColumnType("int");
 
-                    b.HasKey("AchievementId");
+                    b.HasKey("UserAchievementId");
+
+                    b.HasIndex("AchievementId");
+
+                    b.HasIndex("CourseId");
 
                     b.HasIndex("UserId");
 
                     b.ToTable("UserAchievements");
+                });
+
+            modelBuilder.Entity("LearnQuestV1.Core.Models.UserManagement.UserBookmark", b =>
+                {
+                    b.Property<int>("BookmarkId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("BookmarkId"));
+
+                    b.Property<DateTime>("BookmarkedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("ContentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Tags")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("BookmarkId");
+
+                    b.HasIndex("ContentId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("UserBookmarks");
                 });
 
             modelBuilder.Entity("LearnQuestV1.Core.Models.UserManagement.UserDetail", b =>
@@ -1324,6 +1589,137 @@ namespace LearnQuestV1.EF.Migrations
                     b.HasKey("UserId");
 
                     b.ToTable("UserDetails");
+                });
+
+            modelBuilder.Entity("LearnQuestV1.Core.Models.UserManagement.UserLearningAnalytics", b =>
+                {
+                    b.Property<int>("AnalyticsId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("AnalyticsId"));
+
+                    b.Property<DateTime>("AnalyticsDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("AverageQuizScore")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal>("CompletionRate")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal>("DailyAverageSessionLength")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<int>("DailyContentCompleted")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DailyLearningMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DailySessions")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("LastUpdated")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("MetDailyGoal")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("MetWeeklyGoal")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("MostActiveDay")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("PreferredContentType")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("PreferredLearningHour")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("TotalPointsEarned")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("AnalyticsId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("UserLearningAnalytics");
+                });
+
+            modelBuilder.Entity("LearnQuestV1.Core.Models.UserManagement.UserLearningGoal", b =>
+                {
+                    b.Property<int>("GoalId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("GoalId"));
+
+                    b.Property<DateTime?>("AchievedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CourseId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("DailyTargetMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<string>("GoalDescription")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("GoalType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<bool>("IsAchieved")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("PreferredStudyDays")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("PreferredStudyTime")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("SendReminders")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("TargetDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("WeeklyTargetMinutes")
+                        .HasColumnType("int");
+
+                    b.HasKey("GoalId");
+
+                    b.HasIndex("CourseId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("UserLearningGoals");
                 });
 
             modelBuilder.Entity("LearnQuestV1.Core.Models.UserManagement.UserLearningSession", b =>
@@ -1370,6 +1766,124 @@ namespace LearnQuestV1.EF.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("UserLearningSessions");
+                });
+
+            modelBuilder.Entity("LearnQuestV1.Core.Models.UserManagement.UserLearningStreak", b =>
+                {
+                    b.Property<int>("StreakId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("StreakId"));
+
+                    b.Property<int>("CurrentStreak")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CurrentWeekDays")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("HasMetWeeklyGoal")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsStreakActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastLearningDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("LastUpdated")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("LongestStreak")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("StreakStartDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("WeekStartDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("WeeklyGoalDays")
+                        .HasColumnType("int");
+
+                    b.HasKey("StreakId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("UserLearningStreaks");
+                });
+
+            modelBuilder.Entity("LearnQuestV1.Core.Models.UserManagement.UserNotification", b =>
+                {
+                    b.Property<int>("NotificationId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("NotificationId"));
+
+                    b.Property<int?>("AchievementId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ActionUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int?>("ContentId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CourseId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Icon")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("Priority")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("ReadAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("NotificationId");
+
+                    b.HasIndex("AchievementId");
+
+                    b.HasIndex("ContentId");
+
+                    b.HasIndex("CourseId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("UserNotifications");
                 });
 
             modelBuilder.Entity("LearnQuestV1.Core.Models.UserManagement.UserPreferences", b =>
@@ -1432,6 +1946,62 @@ namespace LearnQuestV1.EF.Migrations
                     b.HasKey("UserId");
 
                     b.ToTable("UserPreferences");
+                });
+
+            modelBuilder.Entity("LearnQuestV1.Core.Models.UserManagement.UserStudyPlan", b =>
+                {
+                    b.Property<int>("StudyPlanId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("StudyPlanId"));
+
+                    b.Property<int>("CourseId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("DailyStudyMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DaysAhead")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsOnTrack")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastAdjustedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("PlanProgressPercentage")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<string>("PreferredStudyDays")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("PreferredStudyTime")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("TargetCompletionDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("StudyPlanId");
+
+                    b.HasIndex("CourseId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("UserStudyPlans");
                 });
 
             modelBuilder.Entity("LearnQuestV1.Core.Models.UserManagement.UserVisitHistory", b =>
@@ -1681,6 +2251,64 @@ namespace LearnQuestV1.EF.Migrations
                         .IsRequired();
 
                     b.Navigation("Course");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("LearnQuestV1.Core.Models.LearningAndProgress.CoursePoints", b =>
+                {
+                    b.HasOne("LearnQuestV1.Core.Models.CourseStructure.Course", "Course")
+                        .WithMany()
+                        .HasForeignKey("CourseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("LearnQuestV1.Core.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Course");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("LearnQuestV1.Core.Models.LearningAndProgress.PointTransaction", b =>
+                {
+                    b.HasOne("LearnQuestV1.Core.Models.User", "AwardedBy")
+                        .WithMany()
+                        .HasForeignKey("AwardedByUserId");
+
+                    b.HasOne("LearnQuestV1.Core.Models.CourseStructure.Course", "Course")
+                        .WithMany()
+                        .HasForeignKey("CourseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("LearnQuestV1.Core.Models.LearningAndProgress.CoursePoints", "CoursePoints")
+                        .WithMany("PointTransactions")
+                        .HasForeignKey("CoursePointsId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("LearnQuestV1.Core.Models.Quiz.QuizAttempt", "QuizAttempt")
+                        .WithMany()
+                        .HasForeignKey("QuizAttemptId");
+
+                    b.HasOne("LearnQuestV1.Core.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AwardedBy");
+
+                    b.Navigation("Course");
+
+                    b.Navigation("CoursePoints");
+
+                    b.Navigation("QuizAttempt");
 
                     b.Navigation("User");
                 });
@@ -1937,13 +2565,76 @@ namespace LearnQuestV1.EF.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("LearnQuestV1.Core.Models.UserManagement.StudySession", b =>
+                {
+                    b.HasOne("LearnQuestV1.Core.Models.UserManagement.UserStudyPlan", "StudyPlan")
+                        .WithMany("StudySessions")
+                        .HasForeignKey("StudyPlanId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("StudyPlan");
+                });
+
+            modelBuilder.Entity("LearnQuestV1.Core.Models.UserManagement.StudySessionContent", b =>
+                {
+                    b.HasOne("LearnQuestV1.Core.Models.CourseStructure.Content", "Content")
+                        .WithMany("StudySessionContents")
+                        .HasForeignKey("ContentId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("LearnQuestV1.Core.Models.UserManagement.StudySession", "StudySession")
+                        .WithMany("Contents")
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Content");
+
+                    b.Navigation("StudySession");
+                });
+
             modelBuilder.Entity("LearnQuestV1.Core.Models.UserManagement.UserAchievement", b =>
                 {
+                    b.HasOne("LearnQuestV1.Core.Models.UserManagement.Achievement", "Achievement")
+                        .WithMany("UserAchievements")
+                        .HasForeignKey("AchievementId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("LearnQuestV1.Core.Models.CourseStructure.Course", "Course")
+                        .WithMany("UserAchievements")
+                        .HasForeignKey("CourseId");
+
                     b.HasOne("LearnQuestV1.Core.Models.User", "User")
-                        .WithMany()
+                        .WithMany("UserAchievements")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Achievement");
+
+                    b.Navigation("Course");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("LearnQuestV1.Core.Models.UserManagement.UserBookmark", b =>
+                {
+                    b.HasOne("LearnQuestV1.Core.Models.CourseStructure.Content", "Content")
+                        .WithMany("UserBookmarks")
+                        .HasForeignKey("ContentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("LearnQuestV1.Core.Models.User", "User")
+                        .WithMany("UserBookmarks")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Content");
 
                     b.Navigation("User");
                 });
@@ -1955,6 +2646,36 @@ namespace LearnQuestV1.EF.Migrations
                         .HasForeignKey("LearnQuestV1.Core.Models.UserManagement.UserDetail", "UserId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("LearnQuestV1.Core.Models.UserManagement.UserLearningAnalytics", b =>
+                {
+                    b.HasOne("LearnQuestV1.Core.Models.User", "User")
+                        .WithMany("UserLearningAnalytics")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("LearnQuestV1.Core.Models.UserManagement.UserLearningGoal", b =>
+                {
+                    b.HasOne("LearnQuestV1.Core.Models.CourseStructure.Course", "Course")
+                        .WithMany("UserLearningGoals")
+                        .HasForeignKey("CourseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("LearnQuestV1.Core.Models.User", "User")
+                        .WithMany("UserLearningGoals")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Course");
 
                     b.Navigation("User");
                 });
@@ -1976,6 +2697,46 @@ namespace LearnQuestV1.EF.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("LearnQuestV1.Core.Models.UserManagement.UserLearningStreak", b =>
+                {
+                    b.HasOne("LearnQuestV1.Core.Models.User", "User")
+                        .WithMany("UserLearningStreaks")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("LearnQuestV1.Core.Models.UserManagement.UserNotification", b =>
+                {
+                    b.HasOne("LearnQuestV1.Core.Models.UserManagement.Achievement", "Achievement")
+                        .WithMany()
+                        .HasForeignKey("AchievementId");
+
+                    b.HasOne("LearnQuestV1.Core.Models.CourseStructure.Content", "Content")
+                        .WithMany()
+                        .HasForeignKey("ContentId");
+
+                    b.HasOne("LearnQuestV1.Core.Models.CourseStructure.Course", "Course")
+                        .WithMany()
+                        .HasForeignKey("CourseId");
+
+                    b.HasOne("LearnQuestV1.Core.Models.User", "User")
+                        .WithMany("UserNotifications")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Achievement");
+
+                    b.Navigation("Content");
+
+                    b.Navigation("Course");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("LearnQuestV1.Core.Models.UserManagement.UserPreferences", b =>
                 {
                     b.HasOne("LearnQuestV1.Core.Models.User", "User")
@@ -1983,6 +2744,25 @@ namespace LearnQuestV1.EF.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("LearnQuestV1.Core.Models.UserManagement.UserStudyPlan", b =>
+                {
+                    b.HasOne("LearnQuestV1.Core.Models.CourseStructure.Course", "Course")
+                        .WithMany("UserStudyPlans")
+                        .HasForeignKey("CourseId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("LearnQuestV1.Core.Models.User", "User")
+                        .WithMany("UserStudyPlans")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Course");
 
                     b.Navigation("User");
                 });
@@ -2001,6 +2781,13 @@ namespace LearnQuestV1.EF.Migrations
             modelBuilder.Entity("LearnQuestV1.Core.Models.CourseOrganization.CourseTrack", b =>
                 {
                     b.Navigation("CourseTrackCourses");
+                });
+
+            modelBuilder.Entity("LearnQuestV1.Core.Models.CourseStructure.Content", b =>
+                {
+                    b.Navigation("StudySessionContents");
+
+                    b.Navigation("UserBookmarks");
                 });
 
             modelBuilder.Entity("LearnQuestV1.Core.Models.CourseStructure.Course", b =>
@@ -2023,9 +2810,15 @@ namespace LearnQuestV1.EF.Migrations
 
                     b.Navigation("Payments");
 
+                    b.Navigation("UserAchievements");
+
                     b.Navigation("UserCoursePoints");
 
+                    b.Navigation("UserLearningGoals");
+
                     b.Navigation("UserProgresses");
+
+                    b.Navigation("UserStudyPlans");
                 });
 
             modelBuilder.Entity("LearnQuestV1.Core.Models.CourseStructure.Level", b =>
@@ -2036,6 +2829,11 @@ namespace LearnQuestV1.EF.Migrations
             modelBuilder.Entity("LearnQuestV1.Core.Models.CourseStructure.Section", b =>
                 {
                     b.Navigation("Contents");
+                });
+
+            modelBuilder.Entity("LearnQuestV1.Core.Models.LearningAndProgress.CoursePoints", b =>
+                {
+                    b.Navigation("PointTransactions");
                 });
 
             modelBuilder.Entity("LearnQuestV1.Core.Models.Quiz.Question", b =>
@@ -2088,13 +2886,42 @@ namespace LearnQuestV1.EF.Migrations
 
                     b.Navigation("SecurityAuditLogs");
 
+                    b.Navigation("UserAchievements");
+
+                    b.Navigation("UserBookmarks");
+
                     b.Navigation("UserCoursePoints");
 
                     b.Navigation("UserDetail");
 
+                    b.Navigation("UserLearningAnalytics");
+
+                    b.Navigation("UserLearningGoals");
+
+                    b.Navigation("UserLearningStreaks");
+
+                    b.Navigation("UserNotifications");
+
                     b.Navigation("UserProgresses");
 
+                    b.Navigation("UserStudyPlans");
+
                     b.Navigation("VisitHistories");
+                });
+
+            modelBuilder.Entity("LearnQuestV1.Core.Models.UserManagement.Achievement", b =>
+                {
+                    b.Navigation("UserAchievements");
+                });
+
+            modelBuilder.Entity("LearnQuestV1.Core.Models.UserManagement.StudySession", b =>
+                {
+                    b.Navigation("Contents");
+                });
+
+            modelBuilder.Entity("LearnQuestV1.Core.Models.UserManagement.UserStudyPlan", b =>
+                {
+                    b.Navigation("StudySessions");
                 });
 #pragma warning restore 612, 618
         }

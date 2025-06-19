@@ -2,6 +2,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using LearnQuestV1.Core.Enums;
+using LearnQuestV1.Core.Models.UserManagement;
 
 namespace LearnQuestV1.Core.Models.CourseStructure
 {
@@ -46,5 +47,9 @@ namespace LearnQuestV1.Core.Models.CourseStructure
         public bool IsDeleted { get; set; } = false;
 
         public DateTime? DeletedAt { get; set; }
+
+        public virtual ICollection<UserBookmark> UserBookmarks { get; set; } = new List<UserBookmark>();
+        public virtual ICollection<StudySessionContent> StudySessionContents { get; set; } = new List<StudySessionContent>();
+
     }
 }

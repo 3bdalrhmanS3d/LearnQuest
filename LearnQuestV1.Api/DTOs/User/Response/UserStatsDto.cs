@@ -1,6 +1,6 @@
 ﻿namespace LearnQuestV1.Api.DTOs.User.Response
 {
-    public class UserStatsDto
+    public class StudentStatsDto
     {
         public int SharedCourses { get; set; }
         public int CompletedSections { get; set; }
