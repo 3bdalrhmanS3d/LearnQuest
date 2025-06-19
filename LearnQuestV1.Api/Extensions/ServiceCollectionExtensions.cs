@@ -1,8 +1,12 @@
-﻿using LearnQuestV1.Api.Services.Implementations;
+﻿using LearnQuestV1.Api.BackgroundServices;
+using LearnQuestV1.Api.Configuration;
+using LearnQuestV1.Api.HealthChecks;
+using LearnQuestV1.Api.Services.Implementations;
 using LearnQuestV1.Api.Services.Interfaces;
 using LearnQuestV1.Core.Interfaces;
 using LearnQuestV1.EF.Repositories;
 using LearnQuestV1.EF.UnitOfWork;
+using Microsoft.Extensions.Configuration;
 
 namespace LearnQuestV1.Api.Extensions
 {
@@ -73,8 +77,11 @@ namespace LearnQuestV1.Api.Extensions
         }
 
         // === EMAIL SERVICES ===
-        public static IServiceCollection AddEmailServices(this IServiceCollection services)
+        public static IServiceCollection AddEmailServices(this IServiceCollection services, IConfiguration configuration)
         {
+            // Configure email settings
+            services.Configure<EmailSettings>(configuration.GetSection("EmailSettings"));
+
             // Email Template Service
             services.AddScoped<IEmailTemplateService, EmailTemplateService>();
 
@@ -83,7 +90,14 @@ namespace LearnQuestV1.Api.Extensions
 
             // Background Services
             services.AddHostedService<EmailQueueBackgroundService>();
-            services.AddHostedService<FailedLoginMaintenanceService>();
+
+            return services;
+        }
+        // === HEALTH CHECKS ===
+        public static IServiceCollection AddCustomHealthChecks(this IServiceCollection services)
+        {
+            services.AddHealthChecks()
+                .AddCheck<EmailServiceHealthCheck>("email_service");
 
             return services;
         }
@@ -96,12 +110,13 @@ namespace LearnQuestV1.Api.Extensions
         }
 
         // === ALL ENHANCED SERVICES ===
-        public static IServiceCollection AddAllEnhancedServices(this IServiceCollection services)
+        public static IServiceCollection AddAllEnhancedServices(this IServiceCollection services, IConfiguration configuration)
         {
             services.AddProjectDependencies();
             services.AddQuizServices();
             services.AddEnhancedAuthServices();
-            services.AddEmailServices();
+            services.AddEmailServices(configuration);
+            services.AddCustomHealthChecks();
             services.AddRateLimitingServices();
             services.AddAutoMapperProfiles();
 

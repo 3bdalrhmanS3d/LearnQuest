@@ -2,15 +2,34 @@
 {
     public interface IEmailTemplateService
     {
-        public interface IEmailTemplateService
-        {
-            string BuildVerificationEmail(string fullName, string verificationCode, bool isResend = false);
-            string BuildPasswordResetEmail(string fullName, string resetLink, string verificationCode);
-            string BuildWelcomeEmail(string fullName);
-            string BuildPasswordChangedEmail(string fullName);
-            string BuildAccountLockedEmail(string fullName, DateTime unlockTime);
-            string BuildCustomEmail(string fullName, string subject, string bodyMessage);
-            string BuildNotificationEmail(string fullName, string title, string message, string? actionUrl = null);
-        }
+        /// <summary>
+        /// Build verification email template
+        /// </summary>
+        string BuildVerificationEmail(string fullName, string verificationCode, bool isResend = false);
+
+        /// <summary>
+        /// Build password reset email template
+        /// </summary>
+        string BuildPasswordResetEmail(string fullName, string resetLink, string verificationCode);
+
+        /// <summary>
+        /// Build welcome email template
+        /// </summary>
+        string BuildWelcomeEmail(string fullName);
+
+        /// <summary>
+        /// Build password changed notification email template
+        /// </summary>
+        string BuildPasswordChangedEmail(string fullName);
+
+        /// <summary>
+        /// Build account locked notification email template
+        /// </summary>
+        string BuildAccountLockedEmail(string fullName, DateTime unlockTime);
+
+        /// <summary>
+        /// Build custom email template
+        /// </summary>
+        string BuildCustomEmail(string fullName, string content);
     }
 }

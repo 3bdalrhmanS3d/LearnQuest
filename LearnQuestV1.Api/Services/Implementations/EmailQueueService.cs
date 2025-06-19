@@ -1,6 +1,8 @@
-﻿using LearnQuestV1.Api.Services.Interfaces;
+﻿using LearnQuestV1.Api.Configuration;
+using LearnQuestV1.Api.Services.Interfaces;
 using MailKit.Net.Smtp;
 using MailKit.Security;
+using Microsoft.Extensions.Options;
 using MimeKit;
 using System.Collections.Concurrent;
 
@@ -10,11 +12,19 @@ namespace LearnQuestV1.Api.Services.Implementations
     {
         private readonly ConcurrentQueue<EmailQueueItem> _emailQueue = new();
         private readonly IConfiguration _config;
+        private readonly EmailSettings _emailSettings;
+        private readonly IEmailTemplateService _templateService;
         private readonly ILogger<EmailQueueService> _logger;
 
-        public EmailQueueService(IConfiguration config, ILogger<EmailQueueService> logger)
+        public EmailQueueService(
+            IConfiguration config,
+            IOptions<EmailSettings> emailSettings,
+            IEmailTemplateService templateService,
+            ILogger<EmailQueueService> logger)
         {
             _config = config;
+            _emailSettings = emailSettings.Value;
+            _templateService = templateService;
             _logger = logger;
         }
 
@@ -135,7 +145,7 @@ namespace LearnQuestV1.Api.Services.Implementations
         public async Task ProcessQueueAsync()
         {
             var processedCount = 0;
-            const int maxBatchSize = 10;
+            var maxBatchSize = _emailSettings.QueueBatchSize;
 
             while (_emailQueue.TryDequeue(out var emailItem) && processedCount < maxBatchSize)
             {
@@ -157,15 +167,15 @@ namespace LearnQuestV1.Api.Services.Implementations
                         emailItem.EmailAddress, emailItem.EmailType);
 
                     // Retry logic
-                    var maxRetryAttempts = _config.GetValue<int>("EmailSettings:MaxRetryAttempts", 3);
-                    if (emailItem.RetryCount < maxRetryAttempts)
+                    if (emailItem.RetryCount < _emailSettings.MaxRetryAttempts)
                     {
                         emailItem.RetryCount++;
-                        emailItem.NextRetryAt = DateTime.UtcNow.AddMinutes(Math.Pow(2, emailItem.RetryCount));
+                        emailItem.NextRetryAt = DateTime.UtcNow.AddMinutes(
+                            _emailSettings.RetryDelayMinutes * Math.Pow(2, emailItem.RetryCount - 1));
                         _emailQueue.Enqueue(emailItem);
 
                         _logger.LogInformation("Email queued for retry {RetryCount}/{MaxRetries} for {Email}",
-                            emailItem.RetryCount, maxRetryAttempts, emailItem.EmailAddress);
+                            emailItem.RetryCount, _emailSettings.MaxRetryAttempts, emailItem.EmailAddress);
                     }
                     else
                     {
@@ -189,55 +199,67 @@ namespace LearnQuestV1.Api.Services.Implementations
 
         private async Task SendEmailAsync(EmailQueueItem emailItem)
         {
-            var smtpServer = _config["EmailSettings:SmtpServer"];
-            var port = _config.GetValue<int>("EmailSettings:Port", 587);
-            var emailAddress = _config["EmailSettings:Email"];
-            var password = _config["EmailSettings:Password"];
-            var senderName = _config.GetValue<string>("EmailSettings:SenderName", "LearnQuest");
-            var enableSsl = _config.GetValue<bool>("EmailSettings:EnableSsl", true);
-            var skipSslValidation = _config.GetValue<bool>("EmailSettings:SkipSslValidation", false);
-            var timeoutSeconds = _config.GetValue<int>("EmailSettings:TimeoutSeconds", 30);
-
             var message = new MimeMessage();
-            message.From.Add(new MailboxAddress(senderName, emailAddress));
+            message.From.Add(new MailboxAddress(_emailSettings.SenderName, _emailSettings.Email));
             message.To.Add(new MailboxAddress(emailItem.FullName, emailItem.EmailAddress));
 
-            // Set subject and body based on email type
+            // Set subject and body based on email type using template service
             switch (emailItem.EmailType)
             {
                 case EmailType.Verification:
-                    message.Subject = "✅ Email Verification Required";
-                    message.Body = new TextPart("html") { Text = BuildVerificationEmail(emailItem.FullName, emailItem.VerificationCode!, false) };
+                    message.Subject = "Email Verification Required";
+                    message.Body = new TextPart("html")
+                    {
+                        Text = _templateService.BuildVerificationEmail(emailItem.FullName, emailItem.VerificationCode!, false)
+                    };
                     break;
 
                 case EmailType.ResendVerification:
-                    message.Subject = "🔄 New Verification Code";
-                    message.Body = new TextPart("html") { Text = BuildVerificationEmail(emailItem.FullName, emailItem.VerificationCode!, true) };
+                    message.Subject = "New Verification Code";
+                    message.Body = new TextPart("html")
+                    {
+                        Text = _templateService.BuildVerificationEmail(emailItem.FullName, emailItem.VerificationCode!, true)
+                    };
                     break;
 
                 case EmailType.PasswordReset:
-                    message.Subject = "🔐 Password Reset Request";
-                    message.Body = new TextPart("html") { Text = BuildPasswordResetEmail(emailItem.FullName, emailItem.ResetLink!, emailItem.VerificationCode!) };
+                    message.Subject = "Password Reset Request";
+                    message.Body = new TextPart("html")
+                    {
+                        Text = _templateService.BuildPasswordResetEmail(emailItem.FullName, emailItem.ResetLink!, emailItem.VerificationCode!)
+                    };
                     break;
 
                 case EmailType.Welcome:
-                    message.Subject = "🎉 Welcome to LearnQuest!";
-                    message.Body = new TextPart("html") { Text = BuildWelcomeEmail(emailItem.FullName) };
+                    message.Subject = "Welcome to LearnQuest!";
+                    message.Body = new TextPart("html")
+                    {
+                        Text = _templateService.BuildWelcomeEmail(emailItem.FullName)
+                    };
                     break;
 
                 case EmailType.PasswordChanged:
-                    message.Subject = "🔒 Password Changed Successfully";
-                    message.Body = new TextPart("html") { Text = BuildPasswordChangedEmail(emailItem.FullName) };
+                    message.Subject = "Password Changed Successfully";
+                    message.Body = new TextPart("html")
+                    {
+                        Text = _templateService.BuildPasswordChangedEmail(emailItem.FullName)
+                    };
                     break;
 
                 case EmailType.AccountLocked:
-                    message.Subject = "🔐 Account Temporarily Locked";
-                    message.Body = new TextPart("html") { Text = BuildAccountLockedEmail(emailItem.FullName, emailItem.UnlockTime!.Value) };
+                    message.Subject = "Account Temporarily Locked";
+                    message.Body = new TextPart("html")
+                    {
+                        Text = _templateService.BuildAccountLockedEmail(emailItem.FullName, emailItem.UnlockTime!.Value)
+                    };
                     break;
 
                 case EmailType.Custom:
                     message.Subject = emailItem.Subject!;
-                    message.Body = new TextPart("html") { Text = BuildCustomEmail(emailItem.FullName, emailItem.Body!) };
+                    message.Body = new TextPart("html")
+                    {
+                        Text = _templateService.BuildCustomEmail(emailItem.FullName, emailItem.Body!)
+                    };
                     break;
 
                 default:
@@ -249,23 +271,23 @@ namespace LearnQuestV1.Api.Services.Implementations
             try
             {
                 // Configure SSL validation
-                if (skipSslValidation)
+                if (_emailSettings.SkipSslValidation)
                 {
                     client.ServerCertificateValidationCallback = (s, c, h, e) => true;
                     _logger.LogWarning("SSL certificate validation is disabled for email sending");
                 }
 
                 // Set timeout
-                client.Timeout = timeoutSeconds * 1000;
+                client.Timeout = _emailSettings.TimeoutSeconds * 1000;
 
                 // Connect
-                var secureSocketOptions = enableSsl ? SecureSocketOptions.StartTls : SecureSocketOptions.None;
-                await client.ConnectAsync(smtpServer, port, secureSocketOptions);
+                var secureSocketOptions = _emailSettings.EnableSsl ? SecureSocketOptions.StartTls : SecureSocketOptions.None;
+                await client.ConnectAsync(_emailSettings.SmtpServer, _emailSettings.Port, secureSocketOptions);
 
                 // Authenticate
-                if (!string.IsNullOrEmpty(emailAddress) && !string.IsNullOrEmpty(password))
+                if (!string.IsNullOrEmpty(_emailSettings.Email) && !string.IsNullOrEmpty(_emailSettings.Password))
                 {
-                    await client.AuthenticateAsync(emailAddress, password);
+                    await client.AuthenticateAsync(_emailSettings.Email, _emailSettings.Password);
                 }
 
                 // Send
@@ -278,146 +300,10 @@ namespace LearnQuestV1.Api.Services.Implementations
             catch (Exception ex)
             {
                 _logger.LogError(ex, "SMTP error sending email to {Email}. Server: {SmtpServer}:{Port}",
-                    emailItem.EmailAddress, smtpServer, port);
+                    emailItem.EmailAddress, _emailSettings.SmtpServer, _emailSettings.Port);
                 throw;
             }
         }
-
-        #region Email Templates (Existing from your code)
-
-        private string BuildVerificationEmail(string fullName, string code, bool isResend)
-        {
-            string title = isResend ? "🔄 Resend: Your New Verification Code" : "✅ Your Email Verification Code";
-            string message = isResend
-                ? "You have requested a new verification code. Please use the code below:"
-                : "Please use the following verification code to complete your registration:";
-
-            return GetEmailTemplate()
-                .Replace("{{TITLE}}", title)
-                .Replace("{{FULL_NAME}}", fullName)
-                .Replace("{{MESSAGE}}", message)
-                .Replace("{{CODE}}", code);
-        }
-
-        private string BuildPasswordResetEmail(string fullName, string resetLink, string verificationCode)
-        {
-            return GetEmailTemplate()
-                .Replace("{{TITLE}}", "🔐 Reset Your Password")
-                .Replace("{{FULL_NAME}}", fullName)
-                .Replace("{{MESSAGE}}", $@"
-                    <p>You requested to reset your password. You can either:</p>
-                    <p><a href='{resetLink}' class='btn'>Reset Password via Link</a></p>
-                    <p>Or use this verification code: <strong>{verificationCode}</strong></p>
-                ")
-                .Replace("{{CODE}}", verificationCode);
-        }
-
-        private string BuildWelcomeEmail(string fullName)
-        {
-            return GetEmailTemplate()
-                .Replace("{{TITLE}}", "🎉 Welcome to LearnQuest!")
-                .Replace("{{FULL_NAME}}", fullName)
-                .Replace("{{MESSAGE}}", "Your account has been successfully verified. Welcome to our learning platform!")
-                .Replace("{{CODE}}", "");
-        }
-
-        private string BuildPasswordChangedEmail(string fullName)
-        {
-            return GetEmailTemplate()
-                .Replace("{{TITLE}}", "🔒 Password Changed Successfully")
-                .Replace("{{FULL_NAME}}", fullName)
-                .Replace("{{MESSAGE}}", $"Your password was changed on {DateTime.UtcNow:MMM dd, yyyy} at {DateTime.UtcNow:HH:mm} UTC. If this wasn't you, please contact support immediately.")
-                .Replace("{{CODE}}", "");
-        }
-
-        private string BuildAccountLockedEmail(string fullName, DateTime unlockTime)
-        {
-            return GetEmailTemplate()
-                .Replace("{{TITLE}}", "🔐 Account Temporarily Locked")
-                .Replace("{{FULL_NAME}}", fullName)
-                .Replace("{{MESSAGE}}", $@"
-                    <p>Your account has been temporarily locked due to multiple failed login attempts.</p>
-                    <p><strong>Unlock Time:</strong> {unlockTime:MMM dd, yyyy HH:mm} UTC</p>
-                    <p>If you believe this was not you, please contact our support team.</p>
-                ")
-                .Replace("{{CODE}}", "");
-        }
-
-        private string BuildCustomEmail(string fullName, string bodyMessage)
-        {
-            return GetEmailTemplate()
-                .Replace("{{TITLE}}", "Notification")
-                .Replace("{{FULL_NAME}}", fullName)
-                .Replace("{{MESSAGE}}", bodyMessage)
-                .Replace("{{CODE}}", "");
-        }
-
-        private string GetEmailTemplate()
-        {
-            return $@"
-            <html>
-                <head>
-                    <style>
-                        body {{
-                            font-family: Arial, sans-serif;
-                            background-color: #f4f4f4;
-                            text-align: center;
-                        }}
-                        .container {{
-                            max-width: 500px;
-                            margin: 20px auto;
-                            padding: 20px;
-                            background-color: #ffffff;
-                            border-radius: 10px;
-                            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
-                        }}
-                        h2 {{
-                            color: #2d89ef;
-                        }}
-                        .code {{
-                            font-size: 24px;
-                            font-weight: bold;
-                            color: #d9534f;
-                            background-color: #f8d7da;
-                            padding: 10px 20px;
-                            display: inline-block;
-                            border-radius: 5px;
-                            margin: 15px 0;
-                        }}
-                        .btn {{
-                            display: inline-block;
-                            padding: 10px 20px;
-                            background-color: #28a745;
-                            color: white;
-                            text-decoration: none;
-                            border-radius: 5px;
-                            font-weight: bold;
-                            margin: 10px;
-                        }}
-                        .footer {{
-                            margin-top: 20px;
-                            font-size: 12px;
-                            color: #777;
-                        }}
-                    </style>
-                </head>
-                <body>
-                    <div class='container'>
-                        <h2>{{{{TITLE}}}}</h2>
-                        <p>Hello, {{{{FULL_NAME}}}}!</p>
-                        {{{{MESSAGE}}}}
-                        <div class='code'>{{{{CODE}}}}</div>
-                        <p>If you did not request this email, please ignore it.</p>
-                        <div class='footer'>
-                            <p>LearnQuest Team</p>
-                            <p>Contact us: <a href='mailto:support@learnquest.com'>support@learnquest.com</a></p>
-                        </div>
-                    </div>
-                </body>
-            </html>";
-        }
-
-        #endregion
     }
 
     // Supporting classes

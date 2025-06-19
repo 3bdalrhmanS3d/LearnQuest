@@ -7,394 +7,229 @@ namespace LearnQuestV1.Api.Services.Implementations
     public class EmailTemplateService : IEmailTemplateService
     {
         private readonly EmailSettings _emailSettings;
+        private readonly ILogger<EmailTemplateService> _logger;
 
-        public EmailTemplateService(IOptions<EmailSettings> emailSettings)
+        public EmailTemplateService(
+            IOptions<EmailSettings> emailSettings,
+            ILogger<EmailTemplateService> logger)
         {
             _emailSettings = emailSettings.Value;
+            _logger = logger;
         }
 
         public string BuildVerificationEmail(string fullName, string verificationCode, bool isResend = false)
         {
-            var title = isResend ? "🔄 New Verification Code" : "✅ Email Verification Required";
+            var title = isResend ? "New Verification Code" : "Email Verification Required";
             var message = isResend
-                ? "You requested a new verification code. Here's your new code:"
-                : "Welcome! Please verify your email address using the code below:";
+                ? "Here's your new verification code to complete your account setup:"
+                : "Thank you for signing up! Please use the following code to verify your email address:";
 
-            var template = GetBaseTemplate();
-            return template
-                .Replace("{{TITLE}}", title)
-                .Replace("{{FULL_NAME}}", fullName)
-                .Replace("{{MESSAGE}}", message)
-                .Replace("{{CONTENT}}", $@"
-                    <div class='verification-code'>
-                        <div class='code-label'>Your Verification Code:</div>
-                        <div class='code'>{verificationCode}</div>
-                        <div class='code-note'>This code expires in 30 minutes</div>
-                    </div>
-                ")
-                .Replace("{{FOOTER_MESSAGE}}", "If you didn't create an account, please ignore this email.");
+            return BuildEmailTemplate(title, $@"
+                <p>Hello, <strong>{fullName}</strong>!</p>
+                <p>{message}</p>
+                <div class='code'>{verificationCode}</div>
+                <p>This code will expire in 30 minutes.</p>
+                <p>If you did not request this email, please ignore it.</p>
+            ");
         }
 
         public string BuildPasswordResetEmail(string fullName, string resetLink, string verificationCode)
         {
-            var template = GetBaseTemplate();
-            return template
-                .Replace("{{TITLE}}", "🔐 Password Reset Request")
-                .Replace("{{FULL_NAME}}", fullName)
-                .Replace("{{MESSAGE}}", "You requested to reset your password. Use the button below or the verification code:")
-                .Replace("{{CONTENT}}", $@"
-                    <div class='action-section'>
-                        <a href='{resetLink}' class='btn btn-primary'>Reset Password</a>
-                        <div class='or-divider'>
-                            <span>OR</span>
-                        </div>
-                        <div class='verification-code'>
-                            <div class='code-label'>Verification Code:</div>
-                            <div class='code'>{verificationCode}</div>
-                        </div>
-                        <div class='code-note'>This link and code expire in 30 minutes</div>
-                    </div>
-                ")
-                .Replace("{{FOOTER_MESSAGE}}", "If you didn't request a password reset, please ignore this email and contact support if you're concerned.");
+            return BuildEmailTemplate("Password Reset Request", $@"
+                <p>Hello, <strong>{fullName}</strong>!</p>
+                <p>We received a request to reset your password. Use the code below or click the link to reset your password:</p>
+                <div class='code'>{verificationCode}</div>
+                <p style='text-align: center; margin: 20px 0;'>
+                    <a href='{resetLink}' class='btn'>Reset Password</a>
+                </p>
+                <p>This link will expire in 30 minutes.</p>
+                <p>If you did not request this password reset, please ignore this email.</p>
+            ");
         }
 
         public string BuildWelcomeEmail(string fullName)
         {
-            var template = GetBaseTemplate();
-            return template
-                .Replace("{{TITLE}}", "🎉 Welcome to LearnQuest!")
-                .Replace("{{FULL_NAME}}", fullName)
-                .Replace("{{MESSAGE}}", "Your account has been successfully verified. Welcome to our learning platform!")
-                .Replace("{{CONTENT}}", $@"
-                    <div class='welcome-section'>
-                        <div class='welcome-icon'>🚀</div>
-                        <h3>What's Next?</h3>
-                        <ul class='feature-list'>
-                            <li>📚 Browse our course catalog</li>
-                            <li>🎯 Set your learning goals</li>
-                            <li>👨‍🏫 Connect with instructors</li>
-                            <li>🏆 Track your progress</li>
-                        </ul>
-                        <a href='{_emailSettings.FrontendUrl}/dashboard' class='btn btn-primary'>Get Started</a>
-                    </div>
-                ")
-                .Replace("{{FOOTER_MESSAGE}}", "Happy learning!");
+            return BuildEmailTemplate("Welcome to LearnQuest!", $@"
+                <p>Hello, <strong>{fullName}</strong>!</p>
+                <p>Welcome to LearnQuest! Your email has been verified successfully.</p>
+                <p>You can now access all our features:</p>
+                <ul style='text-align: left; margin: 20px 0;'>
+                    <li>Browse and enroll in courses</li>
+                    <li>Track your learning progress</li>
+                    <li>Take quizzes and assessments</li>
+                    <li>Earn certificates</li>
+                </ul>
+                <p style='text-align: center; margin: 20px 0;'>
+                    <a href='{_emailSettings.WebsiteUrl}' class='btn'>Start Learning</a>
+                </p>
+                <p>Happy learning!</p>
+            ");
         }
 
         public string BuildPasswordChangedEmail(string fullName)
         {
-            var template = GetBaseTemplate();
-            return template
-                .Replace("{{TITLE}}", "🔒 Password Changed Successfully")
-                .Replace("{{FULL_NAME}}", fullName)
-                .Replace("{{MESSAGE}}", "Your password has been changed successfully.")
-                .Replace("{{CONTENT}}", $@"
-                    <div class='security-alert'>
-                        <div class='alert-icon'>🛡️</div>
-                        <p><strong>Security Notice:</strong> Your password was changed on {DateTime.UtcNow:MMM dd, yyyy} at {DateTime.UtcNow:HH:mm} UTC.</p>
-                        <p>If you didn't make this change, please contact our support team immediately.</p>
-                        <a href='{_emailSettings.FrontendUrl}/contact' class='btn btn-warning'>Contact Support</a>
-                    </div>
-                ")
-                .Replace("{{FOOTER_MESSAGE}}", "Keep your account secure by using a strong, unique password.");
+            return BuildEmailTemplate("Password Changed Successfully", $@"
+                <p>Hello, <strong>{fullName}</strong>!</p>
+                <p>Your password has been changed successfully.</p>
+                <p><strong>When:</strong> {DateTime.UtcNow:yyyy-MM-dd HH:mm} UTC</p>
+                <p>If you did not make this change, please contact our support team immediately.</p>
+                <p style='text-align: center; margin: 20px 0;'>
+                    <a href='mailto:{_emailSettings.SupportEmail}' class='btn' style='background-color: #dc3545;'>Contact Support</a>
+                </p>
+            ");
         }
 
         public string BuildAccountLockedEmail(string fullName, DateTime unlockTime)
         {
-            var template = GetBaseTemplate();
-            return template
-                .Replace("{{TITLE}}", "🔐 Account Temporarily Locked")
-                .Replace("{{FULL_NAME}}", fullName)
-                .Replace("{{MESSAGE}}", "Your account has been temporarily locked due to multiple failed login attempts.")
-                .Replace("{{CONTENT}}", $@"
-                    <div class='security-alert'>
-                        <div class='alert-icon'>⚠️</div>
-                        <p><strong>Account Status:</strong> Temporarily Locked</p>
-                        <p><strong>Unlock Time:</strong> {unlockTime:MMM dd, yyyy HH:mm} UTC</p>
-                        <p>For your security, we've temporarily locked your account. You can try logging in again after the unlock time.</p>
-                        <p>If you believe this was not you, please contact our support team.</p>
-                        <a href='{_emailSettings.FrontendUrl}/contact' class='btn btn-warning'>Contact Support</a>
-                    </div>
-                ")
-                .Replace("{{FOOTER_MESSAGE}}", "If you're experiencing issues, our support team is here to help.");
+            return BuildEmailTemplate("Account Temporarily Locked", $@"
+                <p>Hello, <strong>{fullName}</strong>!</p>
+                <p>Your account has been temporarily locked due to multiple failed login attempts.</p>
+                <p><strong>Unlock Time:</strong> {unlockTime:yyyy-MM-dd HH:mm} UTC</p>
+                <p>For security reasons, please wait until the unlock time before attempting to log in again.</p>
+                <p>If you believe this was not you, please contact our support team.</p>
+                <p style='text-align: center; margin: 20px 0;'>
+                    <a href='mailto:{_emailSettings.SupportEmail}' class='btn' style='background-color: #dc3545;'>Contact Support</a>
+                </p>
+            ");
         }
 
-        public string BuildCustomEmail(string fullName, string subject, string bodyMessage)
+        public string BuildCustomEmail(string fullName, string content)
         {
-            var template = GetBaseTemplate();
-            return template
-                .Replace("{{TITLE}}", subject)
-                .Replace("{{FULL_NAME}}", fullName)
-                .Replace("{{MESSAGE}}", bodyMessage)
-                .Replace("{{CONTENT}}", "")
-                .Replace("{{FOOTER_MESSAGE}}", "");
+            return BuildEmailTemplate("Message from LearnQuest", $@"
+                <p>Hello, <strong>{fullName}</strong>!</p>
+                {content}
+            ");
         }
 
-        public string BuildNotificationEmail(string fullName, string title, string message, string? actionUrl = null)
+        private string BuildEmailTemplate(string title, string content)
         {
-            var actionButton = string.IsNullOrEmpty(actionUrl)
-                ? ""
-                : $"<a href='{actionUrl}' class='btn btn-primary'>View Details</a>";
+            var logoSection = !string.IsNullOrEmpty(_emailSettings.LogoUrl)
+                ? $"<img src='{_emailSettings.LogoUrl}' alt='{_emailSettings.CompanyName}' style='max-width: 200px; height: auto; margin-bottom: 20px;'>"
+                : "";
 
-            var template = GetBaseTemplate();
-            return template
-                .Replace("{{TITLE}}", title)
-                .Replace("{{FULL_NAME}}", fullName)
-                .Replace("{{MESSAGE}}", message)
-                .Replace("{{CONTENT}}", actionButton)
-                .Replace("{{FOOTER_MESSAGE}}", "");
-        }
-
-        private string GetBaseTemplate()
-        {
             return $@"
-<!DOCTYPE html>
-<html lang='en'>
-<head>
-    <meta charset='UTF-8'>
-    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-    <title>{{{{TITLE}}}}</title>
-    <style>
-        * {{
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }}
-        
-        body {{
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f5f7fa;
-            color: #333;
-            line-height: 1.6;
-        }}
-        
-        .email-container {{
-            max-width: 600px;
-            margin: 20px auto;
-            background-color: #ffffff;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
-        }}
-        
-        .header {{
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            text-align: center;
-            padding: 30px 20px;
-        }}
-        
-        .header h1 {{
-            font-size: 24px;
-            font-weight: 600;
-            margin-bottom: 5px;
-        }}
-        
-        .header .subtitle {{
-            font-size: 14px;
-            opacity: 0.9;
-        }}
-        
-        .content {{
-            padding: 40px 30px;
-        }}
-        
-        .greeting {{
-            font-size: 18px;
-            margin-bottom: 20px;
-            color: #2c3e50;
-        }}
-        
-        .message {{
-            font-size: 16px;
-            margin-bottom: 30px;
-            color: #555;
-        }}
-        
-        .verification-code {{
-            text-align: center;
-            margin: 30px 0;
-        }}
-        
-        .code-label {{
-            font-size: 14px;
-            color: #666;
-            margin-bottom: 10px;
-        }}
-        
-        .code {{
-            display: inline-block;
-            font-size: 28px;
-            font-weight: bold;
-            color: #e74c3c;
-            background-color: #fef5f5;
-            padding: 15px 25px;
-            border-radius: 8px;
-            border: 2px dashed #e74c3c;
-            letter-spacing: 4px;
-            font-family: 'Courier New', monospace;
-        }}
-        
-        .code-note {{
-            font-size: 12px;
-            color: #999;
-            margin-top: 10px;
-        }}
-        
-        .btn {{
-            display: inline-block;
-            padding: 12px 30px;
-            text-decoration: none;
-            border-radius: 6px;
-            font-weight: 600;
-            text-align: center;
-            transition: all 0.3s ease;
-            font-size: 16px;
-        }}
-        
-        .btn-primary {{
-            background-color: #3498db;
-            color: white;
-        }}
-        
-        .btn-primary:hover {{
-            background-color: #2980b9;
-        }}
-        
-        .btn-warning {{
-            background-color: #f39c12;
-            color: white;
-        }}
-        
-        .btn-warning:hover {{
-            background-color: #d68910;
-        }}
-        
-        .action-section {{
-            text-align: center;
-            margin: 30px 0;
-        }}
-        
-        .or-divider {{
-            margin: 20px 0;
-            text-align: center;
-            position: relative;
-        }}
-        
-        .or-divider:before {{
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 0;
-            right: 0;
-            height: 1px;
-            background-color: #ddd;
-        }}
-        
-        .or-divider span {{
-            background-color: white;
-            padding: 0 15px;
-            color: #999;
-            font-size: 14px;
-        }}
-        
-        .security-alert {{
-            background-color: #fff3cd;
-            border: 1px solid #ffeaa7;
-            border-radius: 6px;
-            padding: 20px;
-            margin: 20px 0;
-        }}
-        
-        .alert-icon {{
-            font-size: 24px;
-            margin-bottom: 10px;
-        }}
-        
-        .welcome-section {{
-            text-align: center;
-        }}
-        
-        .welcome-icon {{
-            font-size: 48px;
-            margin-bottom: 20px;
-        }}
-        
-        .feature-list {{
-            text-align: left;
-            max-width: 300px;
-            margin: 20px auto;
-        }}
-        
-        .feature-list li {{
-            margin: 10px 0;
-            padding-left: 10px;
-        }}
-        
-        .footer {{
-            background-color: #f8f9fa;
-            padding: 30px;
-            text-align: center;
-            border-top: 1px solid #e9ecef;
-        }}
-        
-        .footer-message {{
-            font-size: 14px;
-            color: #666;
-            margin-bottom: 20px;
-        }}
-        
-        .company-info {{
-            font-size: 12px;
-            color: #999;
-        }}
-        
-        .company-info a {{
-            color: #3498db;
-            text-decoration: none;
-        }}
-        
-        .social-links {{
-            margin: 15px 0;
-        }}
-        
-        .social-links a {{
-            display: inline-block;
-            margin: 0 10px;
-            text-decoration: none;
-            color: #666;
-        }}
-    </style>
-</head>
-<body>
-    <div class='email-container'>
-        <div class='header'>
-            <h1>{{{{TITLE}}}}</h1>
-            <div class='subtitle'>LearnQuest Learning Platform</div>
-        </div>
-        
-        <div class='content'>
-            <div class='greeting'>Hello, {{{{FULL_NAME}}}}!</div>
-            <div class='message'>{{{{MESSAGE}}}}</div>
-            {{{{CONTENT}}}}
-        </div>
-        
-        <div class='footer'>
-            <div class='footer-message'>{{{{FOOTER_MESSAGE}}}}</div>
-            <div class='company-info'>
-                <strong>LearnQuest Team</strong><br>
-                <a href='mailto:{_emailSettings.SupportEmail}'>{_emailSettings.SupportEmail}</a><br>
-                <a href='{_emailSettings.FrontendUrl}'>Visit our website</a>
-            </div>
-            <div class='social-links'>
-                <a href='#'>📧 Email</a>
-                <a href='#'>🐦 Twitter</a>
-                <a href='#'>📘 Facebook</a>
-            </div>
-        </div>
-    </div>
-</body>
-</html>";
+            <!DOCTYPE html>
+            <html>
+                <head>
+                    <meta charset='utf-8'>
+                    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+                    <title>{title}</title>
+                    <style>
+                        body {{
+                            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                            line-height: 1.6;
+                            margin: 0;
+                            padding: 20px;
+                            background-color: #f4f4f4;
+                            color: #333;
+                        }}
+                        .email-container {{
+                            max-width: 600px;
+                            margin: 0 auto;
+                            background-color: #ffffff;
+                            border-radius: 10px;
+                            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                            overflow: hidden;
+                        }}
+                        .header {{
+                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            color: white;
+                            padding: 30px 20px;
+                            text-align: center;
+                        }}
+                        .header h1 {{
+                            margin: 0;
+                            font-size: 28px;
+                            font-weight: 300;
+                        }}
+                        .content {{
+                            padding: 40px 30px;
+                        }}
+                        .code {{
+                            font-size: 32px;
+                            font-weight: bold;
+                            color: #667eea;
+                            background-color: #f8f9ff;
+                            padding: 20px;
+                            display: inline-block;
+                            border-radius: 8px;
+                            margin: 20px 0;
+                            text-align: center;
+                            width: 100%;
+                            box-sizing: border-box;
+                            letter-spacing: 2px;
+                            border: 2px dashed #667eea;
+                        }}
+                        .btn {{
+                            display: inline-block;
+                            padding: 12px 30px;
+                            background-color: #667eea;
+                            color: white !important;
+                            text-decoration: none;
+                            border-radius: 6px;
+                            font-weight: 600;
+                            margin: 10px 0;
+                            transition: background-color 0.3s ease;
+                        }}
+                        .btn:hover {{
+                            background-color: #5a67d8;
+                        }}
+                        .footer {{
+                            background-color: #f8f9fa;
+                            padding: 30px;
+                            text-align: center;
+                            border-top: 1px solid #e9ecef;
+                        }}
+                        .footer p {{
+                            margin: 5px 0;
+                            font-size: 14px;
+                            color: #6c757d;
+                        }}
+                        .footer a {{
+                            color: #667eea;
+                            text-decoration: none;
+                        }}
+                        ul {{
+                            padding-left: 20px;
+                        }}
+                        li {{
+                            margin: 8px 0;
+                        }}
+                        @media (max-width: 600px) {{
+                            .email-container {{
+                                margin: 0;
+                                border-radius: 0;
+                            }}
+                            .content {{
+                                padding: 20px;
+                            }}
+                            .code {{
+                                font-size: 24px;
+                                padding: 15px;
+                            }}
+                        }}
+                    </style>
+                </head>
+                <body>
+                    <div class='email-container'>
+                        <div class='header'>
+                            {logoSection}
+                            <h1>{title}</h1>
+                        </div>
+                        <div class='content'>
+                            {content}
+                        </div>
+                        <div class='footer'>
+                            <p><strong>{_emailSettings.CompanyName}</strong></p>
+                            <p>Contact us: <a href='mailto:{_emailSettings.SupportEmail}'>{_emailSettings.SupportEmail}</a></p>
+                            <p><a href='{_emailSettings.WebsiteUrl}'>Visit our website</a></p>
+                            <p style='font-size: 12px; color: #999; margin-top: 20px;'>
+                                This email was sent automatically. Please do not reply to this email.
+                            </p>
+                        </div>
+                    </div>
+                </body>
+            </html>";
         }
     }
 }

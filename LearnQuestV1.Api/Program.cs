@@ -12,6 +12,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 using Microsoft.AspNetCore.DataProtection.Repositories;
+using LearnQuestV1.Api.BackgroundServices;
 
 namespace LearnQuestV1.Api
 {
@@ -42,8 +43,9 @@ namespace LearnQuestV1.Api
             builder.Services.AddSingleton<IFailedLoginTracker, FailedLoginTracker>();
             builder.Services.AddScoped<ISecurityAuditLogger, SecurityAuditLogger>();
             builder.Services.AddScoped<IAutoLoginService, AutoLoginService>();
-            builder.Services.AddScoped<IEmailTemplateService, EmailTemplateService>();
             builder.Services.AddSingleton<IEmailQueueService, EmailQueueService>();
+            builder.Services.AddSingleton<IEmailTemplateService, EmailTemplateService>();
+
 
             // === BACKGROUND SERVICES ===
             builder.Services.AddHostedService<EmailQueueBackgroundService>();
