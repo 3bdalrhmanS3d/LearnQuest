@@ -1,15 +1,17 @@
-﻿using LearnQuestV1.Api.DTOs.Courses;
+﻿using LearnQuestV1.Api.DTOs.Browse;
+using LearnQuestV1.Api.DTOs.Courses;
+using LearnQuestV1.Api.DTOs.Public;
 using LearnQuestV1.Api.Services.Interfaces;
 using LearnQuestV1.Api.Utilities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using System.ComponentModel.DataAnnotations;
 
 namespace LearnQuestV1.Api.Controllers
 {
     [Route("api/courses")]
     [ApiController]
-    [Authorize(Roles = "Instructor, Admin")]
     public class CourseController : ControllerBase
     {
         private readonly ICourseService _courseService;
@@ -26,6 +28,281 @@ namespace LearnQuestV1.Api.Controllers
             _logger = logger;
         }
 
+        // =====================================================
+        // PUBLIC ENDPOINTS FOR VISITORS AND USERS
+        // =====================================================
+        /// <summary>
+        /// Browse all available courses for public (visitors and users)
+        /// </summary>
+        [HttpGet("browse")]
+        [AllowAnonymous]
+        [ProducesResponseType(typeof(ApiResponse<PagedResult<PublicCourseDto>>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> BrowseCourses(
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 12,
+            [FromQuery] string? searchTerm = null,
+            [FromQuery] int? trackId = null,
+            [FromQuery] decimal? minPrice = null,
+            [FromQuery] decimal? maxPrice = null,
+            [FromQuery] string? level = null,
+            [FromQuery] bool? isFree = null,
+            [FromQuery] bool? hasCertificate = null,
+            [FromQuery] string sortBy = "newest",
+            [FromQuery] int? minDuration = null,
+            [FromQuery] int? maxDuration = null,
+            [FromQuery] decimal? minRating = null)
+        {
+            try
+            {
+                if (pageSize > 50) pageSize = 50;
+                if (pageNumber < 1) pageNumber = 1;
+
+                var filter = new CourseBrowseFilterDto
+                {
+                    PageNumber = pageNumber,
+                    PageSize = pageSize,
+                    SearchTerm = searchTerm?.Trim(),
+                    TrackId = trackId,
+                    MinPrice = minPrice,
+                    MaxPrice = maxPrice,
+                    Level = level?.Trim(),
+                    IsFree = isFree,
+                    HasCertificate = hasCertificate,
+                    SortBy = sortBy?.Trim().ToLower() ?? "newest",
+                    MinDuration = minDuration,
+                    MaxDuration = maxDuration,
+                    MinRating = minRating
+                };
+
+                var result = await _courseService.BrowseCoursesAsync(filter);
+
+                _logger.LogInformation("Course browse request: {SearchTerm}, Page: {PageNumber}, Results: {Count}",
+                    searchTerm, pageNumber, result.Items.Count);
+
+                return Ok(ApiResponse.Success(result, "Courses retrieved successfully"));
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning("Invalid browse parameters: {Message}", ex.Message);
+                return BadRequest(ApiResponse.Error(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error browsing courses");
+                return StatusCode(500, ApiResponse.Error("An error occurred while browsing courses"));
+            }
+        }
+
+        /// <summary>
+        /// Get public course details (for visitors and potential students)
+        /// </summary>
+        [HttpGet("{courseId}/public")]
+        [AllowAnonymous]
+        [ProducesResponseType(typeof(ApiResponse<PublicCourseDetailsDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> GetPublicCourseDetails(int courseId)
+        {
+            try
+            {
+                var courseDetails = await _courseService.GetPublicCourseDetailsAsync(courseId);
+
+                if (courseDetails == null)
+                {
+                    _logger.LogWarning("Course {CourseId} not found for public view", courseId);
+                    return NotFound(ApiResponse.Error("Course not found"));
+                }
+
+                // Check if user is logged in and enrolled
+                var userId = User.GetCurrentUserId();
+                if (userId.HasValue)
+                {
+                    var isEnrolled = await _courseService.IsUserEnrolledAsync(userId.Value, courseId);
+                    // You can add enrollment status to response if needed
+                }
+
+                _logger.LogInformation("Public course details retrieved for course {CourseId}", courseId);
+                return Ok(ApiResponse.Success(courseDetails, "Course details retrieved successfully"));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving public course details for course {CourseId}", courseId);
+                return StatusCode(500, ApiResponse.Error("An error occurred while retrieving course details"));
+            }
+        }
+
+        /// <summary>
+        /// Get featured courses for homepage
+        /// </summary>
+        [HttpGet("featured")]
+        [AllowAnonymous]
+        [ProducesResponseType(typeof(ApiResponse<List<PublicCourseDto>>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> GetFeaturedCourses([FromQuery] int limit = 6)
+        {
+            try
+            {
+                if (limit > 20) limit = 20;
+                if (limit < 1) limit = 6;
+
+                var featuredCourses = await _courseService.GetFeaturedCoursesAsync(limit);
+
+                _logger.LogInformation("Featured courses retrieved, count: {Count}", featuredCourses.Count);
+                return Ok(ApiResponse.Success(featuredCourses, "Featured courses retrieved successfully"));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving featured courses");
+                return StatusCode(500, ApiResponse.Error("An error occurred while retrieving featured courses"));
+            }
+        }
+
+        /// <summary>
+        /// Get most popular courses based on enrollment and ratings
+        /// </summary>
+        [HttpGet("popular")]
+        [AllowAnonymous]
+        [ProducesResponseType(typeof(ApiResponse<List<PublicCourseDto>>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> GetPopularCourses([FromQuery] int limit = 6)
+        {
+            try
+            {
+                if (limit > 20) limit = 20;
+                if (limit < 1) limit = 6;
+
+                var popularCourses = await _courseService.GetPopularCoursesAsync(limit);
+
+                _logger.LogInformation("Popular courses retrieved, count: {Count}", popularCourses.Count);
+                return Ok(ApiResponse.Success(popularCourses, "Popular courses retrieved successfully"));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving popular courses");
+                return StatusCode(500, ApiResponse.Error("An error occurred while retrieving popular courses"));
+            }
+        }
+
+        /// <summary>
+        /// Get course recommendations for logged-in user
+        /// </summary>
+        [HttpGet("recommendations")]
+        [Authorize(Roles = "RegularUser")]
+        [ProducesResponseType(typeof(ApiResponse<List<PublicCourseDto>>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> GetRecommendedCourses([FromQuery] int limit = 6)
+        {
+            try
+            {
+                var userId = User.GetCurrentUserId();
+                if (!userId.HasValue)
+                {
+                    return Unauthorized(ApiResponse.Error("User not found"));
+                }
+
+                if (limit > 20) limit = 20;
+                if (limit < 1) limit = 6;
+
+                var recommendations = await _courseService.GetRecommendedCoursesAsync(userId.Value, limit);
+
+                _logger.LogInformation("Course recommendations retrieved for user {UserId}, count: {Count}",
+                    userId.Value, recommendations.Count);
+                return Ok(ApiResponse.Success(recommendations, "Course recommendations retrieved successfully"));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving course recommendations for user {UserId}", User.GetCurrentUserId());
+                return StatusCode(500, ApiResponse.Error("An error occurred while retrieving recommendations"));
+            }
+        }
+
+        /// <summary>
+        /// Get all course categories/tracks for filtering
+        /// </summary>
+        [HttpGet("categories")]
+        [AllowAnonymous]
+        [ProducesResponseType(typeof(ApiResponse<List<CourseCategoryDto>>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> GetCourseCategories()
+        {
+            try
+            {
+                var categories = await _courseService.GetCourseCategoriesAsync();
+
+                _logger.LogInformation("Course categories retrieved, count: {Count}", categories.Count);
+                return Ok(ApiResponse.Success(categories, "Course categories retrieved successfully"));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving course categories");
+                return StatusCode(500, ApiResponse.Error("An error occurred while retrieving categories"));
+            }
+        }
+
+        /// <summary>
+        /// Get all tracks (moved from ProgressController for better organization)
+        /// </summary>
+        [HttpGet("tracks")]
+        [AllowAnonymous]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> GetAllTracks()
+        {
+            try
+            {
+                var tracks = await _courseService.GetAllTracksAsync();
+
+                _logger.LogInformation("All tracks retrieved, count: {Count}", tracks.Count());
+                return Ok(ApiResponse.Success(new
+                {
+                    totalTracks = tracks.Count(),
+                    tracks
+                }, "Tracks retrieved successfully"));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving all tracks");
+                return StatusCode(500, ApiResponse.Error("An error occurred while retrieving tracks"));
+            }
+        }
+
+        /// <summary>
+        /// Get courses in specific track (moved from ProgressController)
+        /// </summary>
+        [HttpGet("tracks/{trackId}/courses")]
+        [AllowAnonymous]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> GetCoursesInTrack(int trackId)
+        {
+            try
+            {
+                var trackCourses = await _courseService.GetCoursesInTrackAsync(trackId);
+
+                _logger.LogInformation("Courses in track {TrackId} retrieved", trackId);
+                return Ok(ApiResponse.Success(trackCourses, "Track courses retrieved successfully"));
+            }
+            catch (KeyNotFoundException)
+            {
+                _logger.LogWarning("Track {TrackId} not found", trackId);
+                return NotFound(ApiResponse.Error("Track not found"));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving courses for track {TrackId}", trackId);
+                return StatusCode(500, ApiResponse.Error("An error occurred while retrieving track courses"));
+            }
+        }
+
+
+        // =====================================================
+        // EXISTING INSTRUCTOR/ADMIN ENDPOINTS 
+        // =====================================================
+
         /// <summary>
         /// GET /api/courses
         /// Returns courses based on user role:
@@ -33,6 +310,7 @@ namespace LearnQuestV1.Api.Controllers
         /// - Instructor: Can only see their own courses
         /// </summary>
         [HttpGet]
+        [Authorize(Roles = "Instructor, Admin")]
         public async Task<IActionResult> GetCourses(
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 10,
@@ -92,6 +370,7 @@ namespace LearnQuestV1.Api.Controllers
         /// Returns comprehensive course overview with statistics
         /// </summary>
         [HttpGet("{courseId}/overview")]
+        [Authorize(Roles = "Instructor, Admin")]
         public async Task<IActionResult> GetCourseOverview(int courseId)
         {
             try
@@ -123,6 +402,7 @@ namespace LearnQuestV1.Api.Controllers
         /// Returns detailed course information including levels and content structure
         /// </summary>
         [HttpGet("{courseId}/details")]
+        [Authorize(Roles = "Instructor, Admin")]
         public async Task<IActionResult> GetCourseDetails(int courseId)
         {
             try
@@ -154,6 +434,7 @@ namespace LearnQuestV1.Api.Controllers
         /// Returns list of students enrolled in the course
         /// </summary>
         [HttpGet("{courseId}/enrollments")]
+        [Authorize(Roles = "Instructor, Admin")]
         public async Task<IActionResult> GetCourseEnrollments(
             int courseId,
             [FromQuery] int pageNumber = 1,
@@ -196,6 +477,7 @@ namespace LearnQuestV1.Api.Controllers
         /// Returns course reviews and feedback summary
         /// </summary>
         [HttpGet("{courseId}/reviews")]
+        [Authorize(Roles = "Instructor, Admin")]
         public async Task<IActionResult> GetCourseReviews(int courseId)
         {
             try
@@ -227,6 +509,7 @@ namespace LearnQuestV1.Api.Controllers
         /// Returns course analytics and performance metrics
         /// </summary>
         [HttpGet("{courseId}/analytics")]
+        [Authorize(Roles = "Instructor, Admin")]
         public async Task<IActionResult> GetCourseAnalytics(
             int courseId,
             [FromQuery] DateTime? startDate = null,
@@ -262,6 +545,8 @@ namespace LearnQuestV1.Api.Controllers
         /// </summary>
         [HttpPost("create")]
         [Consumes("multipart/form-data")]
+        [Authorize(Roles = "Instructor, Admin")]
+
         public async Task<IActionResult> CreateCourse([FromForm] CreateCourseDto input)
         {
             if (!ModelState.IsValid)
@@ -313,6 +598,8 @@ namespace LearnQuestV1.Api.Controllers
         /// Updates an existing course
         /// </summary>
         [HttpPut("{courseId}")]
+        [Authorize(Roles = "Instructor, Admin")]
+
         public async Task<IActionResult> UpdateCourse(int courseId, [FromBody] UpdateCourseDto input)
         {
             if (!ModelState.IsValid)
@@ -359,6 +646,7 @@ namespace LearnQuestV1.Api.Controllers
         /// Soft-deletes a course
         /// </summary>
         [HttpDelete("{courseId}")]
+        [Authorize(Roles = "Instructor, Admin")]
         public async Task<IActionResult> DeleteCourse(int courseId)
         {
             var userId = User.GetCurrentUserId();
@@ -402,6 +690,7 @@ namespace LearnQuestV1.Api.Controllers
         /// Toggles the active status of a course
         /// </summary>
         [HttpPatch("{courseId}/toggle-status")]
+        [Authorize(Roles = "Instructor, Admin")]
         public async Task<IActionResult> ToggleCourseStatus(int courseId)
         {
             var userId = User.GetCurrentUserId();
@@ -445,6 +734,7 @@ namespace LearnQuestV1.Api.Controllers
         /// Uploads an image for a course
         /// </summary>
         [HttpPost("{courseId}/upload-image")]
+        [Authorize(Roles = "Instructor, Admin")]
         public async Task<IActionResult> UploadCourseImage(int courseId, IFormFile file)
         {
             if (file == null || file.Length == 0)
@@ -491,6 +781,7 @@ namespace LearnQuestV1.Api.Controllers
         /// Returns available course skills for selection
         /// </summary>
         [HttpGet("skills")]
+        [Authorize(Roles = "Instructor, Admin")]
         public async Task<IActionResult> GetAvailableSkills(
             [FromQuery] string? searchTerm = null,
             [FromQuery] int pageNumber = 1,
