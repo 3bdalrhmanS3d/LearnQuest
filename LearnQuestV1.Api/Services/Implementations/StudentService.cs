@@ -11,6 +11,7 @@ using LearnQuestV1.Api.DTOs.Progress;
 using LearnQuestV1.Api.DTOs.User.Response;
 using LearnQuestV1.Core.Models.LearningAndProgress;
 using LearnQuestV1.Core.Models.UserManagement;
+using LearnQuestV1.Core.Extensions;
 
 namespace LearnQuestV1.Api.Services.Implementations
 {
@@ -105,10 +106,10 @@ namespace LearnQuestV1.Api.Services.Implementations
                     .Where(a => a.UserId == userId && a.EndTime.HasValue)
                     .ToListAsync();
 
-                // Get total points
-                var totalPoints = await _uow.UserCoursePoints.Query()
-                    .Where(p => p.UserId == userId)
-                    .SumAsync(p => p.TotalPoints);
+                // Use CoursePoints instead of UserCoursePoints
+                var totalPoints = await _uow.CoursePoints.Query()
+                    .Where(cp => cp.UserId == userId)
+                    .SumAsync(cp => cp.TotalPoints);
 
                 // Calculate statistics
                 var totalContent = enrollments.SelectMany(e => e.Course.Levels)
@@ -271,57 +272,53 @@ namespace LearnQuestV1.Api.Services.Implementations
 
         public async Task<SectionsResponseDto> GetLevelSectionsAsync(int userId, int levelId)
         {
-            try
+            var level = await _uow.Levels.Query()
+                .Include(l => l.Course)
+                .Include(l => l.Sections.Where(s => !s.IsDeleted && s.IsVisible))
+                    .ThenInclude(s => s.Contents.Where(c => !c.IsDeleted && c.IsVisible))
+                .FirstOrDefaultAsync(l => l.LevelId == levelId && !l.IsDeleted && l.IsVisible, CancellationToken.None);
+
+            if (level == null)
+                throw new KeyNotFoundException($"Level {levelId} not found");
+
+            await ValidateEnrollmentAsync(userId, level.CourseId);
+
+            var userProgress = await _uow.UserProgresses.Query()
+                .Include(p => p.CurrentLevel)
+                .Include(p => p.CurrentSection)
+                .FirstOrDefaultAsync(p => p.UserId == userId && p.CourseId == level.CourseId, CancellationToken.None);
+
+            var sectionList = level.Sections
+                                   .OrderBy(s => s.SectionOrder)
+                                   .ToList();
+
+            var sectionDtos = new List<SectionDto>();
+            foreach (var section in sectionList)
             {
-                var level = await _uow.Levels.Query()
-                    .Include(l => l.Course)
-                    .Include(l => l.Sections.Where(s => !s.IsDeleted && s.IsVisible))
-                        .ThenInclude(s => s.Contents.Where(c => !c.IsDeleted && c.IsVisible))
-                    .FirstOrDefaultAsync(l => l.LevelId == levelId && !l.IsDeleted && l.IsVisible);
+                bool isCompleted = await IsSectionCompletedAsync(section, userId);
+                bool isCurrent = userProgress?.CurrentSectionId == section.SectionId;
 
-                if (level == null)
-                    throw new KeyNotFoundException($"Level {levelId} not found");
-
-                // Check enrollment
-                await ValidateEnrollmentAsync(userId, level.CourseId);
-
-                var userProgress = await _uow.UserProgresses.Query()
-                    .Include(p => p.CurrentLevel)
-                    .Include(p => p.CurrentSection)
-                    .FirstOrDefaultAsync(p => p.UserId == userId && p.CourseId == level.CourseId);
-
-                var sections = level.Sections.OrderBy(s => s.SectionOrder).Select(section =>
+                sectionDtos.Add(new SectionDto
                 {
-                    var isCompleted = IsSectionCompleted(section, userId);
-                    var isCurrent = userProgress?.CurrentSectionId == section.SectionId;
-
-                    return new SectionDto
-                    {
-                        SectionId = section.SectionId,
-                        SectionName = section.SectionName,
-                        SectionOrder = section.SectionOrder,
-                        IsCompleted = isCompleted,
-                        IsCurrent = isCurrent,
-                        IsUnlocked = IsSectionUnlocked(section, userProgress),
-                        ContentCount = section.Contents.Count,
-                        CompletedContentCount = GetCompletedContentCountInSection(section, userId),
-                        EstimatedDurationMinutes = section.Contents.Sum(c => c.DurationInMinutes)
-                    };
-                }).ToList();
-
-                return new SectionsResponseDto
-                {
-                    LevelId = levelId,
-                    LevelName = level.LevelName,
-                    LevelDetails = level.LevelDetails,
-                    Sections = sections
-                };
+                    SectionId = section.SectionId,
+                    SectionName = section.SectionName,
+                    SectionOrder = section.SectionOrder,
+                    IsCompleted = isCompleted,
+                    IsCurrent = isCurrent,
+                    IsUnlocked = IsSectionUnlocked(section, userProgress),
+                    ContentCount = section.Contents.Count,
+                    CompletedContentCount = GetCompletedContentCountInSection(section, userId),
+                    EstimatedDurationMinutes = section.Contents.Sum(c => c.DurationInMinutes)
+                });
             }
-            catch (Exception ex) when (!(ex is UnauthorizedAccessException || ex is KeyNotFoundException))
+
+            return new SectionsResponseDto
             {
-                _logger.LogError(ex, "Error retrieving level sections for user {UserId}, level {LevelId}", userId, levelId);
-                throw;
-            }
+                LevelId = levelId,
+                LevelName = level.LevelName,
+                LevelDetails = level.LevelDetails,
+                Sections = sectionDtos
+            };
         }
 
         public async Task<ContentsResponseDto> GetSectionContentsAsync(int userId, int sectionId)
@@ -362,7 +359,7 @@ namespace LearnQuestV1.Api.Services.Implementations
                         DurationInMinutes = content.DurationInMinutes,
                         ContentDescription = content.ContentDescription ?? string.Empty,
                         IsCompleted = isCompleted,
-                        CompletedAt = (DateTime)(completedActivities.FirstOrDefault(a => a.ContentId == content.ContentId)?.EndTime)
+                        CompletedAt = (completedActivities.FirstOrDefault(a => a.ContentId == content.ContentId)?.EndTime)
                     };
                 }).ToList();
 
@@ -418,7 +415,7 @@ namespace LearnQuestV1.Api.Services.Implementations
                     InstructorName = course.Instructor.FullName,
                     OverallProgress = totalContents > 0 ? (decimal)completedContents / totalContents * 100 : 0,
                     TotalLevels = course.Levels.Count,
-                    CompletedLevels = GetCompletedLevelsCount(course, userId),
+                    CompletedLevels = await GetCompletedLevelsCountAsync(course, userId),
                     TotalSections = course.Levels.SelectMany(l => l.Sections).Count(),
                     CompletedSections = await GetTotalCompletedSectionsCount(userId, courseId),
                     TotalContents = totalContents,
@@ -538,27 +535,31 @@ namespace LearnQuestV1.Api.Services.Implementations
         {
             try
             {
+                // Find the active content session for this user that hasn't ended yet
                 var activeSession = await _uow.UserContentActivities.Query()
-                    .FirstOrDefaultAsync(a => a.UserId == userId && a.ContentId == contentId && !a.EndTime.HasValue);
+                    .FirstOrDefaultAsync(a => a.UserId == userId
+                                           && a.ContentId == contentId
+                                           && !a.EndTime.HasValue) 
+                                    ?? throw new KeyNotFoundException($"No active session found for user {userId} and content {contentId}");
 
-                if (activeSession == null)
-                    throw new KeyNotFoundException($"No active session found for user {userId} and content {contentId}");
-
+                // Mark the session end time as now
                 activeSession.EndTime = DateTime.UtcNow;
                 _uow.UserContentActivities.Update(activeSession);
 
                 // Award points for content completion
                 await AwardContentCompletionPoints(userId, contentId);
 
-                // Update user progress if needed
+                // Update overall user progress (e.g., levels or sections)
                 await UpdateUserProgressAfterContentCompletion(userId, contentId);
 
+                // Persist all changes in a single database transaction
                 await _uow.SaveAsync();
 
                 _logger.LogInformation("Content session ended for user {UserId}, content {ContentId}", userId, contentId);
             }
-            catch (Exception ex) when (!(ex is KeyNotFoundException))
+            catch (Exception ex) when (ex is not KeyNotFoundException)
             {
+                // Log and rethrow unexpected errors
                 _logger.LogError(ex, "Error ending content for user {UserId}, content {ContentId}", userId, contentId);
                 throw;
             }
@@ -643,24 +644,30 @@ namespace LearnQuestV1.Api.Services.Implementations
                     .Include(c => c.Levels)
                         .ThenInclude(l => l.Sections)
                             .ThenInclude(s => s.Contents)
-                    .FirstOrDefaultAsync(c => c.CourseId == courseId && !c.IsDeleted);
+                    .FirstOrDefaultAsync(c => c.CourseId == courseId && !c.IsDeleted)
+                        ?? throw new KeyNotFoundException($"Course {courseId} not found");
 
-                if (course == null)
-                    throw new KeyNotFoundException($"Course {courseId} not found");
+                var totalContents = course.Levels
+                                          .SelectMany(l => l.Sections)
+                                          .SelectMany(s => s.Contents)
+                                          .Count();
 
-                var totalContents = course.Levels.SelectMany(l => l.Sections).SelectMany(s => s.Contents).Count();
                 var completedContents = await GetTotalCompletedContentCount(userId, courseId);
-                var completionPercentage = totalContents > 0 ? (decimal)completedContents / totalContents * 100 : 0;
-                var isCompleted = completionPercentage >= 90; // 90% completion threshold
+                var completionPercentage = totalContents > 0
+                                           ? (decimal)completedContents / totalContents * 100
+                                           : 0m;
+                var isCompleted = completionPercentage >= 90;
 
                 var userProgress = await _uow.UserProgresses.Query()
                     .FirstOrDefaultAsync(p => p.UserId == userId && p.CourseId == courseId);
 
-                var totalPoints = await _uow.UserCoursePoints.Query()
-                    .Where(p => p.UserId == userId && p.CourseId == courseId)
-                    .SumAsync(p => p.TotalPoints);
+                // ✅ FIX: Use CoursePoints instead of UserCoursePoints
+                var totalPoints = await _uow.CoursePoints.Query()
+                    .Where(cp => cp.UserId == userId && cp.CourseId == courseId)
+                    .SumAsync(cp => cp.TotalPoints);
 
                 var totalTimeSpent = await GetTotalTimeSpentMinutes(userId, courseId);
+                var requirements = await GenerateCompletionRequirementsAsync(course, userId);
 
                 return new DTOs.Student.CourseCompletionDto
                 {
@@ -675,10 +682,10 @@ namespace LearnQuestV1.Api.Services.Implementations
                     CompletedContents = completedContents,
                     TotalTimeSpentMinutes = totalTimeSpent,
                     TotalPointsEarned = totalPoints,
-                    Requirements = GenerateCompletionRequirements(course, userId)
+                    Requirements = requirements
                 };
             }
-            catch (Exception ex) when (!(ex is KeyNotFoundException))
+            catch (Exception ex) when (ex is not KeyNotFoundException)
             {
                 _logger.LogError(ex, "Error retrieving course completion for user {UserId}, course {CourseId}", userId, courseId);
                 throw;
@@ -1180,9 +1187,879 @@ namespace LearnQuestV1.Api.Services.Implementations
             }
         }
 
-        // Additional helper methods would be implemented here...
-        // Due to length constraints, I'm including the key method signatures
+        #region Complete Helper Methods Implementation
 
+        private async Task<bool> IsLevelCompleted(Level level, int userId, UserProgress? userProgress)
+        {
+            try
+            {
+                if (userProgress == null) return false;
+
+                var totalSections = level.Sections?.Count ?? 0;
+                if (totalSections == 0) return false;
+
+                var completedSections = 0;
+                if (level.Sections != null)
+                {
+                    foreach (var section in level.Sections)
+                    {
+                        if (await IsSectionCompletedAsync(section, userId))
+                            completedSections++;
+                    }
+                }
+
+                return completedSections == totalSections;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking if level {LevelId} is completed for user {UserId}", level.LevelId, userId);
+                return false;
+            }
+        }
+
+
+        private bool IsLevelUnlocked(Level level, UserProgress? userProgress)
+        {
+            if (userProgress == null) return level.LevelOrder == 1; // First level is always unlocked
+
+            if (level.LevelOrder == 1) return true;
+
+            var previousLevel = level.Course?.Levels?
+                .FirstOrDefault(l => l.LevelOrder == level.LevelOrder - 1);
+
+            if (previousLevel == null) return true;
+
+            // Use a simplified check - avoid async call in synchronous method
+            try
+            {
+                return IsLevelCompleted(previousLevel, userProgress.UserId, userProgress).Result;
+            }
+            catch
+            {
+                return false; // If check fails, assume locked
+            }
+        }
+
+        private int GetCompletedSectionsCount(Level level, int userId)
+        {
+            if (level.Sections == null) return 0;
+
+            var completedCount = 0;
+            foreach (var section in level.Sections)
+            {
+                if (IsSectionCompletedAsync(section, userId).Result)
+                    completedCount++;
+            }
+
+            return completedCount;
+        }
+
+        private int GetCompletedContentCount(Level level, int userId)
+        {
+            if (level.Sections == null) return 0;
+
+            var totalCompleted = 0;
+            foreach (var section in level.Sections)
+            {
+                totalCompleted += GetCompletedContentCountInSection(section, userId);
+            }
+
+            return totalCompleted;
+        }
+
+        private async Task<bool> IsSectionCompletedAsync(Section section, int userId)
+        {
+            if (section.Contents == null || !section.Contents.Any()) return false;
+
+            var totalContents = section.Contents.Count;
+            var completedContents = GetCompletedContentCountInSection(section, userId);
+
+            return completedContents == totalContents;
+        }
+
+        private bool IsSectionUnlocked(Section section, UserProgress? userProgress)
+        {
+            if (userProgress == null) return section.SectionOrder == 1;
+
+            // Check if previous section in the same level is completed
+            if (section.SectionOrder == 1) return true;
+
+            var previousSection = section.Level?.Sections?
+                .FirstOrDefault(s => s.SectionOrder == section.SectionOrder - 1);
+
+            if (previousSection == null) return true;
+
+            return IsSectionCompletedAsync(previousSection, userProgress.UserId).Result;
+        }
+
+        private int GetCompletedContentCountInSection(Section section, int userId)
+        {
+            if (section.Contents == null) return 0;
+
+            var completedCount = 0;
+            foreach (var content in section.Contents)
+            {
+                if (IsContentCompleted(userId, content.ContentId))
+                    completedCount++;
+            }
+
+            return completedCount;
+        }
+
+        private async Task<int> GetTotalCompletedContentCount(int userId, int courseId)
+        {
+            var activities = await _uow.UserContentActivities.Query()
+                .Include(a => a.Content)
+                    .ThenInclude(c => c.Section)
+                        .ThenInclude(s => s.Level)
+                .Where(a => a.UserId == userId &&
+                           a.Content.Section.Level.CourseId == courseId &&
+                           a.EndTime.HasValue)
+                .Select(a => a.ContentId)
+                .Distinct()
+                .CountAsync();
+
+            return activities;
+        }
+
+        private async Task<int> GetTotalTimeSpentMinutes(int userId, int courseId)
+        {
+            var totalMinutes = await _uow.UserContentActivities.Query()
+                .Include(a => a.Content)
+                    .ThenInclude(c => c.Section)
+                        .ThenInclude(s => s.Level)
+                .Where(a => a.UserId == userId &&
+                           a.Content.Section.Level.CourseId == courseId &&
+                           a.EndTime.HasValue)
+                .SumAsync(a => (int)(a.EndTime!.Value - a.StartTime).TotalMinutes);
+
+            return totalMinutes;
+        }
+
+        private async Task<int> GetCompletedLevelsCountAsync(Course course, int userId)
+        {
+            var userProgress = await _uow.UserProgresses.Query()
+                .FirstOrDefaultAsync(up => up.UserId == userId
+                                        && up.CourseId == course.CourseId);
+
+            var completedCount = 0;
+            foreach (var level in course.Levels)
+            {
+                if (await IsLevelCompleted(level, userId, userProgress))
+                    completedCount++;
+            }
+            return completedCount;
+        }
+
+
+        private async Task<int> GetTotalCompletedSectionsCount(int userId, int courseId)
+        {
+            var course = await _uow.Courses.Query()
+                .Include(c => c.Levels)
+                    .ThenInclude(l => l.Sections)
+                        .ThenInclude(s => s.Contents)
+                .FirstOrDefaultAsync(c => c.CourseId == courseId);
+
+            if (course?.Levels == null) return 0;
+
+            var completedSections = 0;
+            foreach (var level in course.Levels)
+            {
+                if (level.Sections != null)
+                {
+                    foreach (var section in level.Sections)
+                    {
+                        if (await IsSectionCompletedAsync(section, userId))
+                            completedSections++;
+                    }
+                }
+            }
+
+            return completedSections;
+        }
+
+        private async Task<List<LearningPathLevelDto>> BuildLearningPathLevels(ICollection<Level> levels, int userId)
+        {
+            var result = new List<LearningPathLevelDto>();
+            var userProgress = await _uow.UserProgresses.Query()
+                .FirstOrDefaultAsync(up => up.UserId == userId);
+
+            foreach (var level in levels.OrderBy(l => l.LevelOrder))
+            {
+                var isCompleted = await IsLevelCompleted(level, userId, userProgress);
+
+                var isUnlocked = IsLevelUnlocked(level, userProgress);
+                var completedSections = GetCompletedSectionsCount(level, userId);
+                var totalSections = level.Sections?.Count ?? 0;
+
+                result.Add(new LearningPathLevelDto
+                {
+                    LevelId = level.LevelId,
+                    LevelName = level.LevelName,
+                    LevelOrder = level.LevelOrder,
+                    IsCompleted = isCompleted,
+                    IsUnlocked = isUnlocked,
+                    TotalContents = totalSections,
+                    CompletedContents = completedSections,
+                    ProgressPercentage = totalSections > 0 ? (decimal)completedSections / totalSections * 100 : 0
+                });
+            }
+
+            return result;
+        }
+
+        private async Task<List<LearningMilestoneDto>> GetLearningMilestones(int userId, int courseId)
+        {
+            var milestones = new List<LearningMilestoneDto>();
+
+            // First content milestone
+            var firstContentCompleted = await _uow.UserContentActivities.Query()
+                .Include(a => a.Content)
+                    .ThenInclude(c => c.Section)
+                        .ThenInclude(s => s.Level)
+                .Where(a => a.UserId == userId &&
+                           a.Content.Section.Level.CourseId == courseId &&
+                           a.EndTime.HasValue)
+                .OrderBy(a => a.EndTime)
+                .FirstOrDefaultAsync();
+
+            if (firstContentCompleted != null)
+            {
+                milestones.Add(new LearningMilestoneDto
+                {
+                    Title = "First Steps",
+                    Description = "Completed your first content",
+                    IsAchieved = true,
+                    AchievedAt = firstContentCompleted.EndTime,
+                    BadgeIcon = "play-circle",
+                    PointsAwarded = 10
+                });
+            }
+
+            // 25%, 50%, 75%, 100% completion milestones
+            var totalContents = await GetTotalContentsInCourse(courseId);
+            var completedContents = await GetTotalCompletedContentCount(userId, courseId);
+
+            var percentages = new[] { 25, 50, 75, 100 };
+            foreach (var percentage in percentages)
+            {
+                var requiredContents = (int)Math.Ceiling(totalContents * percentage / 100.0);
+                var isAchieved = completedContents >= requiredContents;
+
+                milestones.Add(new LearningMilestoneDto
+                {
+                    Title = $"{percentage}% Complete",
+                    Description = $"Completed {percentage}% of course content",
+                    IsAchieved = isAchieved,
+                    BadgeIcon = percentage == 100 ? "trophy" : "target",
+                    PointsAwarded = percentage / 4 // 25, 50, 75, 100 points
+                });
+            }
+
+            return milestones;
+        }
+
+        private async Task<Section?> FindNextSection(UserProgress userProgress)
+        {
+            if (userProgress.CurrentSectionId == null) return null;
+
+            var currentSection = await _uow.Sections.Query()
+                .Include(s => s.Level)
+                    .ThenInclude(l => l.Sections)
+                .FirstOrDefaultAsync(s => s.SectionId == userProgress.CurrentSectionId);
+
+            if (currentSection?.Level?.Sections == null) return null;
+
+            // Find next section in the same level
+            var nextSectionInLevel = currentSection.Level.Sections
+                .Where(s => s.SectionOrder > currentSection.SectionOrder)
+                .OrderBy(s => s.SectionOrder)
+                .FirstOrDefault();
+
+            if (nextSectionInLevel != null) return nextSectionInLevel;
+
+            // Find first section in next level
+            var course = await _uow.Courses.Query()
+                .Include(c => c.Levels)
+                    .ThenInclude(l => l.Sections)
+                .FirstOrDefaultAsync(c => c.CourseId == currentSection.Level.CourseId);
+
+            var nextLevel = course?.Levels?
+                .Where(l => l.LevelOrder > currentSection.Level.LevelOrder)
+                .OrderBy(l => l.LevelOrder)
+                .FirstOrDefault();
+
+            return nextLevel?.Sections?.OrderBy(s => s.SectionOrder).FirstOrDefault();
+        }
+
+        private async Task AwardContentCompletionPoints(int userId, int contentId)
+        {
+            try
+            {
+                // ✅ FIX: Load content with navigation properties
+                var content = await _uow.Contents.Query()
+                    .Include(c => c.Section)
+                        .ThenInclude(s => s.Level)
+                    .FirstOrDefaultAsync(c => c.ContentId == contentId);
+
+                if (content?.Section?.Level == null)
+                {
+                    _logger.LogWarning("Content {ContentId} not found or missing navigation properties", contentId);
+                    return;
+                }
+
+                // Determine base points based on the content duration
+                var basePoints = content.DurationInMinutes switch
+                {
+                    <= 5 => 5,
+                    <= 15 => 10,
+                    <= 30 => 15,
+                    <= 60 => 25,
+                    _ => 35
+                };
+
+                var courseId = content.Section.Level.CourseId;
+
+                // ✅ FIX: Use CoursePoints instead of UserCoursePoint
+                var coursePoints = await _uow.CoursePoints.Query()
+                    .FirstOrDefaultAsync(cp => cp.UserId == userId && cp.CourseId == courseId);
+
+                if (coursePoints == null)
+                {
+                    // Initialize a new course points record
+                    coursePoints = new CoursePoints
+                    {
+                        UserId = userId,
+                        CourseId = courseId,
+                        TotalPoints = 0,
+                        CurrentRank = 0,
+                        LastUpdated = DateTime.UtcNow
+                    };
+                    await _uow.CoursePoints.AddAsync(coursePoints);
+                    await _uow.SaveAsync(); // Save to get the ID
+                }
+
+                // Increment the user's total points for this course
+                coursePoints.TotalPoints += basePoints;
+                coursePoints.LastUpdated = DateTime.UtcNow;
+                _uow.CoursePoints.Update(coursePoints);
+
+                // Create a new point transaction record for audit/history
+                var pointTransaction = new PointTransaction
+                {
+                    UserId = userId,
+                    CourseId = courseId,
+                    CoursePointsId = coursePoints.CoursePointsId,
+                    PointsChanged = basePoints,
+                    PointsAfterTransaction = coursePoints.TotalPoints,
+                    Source = PointSource.CourseCompletion,
+                    TransactionType = PointTransactionType.Earned,
+                    Description = $"Completed content: {content.Title}",
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _uow.PointTransactions.AddAsync(pointTransaction);
+                await _uow.SaveAsync();
+
+                _logger.LogInformation("Awarded {Points} points to user {UserId} for completing content {ContentId}",
+                    basePoints, userId, contentId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error awarding content completion points for user {UserId}, content {ContentId}",
+                    userId, contentId);
+            }
+        }
+
+        private async Task UpdateUserProgressAfterContentCompletion(int userId, int contentId)
+        {
+            try
+            {
+                var content = await _uow.Contents.Query()
+                    .Include(c => c.Section)
+                        .ThenInclude(s => s.Level)
+                    .FirstOrDefaultAsync(c => c.ContentId == contentId);
+
+                if (content == null) return;
+
+                var userProgress = await _uow.UserProgresses.Query()
+                    .FirstOrDefaultAsync(up => up.UserId == userId &&
+                                              up.CourseId == content.Section.Level.CourseId);
+
+                if (userProgress != null)
+                {
+                    userProgress.CurrentContentId = contentId;
+                    userProgress.CurrentSectionId = content.SectionId;
+                    userProgress.CurrentLevelId = content.Section.LevelId;
+                    userProgress.LastAccessed = DateTime.UtcNow;
+
+                    _uow.UserProgresses.Update(userProgress);
+                    await _uow.SaveAsync();
+                }
+
+                // Check if section is now completed
+                if (await IsSectionCompletedAsync(content.Section, userId))
+                {
+                    await AwardSectionCompletionPoints(userId, content.SectionId);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating user progress after content completion for user {UserId}, content {ContentId}",
+                    userId, contentId);
+            }
+        }
+
+        private async Task AwardSectionCompletionPoints(int userId, int sectionId)
+        {
+            try
+            {
+                // Load section with navigation properties
+                var section = await _uow.Sections.Query()
+                    .Include(s => s.Contents)
+                    .Include(s => s.Level)
+                    .FirstOrDefaultAsync(s => s.SectionId == sectionId);
+
+                if (section?.Level == null)
+                {
+                    _logger.LogWarning("Section {SectionId} not found or missing navigation properties", sectionId);
+                    return;
+                }
+
+                // Calculate points: 5 points per content + 20-point section bonus
+                var sectionPoints = (section.Contents?.Count ?? 0) * 5 + 20;
+                var courseId = section.Level.CourseId;
+
+                // Use CoursePoints instead of UserCoursePoint
+                var coursePoints = await _uow.CoursePoints.Query()
+                    .FirstOrDefaultAsync(cp => cp.UserId == userId && cp.CourseId == courseId);
+
+                if (coursePoints == null)
+                {
+                    coursePoints = new CoursePoints
+                    {
+                        UserId = userId,
+                        CourseId = courseId,
+                        TotalPoints = 0,
+                        CurrentRank = 0,
+                        LastUpdated = DateTime.UtcNow
+                    };
+                    await _uow.CoursePoints.AddAsync(coursePoints);
+                    await _uow.SaveAsync();
+                }
+
+                // Increment the total points
+                coursePoints.TotalPoints += sectionPoints;
+                coursePoints.LastUpdated = DateTime.UtcNow;
+                _uow.CoursePoints.Update(coursePoints);
+
+                // Record a transaction for audit/history
+                var pointTransaction = new PointTransaction
+                {
+                    UserId = userId,
+                    CourseId = courseId,
+                    CoursePointsId = coursePoints.CoursePointsId,
+                    PointsChanged = sectionPoints,
+                    PointsAfterTransaction = coursePoints.TotalPoints,
+                    Source = PointSource.CourseCompletion,
+                    TransactionType = PointTransactionType.Earned,
+                    Description = $"Completed Section: {section.SectionName}",
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _uow.PointTransactions.AddAsync(pointTransaction);
+                await _uow.SaveAsync();
+
+                _logger.LogInformation("Awarded {Points} points to user {UserId} for completing section {SectionId}",
+                    sectionPoints, userId, sectionId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error awarding section completion points for user {UserId}, section {SectionId}",
+                    userId, sectionId);
+            }
+        }
+
+        private async Task<Section?> FindNextSectionAfterCompletion(Section currentSection)
+        {
+            // Find next section in the same level
+            var nextSectionInLevel = await _uow.Sections.Query()
+                .Where(s => s.LevelId == currentSection.LevelId &&
+                           s.SectionOrder > currentSection.SectionOrder)
+                .OrderBy(s => s.SectionOrder)
+                .FirstOrDefaultAsync();
+
+            if (nextSectionInLevel != null) return nextSectionInLevel;
+
+            // Find first section in next level
+            var level = await _uow.Levels.Query()
+                .Include(l => l.Course)
+                    .ThenInclude(c => c.Levels)
+                        .ThenInclude(ll => ll.Sections)
+                .FirstOrDefaultAsync(l => l.LevelId == currentSection.LevelId);
+
+            var nextLevel = level?.Course?.Levels?
+                .Where(l => l.LevelOrder > level.LevelOrder)
+                .OrderBy(l => l.LevelOrder)
+                .FirstOrDefault();
+
+            return nextLevel?.Sections?.OrderBy(s => s.SectionOrder).FirstOrDefault();
+        }
+
+        private async Task<List<CompletionRequirementDto>> GenerateCompletionRequirementsAsync(Course course, int userId)
+        {
+            var userProgress = await _uow.UserProgresses.Query()
+                                .FirstOrDefaultAsync(up => up.UserId == userId
+                                && up.CourseId == course.CourseId);
+
+            var requirements = new List<CompletionRequirementDto>();
+
+            if (course.Levels is null)
+                return requirements;
+
+            foreach (var level in course.Levels.OrderBy(l => l.LevelOrder))
+            {
+                // await the async check instead of .Result
+                bool isLevelCompleted = await IsLevelCompleted(level, userId, userProgress );
+
+                int completedSections = GetCompletedSectionsCount(level, userId);
+                int totalSections = level.Sections?.Count ?? 0;
+                var progressPercent = totalSections > 0
+                                        ? (decimal)completedSections / totalSections * 100
+                                        : 0m;
+
+                requirements.Add(new CompletionRequirementDto
+                {
+                    RequirementType = "Level",
+                    Title = level.LevelName,
+                    Description = $"Complete all sections in {level.LevelName}",
+                    IsCompleted = isLevelCompleted,
+                    CompletedAt = isLevelCompleted
+                                          ? DateTime.UtcNow  // or pull from your data store if you have a timestamp
+                                          : null,
+                    Progress = progressPercent,
+                    RequiredCount = totalSections,
+                    CompletedCount = completedSections
+                });
+            }
+
+            return requirements;
+        }
+
+
+        private bool IsContentCompleted(int userId, int contentId)
+        {
+            return _uow.UserContentActivities.Query()
+                .Any(a => a.UserId == userId &&
+                         a.ContentId == contentId &&
+                         a.EndTime.HasValue);
+        }
+
+        private int CalculateCurrentStreak(List<UserContentActivity> activities)
+        {
+            if (activities.Count == 0) return 0;
+
+            var today = DateTime.UtcNow.Date;
+            var streak = 0;
+            var currentDate = today;
+
+            var activitiesByDate = activities
+                .Where(a => a.EndTime.HasValue)
+                .GroupBy(a => a.EndTime!.Value.Date)
+                .ToDictionary(g => g.Key, g => g.Count());
+
+            while (activitiesByDate.ContainsKey(currentDate) || currentDate == today)
+            {
+                if (activitiesByDate.ContainsKey(currentDate))
+                    streak++;
+                else if (currentDate != today)
+                    break;
+
+                currentDate = currentDate.AddDays(-1);
+            }
+
+            return streak;
+        }
+
+        private int CalculateLongestStreak(List<UserContentActivity> activities)
+        {
+            if (!activities.Any()) return 0;
+
+            var activitiesByDate = activities
+                .Where(a => a.EndTime.HasValue)
+                .GroupBy(a => a.EndTime!.Value.Date)
+                .Select(g => g.Key)
+                .OrderBy(d => d)
+                .ToList();
+
+            if (!activitiesByDate.Any()) return 0;
+
+            var maxStreak = 1;
+            var currentStreak = 1;
+
+            for (int i = 1; i < activitiesByDate.Count; i++)
+            {
+                if (activitiesByDate[i] == activitiesByDate[i - 1].AddDays(1))
+                {
+                    currentStreak++;
+                    maxStreak = Math.Max(maxStreak, currentStreak);
+                }
+                else
+                {
+                    currentStreak = 1;
+                }
+            }
+
+            return maxStreak;
+        }
+
+        private int GetCurrentWeekDays(List<UserContentActivity> activities)
+        {
+            var startOfWeek = DateTime.UtcNow.StartOfWeek();
+            var endOfWeek = startOfWeek.AddDays(7);
+
+            return activities
+                .Where(a => a.EndTime.HasValue &&
+                           a.EndTime.Value >= startOfWeek &&
+                           a.EndTime.Value < endOfWeek)
+                .GroupBy(a => a.EndTime!.Value.Date)
+                .Count();
+        }
+
+        private string GenerateMotivationalMessage(int currentStreak, bool isActive)
+        {
+            if (!isActive)
+                return "Ready to start a new learning streak? Every journey begins with a single step!";
+
+            return currentStreak switch
+            {
+                1 => "Great start! You've begun your learning journey. Keep it up!",
+                2 => "Two days in a row! You're building momentum. 🔥",
+                3 => "Three days strong! Consistency is key to success.",
+                7 => "One week of consistent learning! You're on fire! 🚀",
+                30 => "One month streak! You're truly dedicated to learning!",
+                100 => "100 days! You're a learning champion! 🏆",
+                _ when currentStreak >= 365 => "Over a year of consistent learning! You're a true master!",
+                _ when currentStreak >= 100 => $"{currentStreak} days! Your dedication is inspiring!",
+                _ when currentStreak >= 30 => $"{currentStreak} days and counting! Keep the momentum going!",
+                _ when currentStreak >= 7 => $"{currentStreak} days in a row! You're building great habits!",
+                _ => $"{currentStreak} days of learning! You're doing amazing!"
+            };
+        }
+
+        private int CalculateDaysToNextMilestone(int currentStreak)
+        {
+            var milestones = new[] { 7, 14, 30, 50, 100, 365 };
+            var nextMilestone = milestones.FirstOrDefault(m => m > currentStreak);
+            return nextMilestone > 0 ? nextMilestone - currentStreak : 0;
+        }
+
+        private string GetNextMilestoneReward(int currentStreak)
+        {
+            return CalculateDaysToNextMilestone(currentStreak) switch
+            {
+                var days when days > 0 && currentStreak < 7 => "🔥 Fire Badge",
+                var days when days > 0 && currentStreak < 30 => "⭐ Star Achiever Badge",
+                var days when days > 0 && currentStreak < 100 => "🏆 Learning Champion Badge",
+                var days when days > 0 && currentStreak < 365 => "💎 Diamond Learner Badge",
+                _ => "🌟 Master Learner Badge"
+            };
+        }
+
+        private async Task<int> GetCompletedCoursesCount(int userId)
+        {
+            return await _uow.UserProgresses.Query()
+                .Where(up => up.UserId == userId && up.CompletedAt.HasValue)
+                .CountAsync();
+        }
+
+        private string GetPreferredLearningTime(List<UserContentActivity> activities)
+        {
+            if (!activities.Any()) return "Morning";
+
+            var hourGroups = activities
+                .Where(a => a.StartTime != default)
+                .GroupBy(a => a.StartTime.Hour)
+                .OrderByDescending(g => g.Count())
+                .FirstOrDefault();
+
+            if (hourGroups == null) return "Morning";
+
+            var hour = hourGroups.Key;
+            return hour switch
+            {
+                >= 6 and < 12 => "Morning",
+                >= 12 and < 18 => "Afternoon",
+                >= 18 and < 22 => "Evening",
+                _ => "Night"
+            };
+        }
+
+        private string GetMostProductiveDay(List<UserContentActivity> activities)
+        {
+            if (!activities.Any()) return "Monday";
+
+            var dayGroup = activities
+                .Where(a => a.EndTime.HasValue)
+                .GroupBy(a => a.EndTime!.Value.DayOfWeek)
+                .OrderByDescending(g => g.Count())
+                .FirstOrDefault();
+
+            return dayGroup?.Key.ToString() ?? "Monday";
+        }
+
+        private decimal GetAverageSessionLength(List<UserContentActivity> activities)
+        {
+            var sessionsWithDuration = activities
+                .Where(a => a.EndTime.HasValue)
+                .Select(a => (decimal)(a.EndTime!.Value - a.StartTime).TotalMinutes)
+                .ToList();
+
+            return sessionsWithDuration.Any() ? sessionsWithDuration.Average() : 0;
+        }
+
+        private string GetPreferredContentType(List<UserContentActivity> activities)
+        {
+            if (!activities.Any()) return "Video";
+
+            var contentTypeGroup = activities
+                .GroupBy(a => a.Content?.ContentType.ToString() ?? "Unknown")
+                .OrderByDescending(g => g.Count())
+                .FirstOrDefault();
+
+            return contentTypeGroup?.Key ?? "Video";
+        }
+
+        private int GetWeeklyLearningMinutes(List<UserContentActivity> activities)
+        {
+            var startOfWeek = DateTime.UtcNow.StartOfWeek();
+            var endOfWeek = startOfWeek.AddDays(7);
+
+            return activities
+                .Where(a => a.EndTime.HasValue &&
+                           a.EndTime.Value >= startOfWeek &&
+                           a.EndTime.Value < endOfWeek)
+                .Sum(a => (int)(a.EndTime!.Value - a.StartTime).TotalMinutes);
+        }
+
+        private int GetMonthlyLearningMinutes(List<UserContentActivity> activities)
+        {
+            var startOfMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
+            var endOfMonth = startOfMonth.AddMonths(1);
+
+            return activities
+                .Where(a => a.EndTime.HasValue &&
+                           a.EndTime.Value >= startOfMonth &&
+                           a.EndTime.Value < endOfMonth)
+                .Sum(a => (int)(a.EndTime!.Value - a.StartTime).TotalMinutes);
+        }
+
+        private List<string> GenerateImprovementSuggestions(List<UserContentActivity> activities)
+        {
+            var suggestions = new List<string>();
+
+            var averageSession = GetAverageSessionLength(activities);
+            if (averageSession < 15)
+                suggestions.Add("Try longer study sessions (15-30 minutes) for better retention");
+
+            var weeklyMinutes = GetWeeklyLearningMinutes(activities);
+            if (weeklyMinutes < 120) // Less than 2 hours per week
+                suggestions.Add("Aim for at least 2-3 hours of learning per week");
+
+            var currentWeekDays = GetCurrentWeekDays(activities);
+            if (currentWeekDays < 3)
+                suggestions.Add("Try to learn at least 3 days per week for consistency");
+
+            return suggestions;
+        }
+
+        private List<string> GenerateStrengthAreas(List<UserContentActivity> activities)
+        {
+            var strengths = new List<string>();
+
+            var currentStreak = CalculateCurrentStreak(activities);
+            if (currentStreak >= 7)
+                strengths.Add("Consistent daily learning");
+
+            var averageSession = GetAverageSessionLength(activities);
+            if (averageSession >= 30)
+                strengths.Add("Good session length and focus");
+
+            var weeklyMinutes = GetWeeklyLearningMinutes(activities);
+            if (weeklyMinutes >= 180) // 3+ hours per week
+                strengths.Add("Strong weekly commitment");
+
+            return strengths;
+        }
+
+        private List<StudySessionDto> GenerateUpcomingSessions(int courseId, int userId)
+        {
+            // This would generate upcoming study sessions based on user's study plan
+            // For now, return empty list as this requires more complex scheduling logic
+            return new List<StudySessionDto>();
+        }
+
+        private List<PlanMilestoneDto> GeneratePlanMilestones(Course course)
+        {
+            var milestones = new List<PlanMilestoneDto>();
+
+            if (course?.Levels == null) return milestones;
+
+            var baseDate = DateTime.UtcNow;
+            const int daysPerLevel = 7; // Estimate 1 week per level
+
+            foreach (var level in course.Levels.OrderBy(l => l.LevelOrder))
+            {
+                var points = (level.Sections?.Count ?? 0) * 10;
+
+                milestones.Add(new PlanMilestoneDto
+                {
+                    Title = $"Complete {level.LevelName}",
+                    Description = string.IsNullOrWhiteSpace(level.LevelDetails)
+                                       ? $"Finish all sections in {level.LevelName}"
+                                       : level.LevelDetails,
+                    TargetDate = baseDate.AddDays(level.LevelOrder * daysPerLevel),
+                    IsAchieved = false,
+                    AchievedAt = null,
+                    MilestoneType = "LevelComplete",
+                    PointsReward = points
+                });
+            }
+
+            return milestones;
+        }
+
+        private int CalculateRemainingTime(Course course, int completedContents)
+        {
+            var totalContents = GetTotalContentsInCourse(course.CourseId).Result;
+            var remainingContents = totalContents - completedContents;
+
+            // Estimate based on average content duration
+            var avgDuration = course.Levels?
+                .SelectMany(l => l.Sections ?? new List<Section>())
+                .SelectMany(s => s.Contents ?? new List<Content>())
+                .Where(c => c.DurationInMinutes > 0)
+                .Average(c => c.DurationInMinutes) ?? 30;
+
+            return (int)(remainingContents * avgDuration);
+        }
+
+        private async Task<int> GetTotalContentsInCourse(int courseId)
+        {
+            try
+            {
+                return await _uow.Contents.Query()
+                    .Include(c => c.Section)
+                        .ThenInclude(s => s.Level)
+                    .Where(c => c.Section.Level.CourseId == courseId && !c.IsDeleted && c.IsVisible)
+                    .CountAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting total contents count for course {CourseId}", courseId);
+                return 0;
+            }
+        }
+
+        #endregion
         #region Private Helper Methods
 
         private async Task ValidateEnrollmentAsync(int userId, int courseId)
@@ -1194,117 +2071,227 @@ namespace LearnQuestV1.Api.Services.Implementations
 
         private async Task<DashboardStatsDto> GetDashboardStatsAsync(int userId)
         {
-            // Implementation for gathering dashboard statistics
-            var enrollments = await _uow.CourseEnrollments.Query().Where(e => e.UserId == userId).CountAsync();
-            var completedCourses = await GetCompletedCoursesCount(userId);
-            var totalPoints = await _uow.UserCoursePoints.Query().Where(p => p.UserId == userId).SumAsync(p => p.TotalPoints);
-            var streak = await GetLearningStreakAsync(userId);
-
-            return new DashboardStatsDto
+            try
             {
-                TotalCoursesEnrolled = enrollments,
-                CoursesCompleted = completedCourses,
-                CoursesInProgress = enrollments - completedCourses,
-                TotalPointsEarned = totalPoints,
-                CurrentStreak = streak.CurrentStreak,
-                OverallProgressPercentage = await GetOverallProgressPercentageAsync(userId)
-            };
+                var enrollments = await _uow.CourseEnrollments.Query()
+                    .Include(e => e.Course)
+                        .ThenInclude(c => c.Levels)
+                            .ThenInclude(l => l.Sections)
+                                .ThenInclude(s => s.Contents)
+                    .Where(e => e.UserId == userId)
+                    .CountAsync();
+
+                var completedCourses = await GetCompletedCoursesCount(userId);
+
+                var totalPoints = await _uow.CoursePoints.Query()
+                    .Where(cp => cp.UserId == userId)
+                    .SumAsync(cp => cp.TotalPoints);
+
+                var streak = await GetLearningStreakAsync(userId);
+
+                var completedContent = await _uow.UserContentActivities.Query()
+                    .Where(a => a.UserId == userId && a.EndTime.HasValue)
+                    .CountAsync();
+
+                var totalTimeMinutes = await _uow.UserContentActivities.Query()
+                    .Include(a => a.Content)
+                    .Where(a => a.UserId == userId && a.EndTime.HasValue)
+                    .SumAsync(a => a.Content.DurationInMinutes);
+
+                var totalAchievements = await GetAchievementCountAsync(userId);
+                var overallProgress = await GetOverallProgressPercentageAsync(userId);
+
+                return new DashboardStatsDto
+                {
+                    TotalCoursesEnrolled = enrollments,
+                    CoursesCompleted = completedCourses,
+                    CoursesInProgress = enrollments - completedCourses,
+                    TotalContentCompleted = completedContent,
+                    TotalTimeSpentMinutes = totalTimeMinutes,
+                    OverallProgressPercentage = overallProgress,
+                    TotalPointsEarned = totalPoints,
+                    CurrentStreak = streak.CurrentStreak,
+                    TotalAchievements = totalAchievements
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting dashboard stats for user {UserId}", userId);
+
+                // Return safe defaults if calculation fails
+                return new DashboardStatsDto
+                {
+                    TotalCoursesEnrolled = 0,
+                    CoursesCompleted = 0,
+                    CoursesInProgress = 0,
+                    TotalContentCompleted = 0,
+                    TotalTimeSpentMinutes = 0,
+                    OverallProgressPercentage = 0,
+                    TotalPointsEarned = 0,
+                    CurrentStreak = 0,
+                    TotalAchievements = 0
+                };
+            }
         }
 
         private async Task<IEnumerable<CurrentCourseDto>> GetCurrentCoursesAsync(int userId)
         {
-            // Implementation for getting current courses with progress
-            var enrollments = await _uow.CourseEnrollments.Query()
-                .Include(e => e.Course)
-                    .ThenInclude(c => c.Instructor)
-                .Include(e => e.Course)
-                    .ThenInclude(c => c.Levels)
-                        .ThenInclude(l => l.Sections)
-                            .ThenInclude(s => s.Contents)
-                .Where(e => e.UserId == userId)
-                .ToListAsync();
-
-            var currentCourses = new List<CurrentCourseDto>();
-
-            foreach (var enrollment in enrollments)
+            try
             {
-                var totalContents = enrollment.Course.Levels.SelectMany(l => l.Sections).SelectMany(s => s.Contents).Count();
-                var completedContents = await GetTotalCompletedContentCount(userId, enrollment.CourseId);
-                var progressPercentage = totalContents > 0 ? (decimal)completedContents / totalContents * 100 : 0;
+                var enrollments = await _uow.CourseEnrollments.Query()
+                    .Include(e => e.Course)
+                        .ThenInclude(c => c.Instructor)
+                    .Include(e => e.Course)
+                        .ThenInclude(c => c.Levels)
+                            .ThenInclude(l => l.Sections)
+                                .ThenInclude(s => s.Contents)
+                    .Where(e => e.UserId == userId)
+                    .ToListAsync();
 
-                var userProgress = await _uow.UserProgresses.Query()
-                    .Include(p => p.CurrentLevel)
-                    .Include(p => p.CurrentSection)
-                    .FirstOrDefaultAsync(p => p.UserId == userId && p.CourseId == enrollment.CourseId);
+                var currentCourses = new List<CurrentCourseDto>();
 
-                currentCourses.Add(new CurrentCourseDto
+                foreach (var enrollment in enrollments)
                 {
-                    CourseId = enrollment.CourseId,
-                    CourseName = enrollment.Course.CourseName,
-                    CourseImage = enrollment.Course.CourseImage,
-                    InstructorName = enrollment.Course.Instructor.FullName,
-                    ProgressPercentage = progressPercentage,
-                    EnrolledAt = enrollment.EnrolledAt,
-                    LastAccessedAt = userProgress?.LastAccessed,
-                    CurrentLevelId = userProgress?.CurrentLevelId,
-                    CurrentLevelName = userProgress?.CurrentLevel?.LevelName,
-                    CurrentSectionId = userProgress?.CurrentSectionId,
-                    CurrentSectionName = userProgress?.CurrentSection?.SectionName,
-                    CanContinue = progressPercentage < 100,
-                    IsCompleted = progressPercentage >= 90,
-                    EstimatedTimeToComplete = CalculateRemainingTime(enrollment.Course, completedContents)
-                });
+                    var totalContents = enrollment.Course.Levels
+                        .SelectMany(l => l.Sections)
+                        .SelectMany(s => s.Contents)
+                        .Count();
+
+                    var completedContents = await GetTotalCompletedContentCount(userId, enrollment.CourseId);
+                    var progressPercentage = totalContents > 0 ? (decimal)completedContents / totalContents * 100 : 0;
+
+                    var userProgress = await _uow.UserProgresses.Query()
+                        .Include(p => p.CurrentLevel)
+                        .Include(p => p.CurrentSection)
+                        .FirstOrDefaultAsync(p => p.UserId == userId && p.CourseId == enrollment.CourseId);
+
+                    var remainingTime = CalculateRemainingTime(enrollment.Course, completedContents);
+
+                    currentCourses.Add(new CurrentCourseDto
+                    {
+                        CourseId = enrollment.CourseId,
+                        CourseName = enrollment.Course.CourseName,
+                        CourseImage = enrollment.Course.CourseImage,
+                        InstructorName = enrollment.Course.Instructor.FullName,
+                        ProgressPercentage = progressPercentage,
+                        EnrolledAt = enrollment.EnrolledAt,
+                        LastAccessedAt = userProgress?.LastAccessed,
+                        CurrentLevelId = userProgress?.CurrentLevelId,
+                        CurrentLevelName = userProgress?.CurrentLevel?.LevelName,
+                        CurrentSectionId = userProgress?.CurrentSectionId,
+                        CurrentSectionName = userProgress?.CurrentSection?.SectionName,
+                        CanContinue = progressPercentage < 100,
+                        IsCompleted = progressPercentage >= 90,
+                        EstimatedTimeToComplete = remainingTime,
+                        HasNewContent = false, // Could be calculated based on recent content additions
+                        HasQuizzes = enrollment.Course.Levels.Any(l => l.Sections.Any(s => s.Contents.Any())), // Simplified
+                        NextStepTitle = userProgress?.CurrentSection?.SectionName ?? "Start Learning",
+                        NextStepType = "Content"
+                    });
+                }
+
+                return currentCourses.OrderByDescending(c => c.LastAccessedAt ?? c.EnrolledAt);
             }
-
-            return currentCourses;
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting current courses for user {UserId}", userId);
+                return new List<CurrentCourseDto>();
+            }
         }
-
         // Other private helper methods would be implemented here...
         // Including calculation methods, validation methods, etc.
 
-        private int CalculateContentPoints(Content content) => content.DurationInMinutes / 10; // 1 point per 10 minutes
-        private int CalculateSectionPoints(Section section) => section.Contents.Sum(c => CalculateContentPoints(c));
-        private bool IsProgressCompleted(UserProgress progress, IEnumerable<CourseEnrollment> enrollments) => false; // Implementation needed
-        private async Task<int> GetAchievementCountAsync(int userId) => 0; // Implementation needed
-        private bool IsLevelCompleted(Level level, UserProgress userProgress) => false; // Implementation needed
-        private bool IsLevelUnlocked(Level level, UserProgress? userProgress) => true; // Implementation needed
-        private int GetCompletedSectionsCount(Level level, int userId) => 0; // Implementation needed
-        private int GetCompletedContentCount(Level level, int userId) => 0; // Implementation needed
-        private bool IsSectionCompleted(Section section, int userId) => false; // Implementation needed
-        private bool IsSectionUnlocked(Section section, UserProgress? userProgress) => true; // Implementation needed
-        private int GetCompletedContentCountInSection(Section section, int userId) => 0; // Implementation needed
-        private async Task<int> GetTotalCompletedContentCount(int userId, int courseId) => 0; // Implementation needed
-        private async Task<int> GetTotalTimeSpentMinutes(int userId, int courseId) => 0; // Implementation needed
-        private int GetCompletedLevelsCount(Course course, int userId) => 0; // Implementation needed
-        private async Task<int> GetTotalCompletedSectionsCount(int userId, int courseId) => 0; // Implementation needed
-        private async Task<List<LearningPathLevelDto>> BuildLearningPathLevels(ICollection<Level> levels, int userId) => new(); // Implementation needed
-        private async Task<List<LearningMilestoneDto>> GetLearningMilestones(int userId, int courseId) => new(); // Implementation needed
-        private async Task<Section?> FindNextSection(UserProgress userProgress) => null; // Implementation needed
-        private async Task AwardContentCompletionPoints(int userId, int contentId) { } // Implementation needed
-        private async Task UpdateUserProgressAfterContentCompletion(int userId, int contentId) { } // Implementation needed
-        private async Task AwardSectionCompletionPoints(int userId, int sectionId) { } // Implementation needed
-        private async Task<Section?> FindNextSectionAfterCompletion(Section currentSection) => null; // Implementation needed
-        private List<CompletionRequirementDto> GenerateCompletionRequirements(Course course, int userId) => new(); // Implementation needed
-        private bool IsContentCompleted(int userId, int contentId) => false; // Implementation needed
-        private int CalculateCurrentStreak(List<UserContentActivity> activities) => 0; // Implementation needed
-        private int CalculateLongestStreak(List<UserContentActivity> activities) => 0; // Implementation needed
-        private int GetCurrentWeekDays(List<UserContentActivity> activities) => 0; // Implementation needed
-        private string GenerateMotivationalMessage(int currentStreak, bool isActive) => "Keep learning!"; // Implementation needed
-        private int CalculateDaysToNextMilestone(int currentStreak) => 1; // Implementation needed
-        private string GetNextMilestoneReward(int currentStreak) => "Badge"; // Implementation needed
-        private async Task<int> GetCompletedCoursesCount(int userId) => 0; // Implementation needed
-        private string GetPreferredLearningTime(List<UserContentActivity> activities) => "Morning"; // Implementation needed
-        private string GetMostProductiveDay(List<UserContentActivity> activities) => "Monday"; // Implementation needed
-        private decimal GetAverageSessionLength(List<UserContentActivity> activities) => 30; // Implementation needed
-        private string GetPreferredContentType(List<UserContentActivity> activities) => "Video"; // Implementation needed
-        private int GetWeeklyLearningMinutes(List<UserContentActivity> activities) => 0; // Implementation needed
-        private int GetMonthlyLearningMinutes(List<UserContentActivity> activities) => 0; // Implementation needed
-        private List<string> GenerateImprovementSuggestions(List<UserContentActivity> activities) => new(); // Implementation needed
-        private List<string> GenerateStrengthAreas(List<UserContentActivity> activities) => new(); // Implementation needed
-        private List<StudySessionDto> GenerateUpcomingSessions(int courseId, int userId) => new(); // Implementation needed
-        private List<PlanMilestoneDto> GeneratePlanMilestones(Course course) => new(); // Implementation needed
-        private int CalculateRemainingTime(Course course, int completedContents) => 0; // Implementation needed
+        private int CalculateContentPoints(Content content)
+        {
+            if (content?.DurationInMinutes == null) return 0;
 
+            return content.DurationInMinutes switch
+            {
+                <= 5 => 5,
+                <= 15 => 10,
+                <= 30 => 15,
+                <= 60 => 25,
+                _ => 35
+            };
+        }
+
+        private int CalculateSectionPoints(Section section)
+        {
+            if (section?.Contents == null) return 0;
+
+            var contentPoints = section.Contents.Sum(c => CalculateContentPoints(c));
+            var sectionBonus = 20; // Fixed bonus for completing a section
+
+            return contentPoints + sectionBonus;
+        }
+
+        private bool IsProgressCompleted(UserProgress progress, IEnumerable<CourseEnrollment> enrollments)
+        {
+            // If explicitly marked as completed
+            if (progress?.CompletedAt != null) return true;
+
+            if (progress?.CourseId == null) return false;
+
+            // Check if progress percentage is 90% or above
+            var enrollment = enrollments.FirstOrDefault(e => e.CourseId == progress.CourseId);
+            if (enrollment?.Course?.Levels == null) return false;
+
+            var totalContents = enrollment.Course.Levels
+                .SelectMany(l => l.Sections ?? new List<Section>())
+                .SelectMany(s => s.Contents ?? new List<Content>())
+                .Count();
+
+            if (totalContents == 0) return false;
+
+            // Calculate completion based on actual progress - simplified version
+            try
+            {
+                var completedContents = GetTotalCompletedContentCount(progress.UserId, progress.CourseId).Result;
+                var completionPercentage = (decimal)completedContents / totalContents * 100;
+                return completionPercentage >= 90;
+            }
+            catch
+            {
+                return false; // If calculation fails, assume not completed
+            }
+        }
+
+        private async Task<int> GetAchievementCountAsync(int userId)
+        {
+            try
+            {
+                var achievements = 0;
+
+                // Course completion achievements
+                var completedCourses = await GetCompletedCoursesCount(userId);
+                achievements += completedCourses; // One achievement per completed course
+
+                // Streak achievements
+                var streak = await GetLearningStreakAsync(userId);
+                if (streak.CurrentStreak >= 7) achievements++; // Week Warrior
+                if (streak.CurrentStreak >= 30) achievements++; // Month Master
+                if (streak.CurrentStreak >= 100) achievements++; // Century Learner
+
+                // Points achievements
+                var totalPoints = await _uow.CoursePoints.Query()
+                    .Where(cp => cp.UserId == userId)
+                    .SumAsync(cp => cp.TotalPoints);
+
+                if (totalPoints >= 100) achievements++; // Point Starter
+                if (totalPoints >= 1000) achievements++; // Point Collector
+                if (totalPoints >= 5000) achievements++; // Point Master
+
+                return achievements;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error calculating achievement count for user {UserId}", userId);
+                return 0;
+            }
+        }
+
+        private bool IsLevelCompleted(Level level, UserProgress userProgress) => false; // Implementation needed
+        
         #endregion
 
         // =====================================================
@@ -1324,8 +2311,8 @@ namespace LearnQuestV1.Api.Services.Implementations
         private class StudentLevelDto
         {
             public int LevelId { get; set; }
-            public string LevelName { get; set; }
-            public string LevelDetails { get; set; }
+            public string LevelName { get; set; } = string.Empty;
+            public string LevelDetails { get; set; } = string.Empty;
             public int LevelOrder { get; set; }
             public bool IsCompleted { get; set; }
             public bool IsCurrent { get; set; }

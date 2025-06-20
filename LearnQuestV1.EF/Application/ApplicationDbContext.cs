@@ -24,13 +24,15 @@ namespace LearnQuestV1.EF.Application
 
         }
 
+        // User Management
         public DbSet<User> Users { get; set; } = null!;
         public DbSet<UserDetail> UserDetails { get; set; } = null!;
         public DbSet<AccountVerification> AccountVerifications { get; set; } = null!;
+        public DbSet<BlacklistToken> BlacklistTokens { get; set; } = null!;
         public DbSet<RefreshToken> RefreshTokens { get; set; } = null!;
         public DbSet<UserVisitHistory> UserVisitHistory { get; set; } = null!;
-        public DbSet<BlacklistToken> BlacklistTokens { get; set; } = null!;
 
+        // Course Structure
         public DbSet<Course> Courses { get; set; } = null!;
         public DbSet<AboutCourse> AboutCourses { get; set; } = null!;
         public DbSet<CourseSkill> CourseSkills { get; set; } = null!;
@@ -38,85 +40,56 @@ namespace LearnQuestV1.EF.Application
         public DbSet<Section> Sections { get; set; } = null!;
         public DbSet<Content> Contents { get; set; } = null!;
 
-        public DbSet<CourseEnrollment> CourseEnrollments { get; set; } = null!;
-        public DbSet<CourseFeedback> CourseFeedbacks { get; set; } = null!;
-        public DbSet<CourseReview> CourseReviews { get; set; } = null!;
-        public DbSet<Payment> Payments { get; set; } = null!;
-        public DbSet<UserCoursePoint> UserCoursePoints { get; set; } = null!;
-        public DbSet<UserProgress> UserProgresses { get; set; } = null!;
-        public DbSet<FavoriteCourse> FavoriteCourses { get; set; } = null!;
+        // Course Organization
         public DbSet<CourseTrack> CourseTracks { get; set; } = null!;
         public DbSet<CourseTrackCourse> CourseTrackCourses { get; set; } = null!;
+        public DbSet<CourseEnrollment> CourseEnrollments { get; set; } = null!;
+        public DbSet<FavoriteCourse> FavoriteCourses { get; set; } = null!;
 
+        // Feedback & Reviews
+        public DbSet<CourseFeedback> CourseFeedbacks { get; set; } = null!;
+        public DbSet<CourseReview> CourseReviews { get; set; } = null!;
+
+        // Financial
+        public DbSet<Payment> Payments { get; set; } = null!;
+        public DbSet<PaymentTransaction> PaymentTransactions { get; set; } = null!;
+
+        // Learning & Progress
+        public DbSet<UserCoursePoint> UserCoursePoints { get; set; } = null!;
+        public DbSet<UserProgress> UserProgresses { get; set; } = null!;
+        public DbSet<CoursePoints> CoursePoints { get; set; } = null!;
+        public DbSet<PointTransaction> PointTransactions { get; set; } = null!;
+        public DbSet<UserAchievement> UserAchievements { get; set; } = null!;
+        public DbSet<UserLearningStreak> UserLearningStreaks { get; set; } = null!;
+        public DbSet<UserLearningAnalytics> UserLearningAnalytics { get; set; } = null!;
+
+        // Notifications
         public DbSet<Notification> Notifications { get; set; } = null!;
+        public DbSet<UserNotification> UserNotifications { get; set; } = null!;
 
+        // Content Activities & Logs
         public DbSet<UserContentActivity> UserContentActivities { get; set; }
         public DbSet<AdminActionLog> AdminActionLogs { get; set; }
-        
-        // Quiz System DbSets
-        public DbSet<Quiz> Quizzes { get; set; }
-        public DbSet<Question> Questions { get; set; }
-        public DbSet<QuestionOption> QuestionOptions { get; set; }
-        public DbSet<QuizQuestion> QuizQuestions { get; set; }
-        public DbSet<QuizAttempt> QuizAttempts { get; set; }
-        public DbSet<UserAnswer> UserAnswers { get; set; }
-        public DbSet<SecurityAuditLog> SecurityAuditLogs { get; set; }
-        public DbSet<Discount> Discounts { get; set; }
-        public DbSet<PaymentTransaction> PaymentTransactions { get; set; }
-        public DbSet<UserPreferences> UserPreferences { get; set; }
-        public DbSet<UserLearningSession> UserLearningSessions { get; set; }
-        public DbSet<CoursePoints> CoursePoints { get; set; }
-        public DbSet<PointTransaction> PointTransactions { get; set; }
 
-        /// <summary>
-        /// User bookmarks for content
-        /// </summary>
-        public DbSet<UserBookmark> UserBookmarks { get; set; }
+        // Quiz System
+        public DbSet<Quiz> Quizzes { get; set; } = null!;
+        public DbSet<Question> Questions { get; set; } = null!;
+        public DbSet<QuestionOption> QuestionOptions { get; set; } = null!;
+        public DbSet<QuizQuestion> QuizQuestions { get; set; } = null!;
+        public DbSet<QuizAttempt> QuizAttempts { get; set; } = null!;
+        public DbSet<UserAnswer> UserAnswers { get; set; } = null!;
+        public DbSet<SecurityAuditLog> SecurityAuditLogs { get; set; } = null!;
+        public DbSet<Discount> Discounts { get; set; } = null!;
+        public DbSet<UserPreferences> UserPreferences { get; set; } = null!;
+        public DbSet<UserLearningSession> UserLearningSessions { get; set; } = null!;
 
-        /// <summary>
-        /// User learning goals
-        /// </summary>
-        public DbSet<UserLearningGoal> UserLearningGoals { get; set; }
+        // Study Plans
+        public DbSet<UserBookmark> UserBookmarks { get; set; } = null!;
+        public DbSet<UserLearningGoal> UserLearningGoals { get; set; } = null!;
+        public DbSet<UserStudyPlan> UserStudyPlans { get; set; } = null!;
+        public DbSet<StudySession> StudySessions { get; set; } = null!;
+        public DbSet<StudySessionContent> StudySessionContents { get; set; } = null!;
 
-        /// <summary>
-        /// User study plans
-        /// </summary>
-        public DbSet<UserStudyPlan> UserStudyPlans { get; set; }
-
-        /// <summary>
-        /// Study sessions within plans
-        /// </summary>
-        public DbSet<StudySession> StudySessions { get; set; }
-
-        /// <summary>
-        /// Content planned for study sessions
-        /// </summary>
-        public DbSet<StudySessionContent> StudySessionContents { get; set; }
-
-        /// <summary>
-        /// User achievements earned
-        /// </summary>
-        public DbSet<UserAchievement> UserAchievements { get; set; }
-
-        /// <summary>
-        /// Available achievements/badges
-        /// </summary>
-        public DbSet<Achievement> Achievements { get; set; }
-
-        /// <summary>
-        /// User learning streaks
-        /// </summary>
-        public DbSet<UserLearningStreak> UserLearningStreaks { get; set; }
-
-        /// <summary>
-        /// Student-specific notifications
-        /// </summary>
-        public DbSet<UserNotification> UserNotifications { get; set; }
-
-        /// <summary>
-        /// User learning analytics data
-        /// </summary>
-        public DbSet<UserLearningAnalytics> UserLearningAnalytics { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -736,27 +709,414 @@ namespace LearnQuestV1.EF.Application
                 .Property(p => p.PlanProgressPercentage)
                 .HasPrecision(5, 2);
 
+            #region Student Features Configuration
+
+            // UserBookmark Configuration
+            modelBuilder.Entity<UserBookmark>(entity =>
+            {
+                entity.HasKey(e => e.BookmarkId);
+
+                entity.Property(e => e.BookmarkedAt)
+                    .IsRequired()
+                    .HasDefaultValueSql("GETUTCDATE()");
+
+                entity.Property(e => e.Notes)
+                    .HasMaxLength(1000);
+
+                entity.Property(e => e.Tags)
+                    .HasMaxLength(500);
+
+                // Relationships
+                entity.HasOne(e => e.User)
+                    .WithMany(u => u.UserBookmarks)
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Content)
+                    .WithMany(c => c.UserBookmarks)
+                    .HasForeignKey(e => e.ContentId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                // Indexes
+                entity.HasIndex(e => e.UserId);
+                entity.HasIndex(e => e.ContentId);
+                entity.HasIndex(e => new { e.UserId, e.ContentId })
+                    .IsUnique();
+            });
+
+            // UserLearningGoal Configuration
+            modelBuilder.Entity<UserLearningGoal>(entity =>
+            {
+                entity.HasKey(e => e.GoalId);
+
+                entity.Property(e => e.GoalType)
+                    .IsRequired()
+                    .HasMaxLength(50);
+
+                entity.Property(e => e.GoalDescription)
+                    .IsRequired()
+                    .HasMaxLength(500);
+
+                entity.Property(e => e.CreatedAt)
+                    .IsRequired()
+                    .HasDefaultValueSql("GETUTCDATE()");
+
+                entity.Property(e => e.IsActive)
+                    .HasDefaultValue(true);
+
+                entity.Property(e => e.IsAchieved)
+                    .HasDefaultValue(false);
+
+                entity.Property(e => e.SendReminders)
+                    .HasDefaultValue(true);
+
+                entity.Property(e => e.PreferredStudyTime)
+                    .HasMaxLength(200);
+
+                entity.Property(e => e.PreferredStudyDays)
+                    .HasMaxLength(500);
+
+                // Relationships
+                entity.HasOne(e => e.User)
+                    .WithMany(u => u.UserLearningGoals)
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Course)
+                    .WithMany(c => c.UserLearningGoals)
+                    .HasForeignKey(e => e.CourseId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                // Indexes
+                entity.HasIndex(e => e.UserId);
+                entity.HasIndex(e => e.CourseId);
+                entity.HasIndex(e => e.IsActive);
+            });
+
+            // Achievement Configuration
+            modelBuilder.Entity<Achievement>(entity =>
+            {
+                entity.HasKey(e => e.AchievementId);
+
+                entity.Property(e => e.Title)
+                    .IsRequired()
+                    .HasMaxLength(200);
+
+                entity.Property(e => e.Description)
+                    .HasMaxLength(1000);
+
+                entity.Property(e => e.BadgeIcon)
+                    .HasMaxLength(200);
+
+                entity.Property(e => e.BadgeColor)
+                    .HasMaxLength(50);
+
+                entity.Property(e => e.Category)
+                    .IsRequired()
+                    .HasMaxLength(100);
+
+                entity.Property(e => e.IsRare)
+                    .HasDefaultValue(false);
+
+                entity.Property(e => e.DefaultPoints)
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.Criteria)
+                    .HasMaxLength(1000);
+
+                entity.Property(e => e.IsActive)
+                    .HasDefaultValue(true);
+
+                entity.Property(e => e.CreatedAt)
+                    .IsRequired()
+                    .HasDefaultValueSql("GETUTCDATE()");
+
+                // Indexes
+                entity.HasIndex(e => e.Category);
+                entity.HasIndex(e => e.IsActive);
+            });
+
+            // UserAchievement Configuration
+            modelBuilder.Entity<UserAchievement>(entity =>
+            {
+                entity.HasKey(e => e.UserAchievementId);
+
+                entity.Property(e => e.EarnedAt)
+                    .IsRequired()
+                    .HasDefaultValueSql("GETUTCDATE()");
+
+                entity.Property(e => e.PointsAwarded)
+                    .HasDefaultValue(0);
+
+                // Relationships
+                entity.HasOne(e => e.User)
+                    .WithMany(u => u.UserAchievements)
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Achievement)
+                    .WithMany(a => a.UserAchievements)
+                    .HasForeignKey(e => e.AchievementId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.Course)
+                    .WithMany(c => c.UserAchievements)   // ربط بالعلاقة الصحيحة
+                    .HasForeignKey(e => e.CourseId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                // Indexes
+                entity.HasIndex(e => e.UserId);
+                entity.HasIndex(e => e.AchievementId);
+                entity.HasIndex(e => new { e.UserId, e.AchievementId })
+                    .IsUnique();
+            });
+
+            // UserLearningStreak Configuration
+            modelBuilder.Entity<UserLearningStreak>(entity =>
+            {
+                entity.HasKey(e => e.StreakId);
+
+                entity.Property(e => e.CurrentStreak)
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.LongestStreak)
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.IsStreakActive)
+                    .HasDefaultValue(false);
+
+                entity.Property(e => e.WeeklyGoalDays)
+                    .HasDefaultValue(5);
+
+                entity.Property(e => e.CurrentWeekDays)
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.HasMetWeeklyGoal)
+                    .HasDefaultValue(false);
+
+                entity.Property(e => e.LastUpdated)
+                    .IsRequired()
+                    .HasDefaultValueSql("GETUTCDATE()");
+
+                // Relationships
+                entity.HasOne(e => e.User)
+                    .WithMany(u => u.UserLearningStreaks)
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                // Indexes
+                entity.HasIndex(e => e.UserId)
+                    .IsUnique(); // One streak record per user
+            });
+
+            // UserNotification Configuration
+            modelBuilder.Entity<UserNotification>(entity =>
+            {
+                entity.HasKey(e => e.NotificationId);
+
+                entity.Property(e => e.Title)
+                    .IsRequired()
+                    .HasMaxLength(200);
+
+                entity.Property(e => e.Message)
+                    .IsRequired()
+                    .HasMaxLength(1000);
+
+                entity.Property(e => e.Type)
+                    .IsRequired()
+                    .HasMaxLength(50);
+
+                entity.Property(e => e.IsRead)
+                    .HasDefaultValue(false);
+
+                entity.Property(e => e.CreatedAt)
+                    .IsRequired()
+                    .HasDefaultValueSql("GETUTCDATE()");
+
+                entity.Property(e => e.ActionUrl)
+                    .HasMaxLength(500);
+
+                entity.Property(e => e.Icon)
+                    .HasMaxLength(100);
+
+                entity.Property(e => e.Priority)
+                    .IsRequired()
+                    .HasMaxLength(50)
+                    .HasDefaultValue("Normal");
+
+                // Relationships
+                entity.HasOne(e => e.User)
+                    .WithMany(u => u.UserNotifications)
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Course)
+                    .WithMany()
+                    .HasForeignKey(e => e.CourseId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasOne(e => e.Content)
+                    .WithMany()
+                    .HasForeignKey(e => e.ContentId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasOne(e => e.Achievement)
+                    .WithMany()
+                    .HasForeignKey(e => e.AchievementId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                // Indexes
+                entity.HasIndex(e => e.UserId);
+                entity.HasIndex(e => e.Type);
+                entity.HasIndex(e => e.IsRead);
+                entity.HasIndex(e => e.CreatedAt);
+            });
+
+            // UserLearningAnalytics Configuration
+            modelBuilder.Entity<UserLearningAnalytics>(entity =>
+            {
+                entity.HasKey(e => e.AnalyticsId);
+
+                entity.Property(e => e.AnalyticsDate)
+                    .IsRequired()
+                    .HasColumnType("date")
+                    .HasDefaultValueSql("CAST(GETUTCDATE() AS DATE)");
+
+                entity.Property(e => e.DailyLearningMinutes)
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.DailyContentCompleted)
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.DailySessions)
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.DailyAverageSessionLength)
+                    .HasPrecision(5, 2)
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.PreferredLearningHour)
+                    .HasMaxLength(20);
+
+                entity.Property(e => e.MostActiveDay)
+                    .HasMaxLength(20);
+
+                entity.Property(e => e.PreferredContentType)
+                    .HasMaxLength(50);
+
+                entity.Property(e => e.CompletionRate)
+                    .HasPrecision(5, 2)
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.AverageQuizScore)
+                    .HasPrecision(5, 2)
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.TotalPointsEarned)
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.MetDailyGoal)
+                    .HasDefaultValue(false);
+
+                entity.Property(e => e.MetWeeklyGoal)
+                    .HasDefaultValue(false);
+
+                entity.Property(e => e.LastUpdated)
+                    .IsRequired()
+                    .HasDefaultValueSql("GETUTCDATE()");
+
+                // Relationships
+                entity.HasOne(e => e.User)
+                    .WithMany(u => u.UserLearningAnalytics)
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                // Indexes
+                entity.HasIndex(e => e.UserId);
+                entity.HasIndex(e => e.AnalyticsDate);
+                entity.HasIndex(e => new { e.UserId, e.AnalyticsDate })
+                    .IsUnique(); // One analytics record per user per day
+            });
+
+            #endregion
+
             //ConfigureQuizEntities(modelBuilder);
+
+            #region Additional Navigation Properties Configuration
+
+            // Content ↔ UserContentActivity relationship
+            modelBuilder.Entity<UserContentActivity>()
+                .HasOne(uca => uca.Content)
+                .WithMany(c => c.UserContentActivities)
+                .HasForeignKey(uca => uca.ContentId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Content ↔ UserBookmark relationship (already exists, but ensuring it's configured)
+            modelBuilder.Entity<UserBookmark>()
+                .HasOne(ub => ub.Content)
+                .WithMany(c => c.UserBookmarks)
+                .HasForeignKey(ub => ub.ContentId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Content ↔ StudySessionContent relationship  
+            modelBuilder.Entity<StudySessionContent>()
+                .HasOne(ssc => ssc.Content)
+                .WithMany(c => c.StudySessionContents)
+                .HasForeignKey(ssc => ssc.ContentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // CoursePoints ↔ PointTransaction relationship
+            modelBuilder.Entity<PointTransaction>()
+                .HasOne(pt => pt.CoursePoints)
+                .WithMany(cp => cp.PointTransactions)
+                .HasForeignKey(pt => pt.CoursePointsId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // User ↔ CoursePoints relationship
+            modelBuilder.Entity<CoursePoints>()
+                .HasOne(cp => cp.User)
+                .WithMany() // User doesn't have navigation property to CoursePoints
+                .HasForeignKey(cp => cp.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Course ↔ CoursePoints relationship
+            modelBuilder.Entity<CoursePoints>()
+                .HasOne(cp => cp.Course)
+                .WithMany() // Course doesn't have navigation property to CoursePoints
+                .HasForeignKey(cp => cp.CourseId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // User ↔ PointTransaction relationship
+            modelBuilder.Entity<PointTransaction>()
+                .HasOne(pt => pt.User)
+                .WithMany() // User doesn't have navigation property to PointTransactions
+                .HasForeignKey(pt => pt.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Course ↔ PointTransaction relationship
+            modelBuilder.Entity<PointTransaction>()
+                .HasOne(pt => pt.Course)
+                .WithMany() // Course doesn't have navigation property to PointTransactions
+                .HasForeignKey(pt => pt.CourseId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // QuizAttempt ↔ PointTransaction relationship (optional)
+            modelBuilder.Entity<PointTransaction>()
+                .HasOne(pt => pt.QuizAttempt)
+                .WithMany() // QuizAttempt doesn't have navigation property to PointTransactions
+                .HasForeignKey(pt => pt.QuizAttemptId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // AwardedBy User ↔ PointTransaction relationship (optional)
+            modelBuilder.Entity<PointTransaction>()
+                .HasOne(pt => pt.AwardedBy)
+                .WithMany() // User doesn't have navigation property for awarded transactions
+                .HasForeignKey(pt => pt.AwardedByUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            #endregion
         }
 
-        //private void ConfigureQuizEntities(ModelBuilder modelBuilder)
-        //{
-        //    // Quiz Configuration  
-        //    modelBuilder.Entity<Quiz>(entity =>
-        //    {
-        //        entity.ToTable(t => t.HasCheckConstraint("CK_Quiz_HierarchyConstraint",
-        //            @"(QuizType = 1 AND ContentId IS NOT NULL AND SectionId IS NULL AND LevelId IS NULL) OR  
-        //             (QuizType = 2 AND SectionId IS NOT NULL AND ContentId IS NULL AND LevelId IS NULL) OR  
-        //             (QuizType = 3 AND LevelId IS NOT NULL AND ContentId IS NULL AND SectionId IS NULL) OR  
-        //             (QuizType = 4 AND ContentId IS NULL AND SectionId IS NULL AND LevelId IS NULL)"));
-        //    });
 
-        //    // UserAnswer Configuration  
-        //    modelBuilder.Entity<UserAnswer>(entity =>
-        //    {
-        //        entity.ToTable(t => t.HasCheckConstraint("CK_UserAnswer_AnswerType",
-        //            "(SelectedOptionId IS NOT NULL AND BooleanAnswer IS NULL) OR (SelectedOptionId IS NULL AND BooleanAnswer IS NOT NULL)"));
-        //    });
-        //}
     }
 }

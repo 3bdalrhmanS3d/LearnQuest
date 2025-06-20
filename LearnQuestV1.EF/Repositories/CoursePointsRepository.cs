@@ -2,11 +2,6 @@
 using LearnQuestV1.Core.Models.LearningAndProgress;
 using LearnQuestV1.EF.Application;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace LearnQuestV1.EF.Repositories
 {
@@ -28,38 +23,30 @@ namespace LearnQuestV1.EF.Repositories
         {
             return await _context.CoursePoints
                 .Include(cp => cp.User)
-                .Include(cp => cp.Course)
                 .Where(cp => cp.CourseId == courseId)
                 .OrderByDescending(cp => cp.TotalPoints)
-                .ThenByDescending(cp => cp.QuizPoints)
-                .ThenBy(cp => cp.CreatedAt) // Earlier registration wins ties
+                .ThenByDescending(cp => cp.LastUpdated)
                 .Take(limit)
                 .ToListAsync();
         }
 
         public async Task<int> GetUserRankInCourseAsync(int userId, int courseId)
         {
-            var userPoints = await _context.CoursePoints
-                .Where(cp => cp.UserId == userId && cp.CourseId == courseId)
-                .Select(cp => cp.TotalPoints)
-                .FirstOrDefaultAsync();
+            var userPoints = await GetUserCoursePointsAsync(userId, courseId);
+            if (userPoints == null) return 0;
 
-            if (userPoints == 0)
-                return 0;
-
-            var rank = await _context.CoursePoints
-                .Where(cp => cp.CourseId == courseId && cp.TotalPoints > userPoints)
+            var higherRanked = await _context.CoursePoints
+                .Where(cp => cp.CourseId == courseId && cp.TotalPoints > userPoints.TotalPoints)
                 .CountAsync();
 
-            return rank + 1;
+            return higherRanked + 1;
         }
 
         public async Task<IEnumerable<CoursePoints>> GetUserPointsInAllCoursesAsync(int userId)
         {
             return await _context.CoursePoints
-                .Include(cp => cp.User)
                 .Include(cp => cp.Course)
-                .Where(cp => cp.UserId == userId)
+                .Where(cp => cp.UserId == userId && cp.TotalPoints > 0)
                 .OrderByDescending(cp => cp.TotalPoints)
                 .ToListAsync();
         }
@@ -69,14 +56,12 @@ namespace LearnQuestV1.EF.Repositories
             var coursePoints = await _context.CoursePoints
                 .Where(cp => cp.CourseId == courseId)
                 .OrderByDescending(cp => cp.TotalPoints)
-                .ThenByDescending(cp => cp.QuizPoints)
-                .ThenBy(cp => cp.CreatedAt)
+                .ThenByDescending(cp => cp.LastUpdated)
                 .ToListAsync();
 
             for (int i = 0; i < coursePoints.Count; i++)
             {
                 coursePoints[i].CurrentRank = i + 1;
-                coursePoints[i].LastUpdated = DateTime.UtcNow;
             }
 
             _context.CoursePoints.UpdateRange(coursePoints);
@@ -92,18 +77,19 @@ namespace LearnQuestV1.EF.Repositories
                 .Select(g => new
                 {
                     UserId = g.Key,
-                    TotalPointsAcrossAllCourses = g.Sum(cp => cp.TotalPoints),
+                    TotalPoints = g.Sum(cp => cp.TotalPoints),
                     User = g.First().User,
-                    MostActiveCourseName = g.OrderByDescending(cp => cp.TotalPoints).First().Course.CourseName
+                    CoursesCount = g.Count(),
+                    LastUpdated = g.Max(cp => cp.LastUpdated)
                 })
-                .OrderByDescending(x => x.TotalPointsAcrossAllCourses)
+                .OrderByDescending(x => x.TotalPoints)
                 .Take(limit)
                 .Select(x => new CoursePoints
                 {
                     UserId = x.UserId,
+                    TotalPoints = x.TotalPoints,
                     User = x.User,
-                    TotalPoints = x.TotalPointsAcrossAllCourses,
-                    Course = new() { CourseName = x.MostActiveCourseName }
+                    LastUpdated = x.LastUpdated
                 })
                 .ToListAsync();
         }
@@ -113,27 +99,25 @@ namespace LearnQuestV1.EF.Repositories
             return await _context.CoursePoints
                 .Include(cp => cp.User)
                 .Include(cp => cp.Course)
-                .Include(cp => cp.PointTransactions.OrderByDescending(pt => pt.CreatedAt).Take(10))
-                    .ThenInclude(pt => pt.AwardedBy)
+                .Include(cp => cp.PointTransactions)
                 .FirstOrDefaultAsync(cp => cp.CoursePointsId == coursePointsId);
         }
 
         public async Task<(int totalUsers, int usersWithPoints, int totalPoints, decimal averagePoints)> GetCoursePointsStatsAsync(int courseId)
         {
-            var enrolledUsersCount = await _context.CourseEnrollments
+            var coursePoints = await _context.CoursePoints
+                .Where(cp => cp.CourseId == courseId)
+                .ToListAsync();
+
+            var totalUsers = await _context.CourseEnrollments
                 .Where(ce => ce.CourseId == courseId)
                 .CountAsync();
 
-            var pointsData = await _context.CoursePoints
-                .Where(cp => cp.CourseId == courseId)
-                .Select(cp => cp.TotalPoints)
-                .ToListAsync();
-
-            var usersWithPoints = pointsData.Count;
-            var totalPoints = pointsData.Sum();
+            var usersWithPoints = coursePoints.Count;
+            var totalPoints = coursePoints.Sum(cp => cp.TotalPoints);
             var averagePoints = usersWithPoints > 0 ? (decimal)totalPoints / usersWithPoints : 0;
 
-            return (enrolledUsersCount, usersWithPoints, totalPoints, Math.Round(averagePoints, 2));
+            return (totalUsers, usersWithPoints, totalPoints, averagePoints);
         }
     }
 }

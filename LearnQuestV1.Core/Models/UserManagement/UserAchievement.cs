@@ -1,10 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations.Schema;
 using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.ComponentModel.DataAnnotations.Schema;
 using LearnQuestV1.Core.Models.CourseStructure;
 
 namespace LearnQuestV1.Core.Models.UserManagement
@@ -25,20 +21,29 @@ namespace LearnQuestV1.Core.Models.UserManagement
         [Required]
         public int AchievementId { get; set; }
 
+        /// <summary>
+        /// When the achievement was earned
+        /// </summary>
         public DateTime EarnedAt { get; set; } = DateTime.UtcNow;
 
+        /// <summary>
+        /// Points awarded for this achievement
+        /// </summary>
         public int PointsAwarded { get; set; } = 0;
 
-        public int? CourseId { get; set; } // Related course if applicable
+        /// <summary>
+        /// Optional related course
+        /// </summary>
+        public int? CourseId { get; set; }
 
-        // Navigation Properties
+        // Navigation properties
+
         [ForeignKey(nameof(UserId))]
         public virtual User User { get; set; } = null!;
 
         [ForeignKey(nameof(AchievementId))]
         public virtual Achievement Achievement { get; set; } = null!;
 
-        [ForeignKey(nameof(CourseId))]
         public virtual Course? Course { get; set; }
     }
 }

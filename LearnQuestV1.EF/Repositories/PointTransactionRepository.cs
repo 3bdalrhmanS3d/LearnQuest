@@ -3,11 +3,6 @@ using LearnQuestV1.Core.Interfaces;
 using LearnQuestV1.Core.Models.LearningAndProgress;
 using LearnQuestV1.EF.Application;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace LearnQuestV1.EF.Repositories
 {
@@ -22,9 +17,8 @@ namespace LearnQuestV1.EF.Repositories
             return await _context.PointTransactions
                 .Include(pt => pt.User)
                 .Include(pt => pt.Course)
-                .Include(pt => pt.AwardedBy)
+                .Include(pt => pt.CoursePoints)
                 .Include(pt => pt.QuizAttempt)
-                    .ThenInclude(qa => qa.Quiz)
                 .Where(pt => pt.UserId == userId && pt.CourseId == courseId)
                 .OrderByDescending(pt => pt.CreatedAt)
                 .ToListAsync();
@@ -36,8 +30,6 @@ namespace LearnQuestV1.EF.Repositories
                 .Include(pt => pt.User)
                 .Include(pt => pt.Course)
                 .Include(pt => pt.AwardedBy)
-                .Include(pt => pt.QuizAttempt)
-                    .ThenInclude(qa => qa.Quiz)
                 .Where(pt => pt.CourseId == courseId)
                 .OrderByDescending(pt => pt.CreatedAt)
                 .Take(limit)
@@ -49,9 +41,6 @@ namespace LearnQuestV1.EF.Repositories
             return await _context.PointTransactions
                 .Include(pt => pt.User)
                 .Include(pt => pt.Course)
-                .Include(pt => pt.AwardedBy)
-                .Include(pt => pt.QuizAttempt)
-                    .ThenInclude(qa => qa.Quiz)
                 .Where(pt => pt.CourseId == courseId && pt.Source == source)
                 .OrderByDescending(pt => pt.CreatedAt)
                 .ToListAsync();
@@ -62,9 +51,6 @@ namespace LearnQuestV1.EF.Repositories
             return await _context.PointTransactions
                 .Include(pt => pt.User)
                 .Include(pt => pt.Course)
-                .Include(pt => pt.AwardedBy)
-                .Include(pt => pt.QuizAttempt)
-                    .ThenInclude(qa => qa.Quiz)
                 .Where(pt => pt.CourseId == courseId)
                 .OrderByDescending(pt => pt.CreatedAt)
                 .Take(limit)
@@ -91,13 +77,13 @@ namespace LearnQuestV1.EF.Repositories
 
         public async Task<Dictionary<PointSource, int>> GetPointSourceStatsAsync(int courseId)
         {
-            return await _context.PointTransactions
-                .Where(pt => pt.CourseId == courseId)
+            var transactions = await _context.PointTransactions
+                .Where(pt => pt.CourseId == courseId && pt.TransactionType == PointTransactionType.Earned)
                 .GroupBy(pt => pt.Source)
-                .ToDictionaryAsync(
-                    g => g.Key,
-                    g => g.Sum(pt => pt.PointsChanged)
-                );
+                .Select(g => new { Source = g.Key, TotalPoints = g.Sum(pt => pt.PointsChanged) })
+                .ToListAsync();
+
+            return transactions.ToDictionary(t => t.Source, t => t.TotalPoints);
         }
 
         public async Task<IEnumerable<PointTransaction>> GetTransactionsWithDetailsAsync(int courseId, int skip = 0, int take = 50)
@@ -106,9 +92,8 @@ namespace LearnQuestV1.EF.Repositories
                 .Include(pt => pt.User)
                 .Include(pt => pt.Course)
                 .Include(pt => pt.CoursePoints)
-                .Include(pt => pt.AwardedBy)
                 .Include(pt => pt.QuizAttempt)
-                    .ThenInclude(qa => qa.Quiz)
+                .Include(pt => pt.AwardedBy)
                 .Where(pt => pt.CourseId == courseId)
                 .OrderByDescending(pt => pt.CreatedAt)
                 .Skip(skip)
@@ -120,6 +105,58 @@ namespace LearnQuestV1.EF.Repositories
         {
             return await _context.PointTransactions
                 .AnyAsync(pt => pt.QuizAttemptId == quizAttemptId);
+        }
+
+        /// <summary>
+        /// Get total points earned by a user in a course
+        /// </summary>
+        public async Task<int> GetUserTotalPointsInCourseAsync(int userId, int courseId)
+        {
+            return await _context.PointTransactions
+                .Where(pt => pt.UserId == userId && pt.CourseId == courseId)
+                .SumAsync(pt => pt.PointsChanged);
+        }
+
+        /// <summary>
+        /// Get user's transaction history with pagination
+        /// </summary>
+        public async Task<(IEnumerable<PointTransaction> transactions, int totalCount)> GetUserTransactionsPagedAsync(
+            int userId, int? courseId = null, int skip = 0, int take = 20)
+        {
+            var query = _context.PointTransactions
+                .Include(pt => pt.Course)
+                .Include(pt => pt.QuizAttempt)
+                .Where(pt => pt.UserId == userId);
+
+            if (courseId.HasValue)
+            {
+                query = query.Where(pt => pt.CourseId == courseId.Value);
+            }
+
+            var totalCount = await query.CountAsync();
+            var transactions = await query
+                .OrderByDescending(pt => pt.CreatedAt)
+                .Skip(skip)
+                .Take(take)
+                .ToListAsync();
+
+            return (transactions, totalCount);
+        }
+
+        /// <summary>
+        /// Get transactions within a date range
+        /// </summary>
+        public async Task<IEnumerable<PointTransaction>> GetTransactionsByDateRangeAsync(
+            int courseId, DateTime startDate, DateTime endDate)
+        {
+            return await _context.PointTransactions
+                .Include(pt => pt.User)
+                .Include(pt => pt.Course)
+                .Where(pt => pt.CourseId == courseId &&
+                           pt.CreatedAt >= startDate &&
+                           pt.CreatedAt <= endDate)
+                .OrderByDescending(pt => pt.CreatedAt)
+                .ToListAsync();
         }
     }
 }

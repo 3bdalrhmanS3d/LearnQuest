@@ -342,10 +342,16 @@ namespace LearnQuestV1.Api.DTOs.Student
     /// </summary>
     public class CompletionRequirementDto
     {
-        public string RequirementType { get; set; } = string.Empty;
-        public string Description { get; set; } = string.Empty;
+        public string RequirementType { get; set; } = string.Empty;  // e.g. "Level"
+        public string Title { get; set; } = string.Empty;            // e.g. level name
+        public string Description { get; set; } = string.Empty;      // human-readable
         public bool IsCompleted { get; set; }
         public DateTime? CompletedAt { get; set; }
+
+        // NEW PROPERTIES
+        public decimal Progress { get; set; }      // 0–100 (or 0–1 if you prefer)
+        public int RequiredCount { get; set; } // total sections
+        public int CompletedCount { get; set; } // completed sections
     }
 
     // =====================================================
@@ -641,6 +647,7 @@ namespace LearnQuestV1.Api.DTOs.Student
         public string Description { get; set; } = string.Empty;
         public bool IsAchieved { get; set; }
         public DateTime? AchievedAt { get; set; }
+        public int PointsReward { get; set; }
         public string MilestoneType { get; set; } = string.Empty; // LevelComplete, HalfwayPoint, etc.
     }
 

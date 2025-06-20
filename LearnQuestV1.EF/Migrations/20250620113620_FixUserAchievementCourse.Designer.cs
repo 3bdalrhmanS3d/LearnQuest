@@ -4,6 +4,7 @@ using LearnQuestV1.EF.Application;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace LearnQuestV1.EF.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250620113620_FixUserAchievementCourse")]
+    partial class FixUserAchievementCourse
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2364,13 +2367,12 @@ namespace LearnQuestV1.EF.Migrations
                 {
                     b.HasOne("LearnQuestV1.Core.Models.User", "AwardedBy")
                         .WithMany()
-                        .HasForeignKey("AwardedByUserId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .HasForeignKey("AwardedByUserId");
 
                     b.HasOne("LearnQuestV1.Core.Models.CourseStructure.Course", "Course")
                         .WithMany()
                         .HasForeignKey("CourseId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("LearnQuestV1.Core.Models.LearningAndProgress.CoursePoints", "CoursePoints")
@@ -2381,13 +2383,12 @@ namespace LearnQuestV1.EF.Migrations
 
                     b.HasOne("LearnQuestV1.Core.Models.Quiz.QuizAttempt", "QuizAttempt")
                         .WithMany()
-                        .HasForeignKey("QuizAttemptId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .HasForeignKey("QuizAttemptId");
 
                     b.HasOne("LearnQuestV1.Core.Models.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("AwardedBy");
@@ -2404,7 +2405,7 @@ namespace LearnQuestV1.EF.Migrations
             modelBuilder.Entity("LearnQuestV1.Core.Models.LearningAndProgress.UserContentActivity", b =>
                 {
                     b.HasOne("LearnQuestV1.Core.Models.CourseStructure.Content", "Content")
-                        .WithMany("UserContentActivities")
+                        .WithMany()
                         .HasForeignKey("ContentId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -2669,7 +2670,7 @@ namespace LearnQuestV1.EF.Migrations
                     b.HasOne("LearnQuestV1.Core.Models.CourseStructure.Content", "Content")
                         .WithMany("StudySessionContents")
                         .HasForeignKey("ContentId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.HasOne("LearnQuestV1.Core.Models.UserManagement.StudySession", "StudySession")
@@ -2880,8 +2881,6 @@ namespace LearnQuestV1.EF.Migrations
                     b.Navigation("StudySessionContents");
 
                     b.Navigation("UserBookmarks");
-
-                    b.Navigation("UserContentActivities");
                 });
 
             modelBuilder.Entity("LearnQuestV1.Core.Models.CourseStructure.Course", b =>
