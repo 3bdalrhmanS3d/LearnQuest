@@ -158,6 +158,9 @@ namespace LearnQuestV1.Api
             // === BUILD ===
             var app = builder.Build();
 
+            var env = app.Services.GetRequiredService<IHostEnvironment>();
+            Console.WriteLine($"Logs folder: {env.ContentRootPath}\\Logs");
+
             // === DATABASE SEEDING ===
             using (var scope = app.Services.CreateScope())
             {
