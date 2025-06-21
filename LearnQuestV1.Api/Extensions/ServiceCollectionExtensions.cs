@@ -37,7 +37,6 @@ namespace LearnQuestV1.Api.Extensions
             services.AddScoped<IStudentService, StudentService>();
             services.AddScoped<IPointsService, PointsService>();
             services.AddScoped<INotificationService, NotificationService>();
-            services.AddSignalR();
 
             // === ENHANCED SECURITY SERVICES ===
             // Note: These are now registered in Program.cs for better control

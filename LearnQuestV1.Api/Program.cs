@@ -40,6 +40,11 @@ namespace LearnQuestV1.Api
             builder.Services.AddQuizServices();
             builder.Services.AddEnhancedAuthServices();
 
+            // === NOTIFICATION SERVICES === 
+            builder.Services.AddAllEnhancedServices(builder.Configuration);
+            builder.Services.AddNotificationServices();
+            builder.Services.AddNotificationCors("http://localhost:3000");
+            
             // === ENHANCED AUTHENTICATION SERVICES ===
             builder.Services.AddSingleton<IFailedLoginTracker, FailedLoginTracker>();
             builder.Services.AddScoped<ISecurityAuditLogger, SecurityAuditLogger>();
@@ -87,11 +92,24 @@ namespace LearnQuestV1.Api
                     IssuerSigningKey = new SymmetricSecurityKey(key),
                     ClockSkew = TimeSpan.Zero
                 };
+
+                options.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        var accessToken = context.Request.Query["access_token"];
+                        var path = context.HttpContext.Request.Path;
+                        if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+                        {
+                            context.Token = accessToken;
+                        }
+                        return Task.CompletedTask;
+                    }
+                };
             });
 
             // === CONTROLLERS ===
             builder.Services.AddControllers();
-            builder.Services.AddSignalR();
 
             // === CORS & API EXPLORER ===
             builder.Services.AddEndpointsApiExplorer();
@@ -99,16 +117,29 @@ namespace LearnQuestV1.Api
             {
                 options.AddPolicy("AllowReactApp", policy =>
                 {
-                    policy.WithOrigins(
-                        "http://localhost:3000",
-                        "http://localhost:5173",
-                        "https://yourfrontend.com")
-                        .AllowAnyMethod()
-                        .AllowAnyHeader()
-                        .AllowCredentials()
-                        .WithExposedHeaders("X-Pagination");
+                    options.AddPolicy("AllowReactApp", policy =>
+                    {
+                        policy.WithOrigins("http://localhost:3000")
+                              .AllowAnyHeader()
+                              .AllowAnyMethod();
+                    });
                 });
             });
+
+            //builder.Services.AddCors(options =>
+            //{
+            //    options.AddPolicy("AllowReactApp", policy =>
+            //    {
+            //        policy.WithOrigins(
+            //                "http://localhost:3000",
+            //                "http://localhost:5173",
+            //                "https://yourfrontend.com")
+            //              .AllowAnyMethod()
+            //              .AllowAnyHeader()
+            //              .AllowCredentials()
+            //              .WithExposedHeaders("X-Pagination");
+            //    });
+            //});
 
             // === SWAGGER CONFIGURATION ===
             builder.Services.AddSwaggerGen(c =>
@@ -154,8 +185,8 @@ namespace LearnQuestV1.Api
             });
 
             // === HEALTH CHECKS ===
-            builder.Services.AddHealthChecks()
-                .AddCheck<EmailServiceHealthCheck>("email_service");
+            //builder.Services.AddHealthChecks()
+            //    .AddCheck<EmailServiceHealthCheck>("email_service");
 
             // === BUILD ===
             var app = builder.Build();
@@ -204,17 +235,25 @@ namespace LearnQuestV1.Api
                 app.UseHsts();
             }
 
+            // 1. Enable routing
+            app.UseRouting();
+
+            // 2. CORS / Session / Static / Logging middleware
             app.UseRateLimiting();
             app.UseCors("AllowReactApp");
             app.UseSession();
             app.UseStaticFiles();
             app.UseMiddleware<ExceptionHandlingMiddleware>();
+
+            // 3. AuthN & AuthZ
             app.UseAuthentication();
             app.UseAuthorization();
+
+            
             app.MapHealthChecks("/health");
             app.MapControllers();
-            app.MapHub<NotificationHub>("/notificationHub");
-            app.MapHub<NotificationHub>("/hubs/notifications");
+            app.MapHub<NotificationHub>("/hubs/notifications")
+                .RequireCors("NotificationPolicy");
 
             app.Lifetime.ApplicationStarted.Register(() =>
             {
@@ -223,7 +262,7 @@ namespace LearnQuestV1.Api
                 Console.WriteLine($"📱 Swagger UI: {(app.Environment.IsDevelopment() ? "Available at /swagger" : "Disabled in production")} ");
                 Console.WriteLine("🏥 Health Check: Available at /health");
             });
-
+            app.UseCors("NotificationPolicy");
             app.Run();
         }
     }
