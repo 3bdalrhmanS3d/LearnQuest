@@ -20,9 +20,12 @@ namespace LearnQuestV1.Api.Profiles
         {
             // UserNotification -> NotificationDto
             CreateMap<UserNotification, NotificationDto>()
-                .ForMember(dest => dest.CourseName, opt => opt.MapFrom(src => src.Course != null ? src.Course.CourseName : null))
-                .ForMember(dest => dest.ContentTitle, opt => opt.MapFrom(src => src.Content != null ? src.Content.Title : null))
-                .ForMember(dest => dest.AchievementName, opt => opt.MapFrom(src => src.Achievement != null ? src.Achievement.Title : null))
+                .ForMember(dest => dest.CourseName, opt =>
+                    opt.MapFrom(src => src.Course != null ? src.Course.CourseName : null))
+                .ForMember(dest => dest.ContentTitle, opt =>
+                    opt.MapFrom(src => src.Content != null ? src.Content.Title : null))
+                .ForMember(dest => dest.AchievementName, opt =>
+                    opt.MapFrom(src => src.Achievement != null ? src.Achievement.Title : null))
                 .ForMember(dest => dest.TimeAgo, opt => opt.Ignore()); // Calculated in service
 
             // CreateNotificationDto -> UserNotification
@@ -36,7 +39,7 @@ namespace LearnQuestV1.Api.Profiles
                 .ForMember(dest => dest.Content, opt => opt.Ignore())
                 .ForMember(dest => dest.Achievement, opt => opt.Ignore());
 
-            // BulkCreateNotificationDto -> UserNotification (for individual notifications)
+            // BulkCreateNotificationDto -> UserNotification
             CreateMap<BulkCreateNotificationDto, UserNotification>()
                 .ForMember(dest => dest.NotificationId, opt => opt.Ignore())
                 .ForMember(dest => dest.UserId, opt => opt.Ignore()) // Set manually in service
@@ -55,10 +58,10 @@ namespace LearnQuestV1.Api.Profiles
                 .ForMember(dest => dest.Stats, opt => opt.Ignore()) // Set manually in service
                 .ForMember(dest => dest.Timestamp, opt => opt.MapFrom(src => DateTime.UtcNow));
 
-            // User -> NotificationPreferencesDto (if User entity has preferences)
+            // User -> NotificationPreferencesDto
             CreateMap<User, NotificationPreferencesDto>()
                 .ForMember(dest => dest.UserId, opt => opt.MapFrom(src => src.UserId))
-                .ForMember(dest => dest.EmailNotifications, opt => opt.MapFrom(src => true)) // Default values
+                .ForMember(dest => dest.EmailNotifications, opt => opt.MapFrom(src => true))
                 .ForMember(dest => dest.PushNotifications, opt => opt.MapFrom(src => true))
                 .ForMember(dest => dest.CourseUpdateNotifications, opt => opt.MapFrom(src => true))
                 .ForMember(dest => dest.AchievementNotifications, opt => opt.MapFrom(src => true))
@@ -66,24 +69,23 @@ namespace LearnQuestV1.Api.Profiles
                 .ForMember(dest => dest.MarketingNotifications, opt => opt.MapFrom(src => false))
                 .ForMember(dest => dest.QuietHoursStart, opt => opt.MapFrom(src => "22:00"))
                 .ForMember(dest => dest.QuietHoursEnd, opt => opt.MapFrom(src => "08:00"));
+            //// Course -> Course-related notification fields
+            //CreateMap<Course, object>()
+            //    .ForMember("CourseId", opt => opt.MapFrom(src => src.CourseId))
+            //    .ForMember("CourseName", opt => opt.MapFrom(src => src.CourseName))
+            //    .ForMember("CourseImage", opt => opt.MapFrom(src => src.CourseImage));
 
-            // Course -> Course-related notification fields
-            CreateMap<Course, object>()
-                .ForMember("CourseId", opt => opt.MapFrom(src => src.CourseId))
-                .ForMember("CourseName", opt => opt.MapFrom(src => src.CourseName))
-                .ForMember("CourseImage", opt => opt.MapFrom(src => src.CourseImage));
+            //// Content -> Content-related notification fields
+            //CreateMap<Content, object>()
+            //    .ForMember("ContentId", opt => opt.MapFrom(src => src.ContentId))
+            //    .ForMember("ContentTitle", opt => opt.MapFrom(src => src.Title))
+            //    .ForMember("ContentType", opt => opt.MapFrom(src => src.ContentType.ToString()));
 
-            // Content -> Content-related notification fields
-            CreateMap<Content, object>()
-                .ForMember("ContentId", opt => opt.MapFrom(src => src.ContentId))
-                .ForMember("ContentTitle", opt => opt.MapFrom(src => src.Title))
-                .ForMember("ContentType", opt => opt.MapFrom(src => src.ContentType.ToString()));
-
-            // Achievement -> Achievement-related notification fields
-            CreateMap<Achievement, object>()
-                .ForMember("AchievementId", opt => opt.MapFrom(src => src.AchievementId))
-                .ForMember("AchievementName", opt => opt.MapFrom(src => src.Title))
-                .ForMember("AchievementDescription", opt => opt.MapFrom(src => src.Description));
+            //// Achievement -> Achievement-related notification fields
+            //CreateMap<Achievement, object>()
+            //    .ForMember("AchievementId", opt => opt.MapFrom(src => src.AchievementId))
+            //    .ForMember("AchievementName", opt => opt.MapFrom(src => src.Title))
+            //    .ForMember("AchievementDescription", opt => opt.MapFrom(src => src.Description));
         }
     }
 
