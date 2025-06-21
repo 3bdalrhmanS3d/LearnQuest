@@ -84,6 +84,8 @@ namespace LearnQuestV1.Core.Interfaces
         IPointTransactionRepository PointTransactions { get; }
 
         // Transaction Methods
+        Task<int> CompleteAsync();
+        int Complete();
         Task<int> SaveAsync();
         Task<int> SaveChangesAsync();
         Task<IDbContextTransaction> BeginTransactionAsync();

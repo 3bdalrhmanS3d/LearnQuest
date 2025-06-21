@@ -1,4 +1,5 @@
 ﻿using LearnQuestV1.Api.DTOs.Admin;
+using LearnQuestV1.Api.DTOs.Notifications;
 using LearnQuestV1.Api.Services.Interfaces;
 using LearnQuestV1.Core.Enums;
 using LearnQuestV1.Core.Interfaces;
@@ -14,17 +15,20 @@ namespace LearnQuestV1.Api.Services.Implementations
         private readonly IUnitOfWork _uow;
         private readonly IActionLogService _logService;
         private readonly IEmailQueueService _emailQueueService;
+        private readonly INotificationService _notificationService;
         private readonly ILogger<AdminService> _logger;
 
         public AdminService(
             IUnitOfWork uow,
             IEmailQueueService emailQueueService,
             IActionLogService logService,
+            INotificationService notificationService,
             ILogger<AdminService> logger)
         {
             _uow = uow;
             _emailQueueService = emailQueueService;
             _logService = logService;
+            _notificationService = notificationService;
             _logger = logger;
         }
 
@@ -136,13 +140,18 @@ namespace LearnQuestV1.Api.Services.Implementations
                 if (user.Role == UserRole.Instructor)
                     throw new InvalidOperationException("User is already an Instructor.");
 
+                var previousRole = user.Role.ToString();
                 user.Role = UserRole.Instructor;
                 _uow.Users.Update(user);
                 await _uow.SaveAsync();
 
+                // Log admin action
                 await _logService.LogAsync(adminId, targetUserId, "MakeInstructor",
                     $"User {user.EmailAddress} promoted to Instructor");
                 await _uow.SaveAsync();
+
+                // Send new notification system notification
+                await SendUserRoleChangeNotificationAsync(targetUserId, "Instructor", previousRole, isPromotion: true);
 
                 _logger.LogInformation("User {UserId} promoted to Instructor by admin {AdminId}", targetUserId, adminId);
             }
@@ -162,13 +171,18 @@ namespace LearnQuestV1.Api.Services.Implementations
                 if (user.Role == UserRole.Admin)
                     throw new InvalidOperationException("User is already an Admin.");
 
+                var previousRole = user.Role.ToString();
                 user.Role = UserRole.Admin;
                 _uow.Users.Update(user);
                 await _uow.SaveAsync();
 
+                // Log admin action
                 await _logService.LogAsync(adminId, targetUserId, "MakeAdmin",
                     $"User {user.EmailAddress} promoted to Admin");
                 await _uow.SaveAsync();
+
+                // Send new notification system notification
+                await SendUserRoleChangeNotificationAsync(targetUserId, "Admin", previousRole, isPromotion: true);
 
                 _logger.LogInformation("User {UserId} promoted to Admin by admin {AdminId}", targetUserId, adminId);
             }
@@ -191,13 +205,18 @@ namespace LearnQuestV1.Api.Services.Implementations
                 if (user.Role == UserRole.RegularUser)
                     throw new InvalidOperationException("User is already a Regular User.");
 
+                var previousRole = user.Role.ToString();
                 user.Role = UserRole.RegularUser;
                 _uow.Users.Update(user);
                 await _uow.SaveAsync();
 
+                // Log admin action
                 await _logService.LogAsync(adminId, targetUserId, "MakeRegularUser",
                     $"User {user.EmailAddress} demoted to RegularUser");
                 await _uow.SaveAsync();
+
+                // Send new notification system notification
+                await SendUserRoleChangeNotificationAsync(targetUserId, "Regular User", previousRole, isPromotion: false);
 
                 _logger.LogInformation("User {UserId} demoted to Regular User by admin {AdminId}", targetUserId, adminId);
             }
@@ -227,9 +246,13 @@ namespace LearnQuestV1.Api.Services.Implementations
                 _uow.Users.Update(user);
                 await _uow.SaveAsync();
 
+                // Log admin action
                 await _logService.LogAsync(adminId, targetUserId, "SoftDeleteUser",
                     $"User {user.EmailAddress} marked as deleted");
                 await _uow.SaveAsync();
+
+                // Send account deletion notification
+                await SendAccountStatusNotificationAsync(targetUserId, "AccountDeleted");
 
                 _logger.LogInformation("User {UserId} soft-deleted by admin {AdminId}", targetUserId, adminId);
             }
@@ -253,9 +276,13 @@ namespace LearnQuestV1.Api.Services.Implementations
                 _uow.Users.Update(user);
                 await _uow.SaveAsync();
 
+                // Log admin action
                 await _logService.LogAsync(adminId, targetUserId, "RecoverUser",
                     $"User {user.EmailAddress} recovered");
                 await _uow.SaveAsync();
+
+                // Send account recovery notification
+                await SendAccountStatusNotificationAsync(targetUserId, "AccountRestored");
 
                 _logger.LogInformation("User {UserId} recovered by admin {AdminId}", targetUserId, adminId);
             }
@@ -275,13 +302,19 @@ namespace LearnQuestV1.Api.Services.Implementations
                 if (user.IsSystemProtected)
                     throw new InvalidOperationException("Cannot modify system-protected user.");
 
+                var wasActive = user.IsActive;
                 user.IsActive = !user.IsActive;
                 _uow.Users.Update(user);
                 await _uow.SaveAsync();
 
+                // Log admin action
                 await _logService.LogAsync(adminId, targetUserId, "ToggleUserActivation",
                     $"User {user.EmailAddress} activation toggled to {(user.IsActive ? "enabled" : "disabled")}");
                 await _uow.SaveAsync();
+
+                // Send activation status notification
+                var statusType = user.IsActive ? "AccountActivated" : "AccountDeactivated";
+                await SendAccountStatusNotificationAsync(targetUserId, statusType);
 
                 _logger.LogInformation("User {UserId} activation toggled to {Status} by admin {AdminId}",
                     targetUserId, user.IsActive ? "enabled" : "disabled", adminId);
@@ -361,7 +394,6 @@ namespace LearnQuestV1.Api.Services.Implementations
                     .Where(p => p.Status == PaymentStatus.Completed)
                     .SumAsync(p => (decimal?)p.Amount) ?? 0;
 
-
                 return new SystemStatsDto
                 {
                     TotalUsers = totalUsers,
@@ -383,6 +415,10 @@ namespace LearnQuestV1.Api.Services.Implementations
             }
         }
 
+        /// <summary>
+        /// Enhanced notification sending with new notification system integration
+        /// Maintains backward compatibility with email system
+        /// </summary>
         public async Task SendNotificationAsync(int adminId, AdminSendNotificationInput input)
         {
             try
@@ -406,27 +442,127 @@ namespace LearnQuestV1.Api.Services.Implementations
                     bodyMessage = input.Message!;
                 }
 
+                // Send via email queue (existing functionality)
                 _emailQueueService.QueueEmail(user.EmailAddress, user.FullName, subject, bodyMessage);
 
-                var notif = new Notification
+                // Send via new notification system
+                await _notificationService.CreateNotificationAsync(new CreateNotificationDto
+                {
+                    UserId = user.UserId,
+                    Title = subject,
+                    Message = bodyMessage,
+                    Type = "System",
+                    Priority = "High",
+                    Icon = "Mail"
+                });
+
+                // Keep old notification for backward compatibility (if still needed)
+                var legacyNotif = new Notification
                 {
                     UserId = user.UserId,
                     Message = $"{subject} - {bodyMessage}",
                     IsRead = false,
                     CreatedAt = DateTime.UtcNow
                 };
-                await _uow.Notifications.AddAsync(notif);
+                await _uow.Notifications.AddAsync(legacyNotif);
                 await _uow.SaveAsync();
 
+                // Log admin action
                 await _logService.LogAsync(adminId, user.UserId, "SendNotification",
                     $"Notification sent to {user.EmailAddress}: {subject}");
                 await _uow.SaveAsync();
 
-                _logger.LogInformation("Notification sent to user {UserId} by admin {AdminId}", input.UserId, adminId);
+                _logger.LogInformation("Enhanced notification sent to user {UserId} by admin {AdminId}", input.UserId, adminId);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error sending notification to user {UserId}", input.UserId);
+                _logger.LogError(ex, "Error sending enhanced notification to user {UserId}", input.UserId);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Send bulk notifications to multiple users using new notification system
+        /// </summary>
+        public async Task SendBulkNotificationAsync(int adminId, List<int> userIds, string title, string message, string type = "System", string priority = "Normal")
+        {
+            try
+            {
+                // Validate users exist
+                var validUsers = await _uow.Users.Query()
+                    .Where(u => userIds.Contains(u.UserId) && !u.IsDeleted && u.IsActive)
+                    .ToListAsync();
+
+                if (!validUsers.Any())
+                    throw new InvalidOperationException("No valid users found for bulk notification.");
+
+                // Use new notification system for bulk sending
+                var bulkDto = new BulkCreateNotificationDto
+                {
+                    UserIds = validUsers.Select(u => u.UserId).ToList(),
+                    Title = title,
+                    Message = message,
+                    Type = type,
+                    Priority = priority,
+                    Icon = GetIconForNotificationType(type)
+                };
+
+                await _notificationService.CreateBulkNotificationAsync(bulkDto);
+
+                // Log admin action
+                await _logService.LogAsync(adminId, 0, "SendBulkNotification",
+                    $"Bulk notification sent to {validUsers.Count} users: {title}");
+                await _uow.SaveAsync();
+
+                _logger.LogInformation("Bulk notification sent to {UserCount} users by admin {AdminId}", validUsers.Count, adminId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error sending bulk notification by admin {AdminId}", adminId);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Send system-wide announcement to all active users
+        /// </summary>
+        public async Task SendSystemAnnouncementAsync(int adminId, string title, string message, string priority = "High")
+        {
+            try
+            {
+                // Get all active users
+                var activeUserIds = await _uow.Users.Query()
+                    .Where(u => !u.IsDeleted && u.IsActive)
+                    .Select(u => u.UserId)
+                    .ToListAsync();
+
+                if (!activeUserIds.Any())
+                {
+                    _logger.LogWarning("No active users found for system announcement");
+                    return;
+                }
+
+                // Send system-wide notification
+                await SendBulkNotificationAsync(adminId, activeUserIds, title, message, "System", priority);
+
+                // Also queue emails for important announcements if priority is High
+                if (priority == "High")
+                {
+                    var activeUsers = await _uow.Users.Query()
+                        .Where(u => !u.IsDeleted && u.IsActive)
+                        .ToListAsync();
+
+                    foreach (var user in activeUsers)
+                    {
+                        _emailQueueService.QueueEmail(user.EmailAddress, user.FullName, title, message);
+                    }
+                }
+
+                _logger.LogInformation("System announcement sent to {UserCount} users by admin {AdminId}", activeUserIds.Count, adminId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error sending system announcement by admin {AdminId}", adminId);
                 throw;
             }
         }
@@ -471,12 +607,16 @@ namespace LearnQuestV1.Api.Services.Implementations
                     .OrderBy(x => x.Date)
                     .ToListAsync();
 
+                // Get notification analytics
+                var notificationStats = await _notificationService.GetNotificationAnalyticsAsync(startDate.Value, endDate.Value);
+
                 return new
                 {
                     Period = new { StartDate = startDate, EndDate = endDate },
                     UserCreationTrend = userCreations,
                     CourseCreationTrend = courseCreations,
                     EnrollmentTrend = enrollmentTrend,
+                    NotificationAnalytics = notificationStats,
                     Summary = new
                     {
                         NewUsers = userCreations.Sum(u => u.Count),
@@ -501,8 +641,8 @@ namespace LearnQuestV1.Api.Services.Implementations
                 var stats = new
                 {
                     RecentActions = await _uow.AdminActionLogs.Query()
-                        .Where(log => log.ActionDate >= cutoffDate)           // استخدم Timestamp أو الخاصية الصحيحة
-                        .GroupBy(log => log.ActionType)                       // أو ActionType بحسب ما لديك
+                        .Where(log => log.ActionDate >= cutoffDate)
+                        .GroupBy(log => log.ActionType)
                         .Select(g => new { ActionType = g.Key, Count = g.Count() })
                         .ToListAsync(),
 
@@ -513,7 +653,9 @@ namespace LearnQuestV1.Api.Services.Implementations
                         .Where(u => u.IsActive && !u.IsDeleted)
                         .Where(u => u.VisitHistories
                                         .Any(vh => vh.LastVisit >= cutoffDate))
-                        .CountAsync()
+                        .CountAsync(),
+
+                    NotificationStats = await _notificationService.GetNotificationAnalyticsAsync(cutoffDate, DateTime.UtcNow)
                 };
 
                 return stats;
@@ -564,21 +706,27 @@ namespace LearnQuestV1.Api.Services.Implementations
                         NewUsers = await _uow.Users.Query()
                             .CountAsync(u => u.CreatedAt >= todayStart && !u.IsDeleted),
                         NewEnrollments = await _uow.CourseEnrollments.Query()
-                            .CountAsync(e => e.EnrolledAt >= todayStart)
+                            .CountAsync(e => e.EnrolledAt >= todayStart),
+                        NotificationsSent = await _uow.UserNotifications.Query()
+                            .CountAsync(n => n.CreatedAt >= todayStart)
                     },
                     ThisWeek = new
                     {
                         NewUsers = await _uow.Users.Query()
                             .CountAsync(u => u.CreatedAt >= weekStart && !u.IsDeleted),
                         NewEnrollments = await _uow.CourseEnrollments.Query()
-                            .CountAsync(e => e.EnrolledAt >= weekStart)
+                            .CountAsync(e => e.EnrolledAt >= weekStart),
+                        NotificationsSent = await _uow.UserNotifications.Query()
+                            .CountAsync(n => n.CreatedAt >= weekStart)
                     },
                     ThisMonth = new
                     {
                         NewUsers = await _uow.Users.Query()
                             .CountAsync(u => u.CreatedAt >= monthStart && !u.IsDeleted),
                         NewEnrollments = await _uow.CourseEnrollments.Query()
-                            .CountAsync(e => e.EnrolledAt >= monthStart)
+                            .CountAsync(e => e.EnrolledAt >= monthStart),
+                        NotificationsSent = await _uow.UserNotifications.Query()
+                            .CountAsync(n => n.CreatedAt >= monthStart)
                     }
                 };
 
@@ -591,6 +739,9 @@ namespace LearnQuestV1.Api.Services.Implementations
             }
         }
 
+        public async Task<int> GetActiveUserCountAsync()
+            => await _uow.Users.Query().CountAsync(u => !u.IsDeleted && u.IsActive);
+
         public async Task<dynamic> GetUsersWithFilteringAsync(
          string? role = null,
          bool? isVerified = null,
@@ -600,7 +751,6 @@ namespace LearnQuestV1.Api.Services.Implementations
         {
             try
             {
-                // Note: explicitly IQueryable<User> here
                 IQueryable<User> query = _uow.Users.Query()
                     .Where(u => !u.IsDeleted)
                     .Include(u => u.AccountVerifications);
@@ -670,7 +820,7 @@ namespace LearnQuestV1.Api.Services.Implementations
             }
         }
 
-        #region Private Helper Methods
+        #region Private Helper Methods - Enhanced with Notification System
 
         private async Task<User> FindUserByIdAsync(int userId)
         {
@@ -681,33 +831,136 @@ namespace LearnQuestV1.Api.Services.Implementations
             return user;
         }
 
+        /// <summary>
+        /// Send role change notification using new notification system
+        /// </summary>
+        private async Task SendUserRoleChangeNotificationAsync(int userId, string newRole, string previousRole, bool isPromotion)
+        {
+            try
+            {
+                var title = isPromotion
+                    ? $"🎉 Congratulations! You've been promoted to {newRole}"
+                    : $"📋 Your role has been changed to {newRole}";
+
+                var message = isPromotion
+                    ? $"Your account has been upgraded from {previousRole} to {newRole}. You now have access to additional features and capabilities!"
+                    : $"Your account role has been changed from {previousRole} to {newRole}. Please review your new permissions and capabilities.";
+
+                await _notificationService.CreateNotificationAsync(new CreateNotificationDto
+                {
+                    UserId = userId,
+                    Title = title,
+                    Message = message,
+                    Type = isPromotion ? "Achievement" : "System",
+                    Priority = "High",
+                    Icon = isPromotion ? "Trophy" : "Settings"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error sending role change notification to user {UserId}", userId);
+            }
+        }
+
+        /// <summary>
+        /// Send account status notification using new notification system
+        /// </summary>
+        private async Task SendAccountStatusNotificationAsync(int userId, string statusType)
+        {
+            try
+            {
+                var (title, message, icon) = statusType switch
+                {
+                    "AccountActivated" => (
+                        "✅ Account Activated",
+                        "Your account has been activated! You can now access all platform features.",
+                        "CheckCircle"
+                    ),
+                    "AccountDeactivated" => (
+                        "⚠️ Account Deactivated",
+                        "Your account has been temporarily deactivated. Please contact support if you have questions.",
+                        "AlertTriangle"
+                    ),
+                    "AccountDeleted" => (
+                        "🗑️ Account Scheduled for Deletion",
+                        "Your account has been marked for deletion. Contact support immediately if this was a mistake.",
+                        "Trash2"
+                    ),
+                    "AccountRestored" => (
+                        "♻️ Account Restored",
+                        "Good news! Your account has been restored and you can access the platform again.",
+                        "RotateCcw"
+                    ),
+                    _ => (
+                        "📋 Account Status Update",
+                        "Your account status has been updated by an administrator.",
+                        "Settings"
+                    )
+                };
+
+                await _notificationService.CreateNotificationAsync(new CreateNotificationDto
+                {
+                    UserId = userId,
+                    Title = title,
+                    Message = message,
+                    Type = "System",
+                    Priority = "High",
+                    Icon = icon
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error sending account status notification to user {UserId}", userId);
+            }
+        }
+
+        /// <summary>
+        /// Get appropriate icon for notification type
+        /// </summary>
+        private string GetIconForNotificationType(string type)
+        {
+            return type.ToLower() switch
+            {
+                "system" => "Settings",
+                "announcement" => "Megaphone",
+                "security" => "Shield",
+                "achievement" => "Trophy",
+                "reminder" => "Clock",
+                "welcome" => "Hand",
+                _ => "Bell"
+            };
+        }
+
+        /// <summary>
+        /// Legacy template message method - enhanced with emoji and better formatting
+        /// </summary>
         private (string subject, string bodyMessage) GetTemplateMessage(NotificationTemplateType template, string fullName)
         {
             return template switch
             {
                 NotificationTemplateType.AccountActivated => (
                     "✅ Your Account has been Activated",
-                    $"Hello {fullName},\n\nYour account has been successfully activated. You can now login and enjoy our services."
+                    $"Hello {fullName},\n\nGreat news! Your account has been successfully activated. You can now login and enjoy all our platform features.\n\nWelcome to the community!"
                 ),
                 NotificationTemplateType.AccountDeactivated => (
                     "⚠️ Account Deactivated",
-                    $"Hello {fullName},\n\nYour account has been temporarily deactivated. Please contact support for further information."
+                    $"Hello {fullName},\n\nYour account has been temporarily deactivated. Please contact our support team for further information and assistance.\n\nSupport Email: support@learnquest.com"
                 ),
                 NotificationTemplateType.AccountDeleted => (
-                    "🗑️ Account Deleted",
-                    $"Hello {fullName},\n\nYour account has been deleted from our platform. If this was a mistake, please contact support immediately."
+                    "🗑️ Account Deletion Notice",
+                    $"Hello {fullName},\n\nYour account has been scheduled for deletion from our platform. If this was a mistake or you wish to recover your account, please contact support immediately.\n\nSupport Email: support@learnquest.com"
                 ),
                 NotificationTemplateType.AccountRestored => (
                     "♻️ Account Restored",
-                    $"Hello {fullName},\n\nGood news! Your account has been restored. Welcome back!"
+                    $"Hello {fullName},\n\nExcellent news! Your account has been restored and you can access our platform again. Welcome back!\n\nWe're glad to have you with us again."
                 ),
                 NotificationTemplateType.GeneralAnnouncement => (
                     "📢 Important Announcement",
-                    $"Hello {fullName},\n\nWe have an important update for you. Please check your dashboard for more information."
+                    $"Hello {fullName},\n\nWe have an important update for you. Please check your dashboard for more information and latest updates.\n\nThank you for being part of our community!"
                 ),
                 _ => (
-                    "📬 Notification",
-                    $"Hello {fullName},\n\nThis is a notification from the administration."
+                    "📬 Notification from Administration",
+                    $"Hello {fullName},\n\nThis is a notification from the administration team. Please check your account for more details."
                 )
             };
         }

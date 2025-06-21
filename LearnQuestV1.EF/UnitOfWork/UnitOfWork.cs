@@ -14,6 +14,7 @@ using LearnQuestV1.Core.Models.UserManagement;
 using LearnQuestV1.EF.Application;
 using LearnQuestV1.EF.Repositories;
 using LearnQuestV1.Core.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace LearnQuestV1.EF.UnitOfWork
 {
@@ -88,7 +89,17 @@ namespace LearnQuestV1.EF.UnitOfWork
         // Reviews and Feedback
         public IBaseRepo<CourseFeedback> CourseFeedbacks { get; } = new BaseRepo<CourseFeedback>(context);
         public IBaseRepo<CourseReview> CourseReviews { get; } = new BaseRepo<CourseReview>(context);
+
         // Transaction Methods
+        public async Task<int> CompleteAsync()
+        {
+            return await context.SaveChangesAsync();
+        }
+
+        public int Complete()
+        {
+            return context.SaveChanges();
+        }
         public async Task<int> SaveAsync() => await context.SaveChangesAsync();
         public async Task<int> SaveChangesAsync() => await context.SaveChangesAsync();
         public async Task<IDbContextTransaction> BeginTransactionAsync() => await context.Database.BeginTransactionAsync();

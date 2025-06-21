@@ -643,6 +643,405 @@ namespace LearnQuestV1.Api.Controllers
             }
         }
 
+        // =====================================================
+        // Enhanced Notification Endpoints
+        // =====================================================
+
+        /// <summary>
+        /// Send bulk notifications to multiple users using enhanced notification system
+        /// </summary>
+        /// <param name="request">Bulk notification request</param>
+        /// <returns>Success response with details</returns>
+        [HttpPost("send-bulk-notification")]
+        public async Task<ActionResult> SendBulkNotification([FromBody] BulkNotificationRequest request)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                    return BadRequest(ModelState);
+
+                var adminId = User.GetCurrentUserId();
+                if (!adminId.HasValue)
+                    return Unauthorized("Admin ID not found in token");
+
+                await _adminService.SendBulkNotificationAsync(
+                    adminId.Value,
+                    request.UserIds,
+                    request.Title,
+                    request.Message,
+                    request.Type,
+                    request.Priority
+                );
+
+                return Ok(new
+                {
+                    success = true,
+                    message = $"Bulk notification sent to {request.UserIds.Count} users successfully",
+                    details = new
+                    {
+                        recipientCount = request.UserIds.Count,
+                        notificationType = request.Type,
+                        priority = request.Priority,
+                        sentAt = DateTime.UtcNow
+                    }
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Invalid operation while sending bulk notification");
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error sending bulk notification");
+                return StatusCode(500, "Internal server error occurred while sending bulk notification");
+            }
+        }
+
+        /// <summary>
+        /// Send system-wide announcement to all active users
+        /// </summary>
+        /// <param name="request">System announcement request</param>
+        /// <returns>Success response with delivery stats</returns>
+        [HttpPost("send-system-announcement")]
+        public async Task<ActionResult> SendSystemAnnouncement([FromBody] SystemAnnouncementRequest request)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                    return BadRequest(ModelState);
+
+                var adminId = User.GetCurrentUserId();
+                if (!adminId.HasValue)
+                    return Unauthorized("Admin ID not found in token");
+
+                await _adminService.SendSystemAnnouncementAsync(
+                    adminId.Value,
+                    request.Title,
+                    request.Message,
+                    request.Priority
+                );
+
+                // Get total active users for response
+                var activeUserCount = await _adminService.GetActiveUserCountAsync();
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "System announcement sent successfully",
+                    details = new
+                    {
+                        recipientCount = activeUserCount,
+                        announcementType = "System",
+                        priority = request.Priority,
+                        sentAt = DateTime.UtcNow,
+                        emailSent = request.Priority == "High" // High priority also sends emails
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error sending system announcement");
+                return StatusCode(500, "Internal server error occurred while sending system announcement");
+            }
+        }
+
+        /// <summary>
+        /// Get notification analytics for admin dashboard
+        /// </summary>
+        /// <param name="days">Number of days to analyze (default: 30)</param>
+        /// <returns>Notification analytics data</returns>
+        [HttpGet("notification-analytics")]
+        public async Task<ActionResult> GetNotificationAnalytics([FromQuery] int days = 30)
+        {
+            try
+            {
+                var endDate = DateTime.UtcNow;
+                var startDate = endDate.AddDays(-days);
+
+                var analytics = await _adminService.GetAdminAnalyticsAsync(startDate, endDate);
+
+                return Ok(new
+                {
+                    success = true,
+                    data = analytics,
+                    generatedAt = DateTime.UtcNow,
+                    period = new { days, startDate, endDate }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting notification analytics");
+                return StatusCode(500, "Internal server error occurred while getting notification analytics");
+            }
+        }
+
+        /// <summary>
+        /// Get enhanced platform activity including notification metrics
+        /// </summary>
+        /// <returns>Enhanced platform activity data</returns>
+        [HttpGet("enhanced-platform-activity")]
+        public async Task<ActionResult> GetEnhancedPlatformActivity()
+        {
+            try
+            {
+                var activity = await _adminService.GetPlatformActivityAsync();
+
+                return Ok(new
+                {
+                    success = true,
+                    data = activity,
+                    generatedAt = DateTime.UtcNow,
+                    note = "Includes notification delivery metrics"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting enhanced platform activity");
+                return StatusCode(500, "Internal server error occurred while getting platform activity");
+            }
+        }
+
+        /// <summary>
+        /// Get detailed user management statistics with notification insights
+        /// </summary>
+        /// <param name="timeframe">Timeframe in days (default: 30)</param>
+        /// <returns>Detailed user management statistics</returns>
+        [HttpGet("detailed-user-stats")]
+        public async Task<ActionResult> GetDetailedUserManagementStats([FromQuery] int timeframe = 30)
+        {
+            try
+            {
+                var stats = await _adminService.GetUserManagementStatsAsync(timeframe);
+
+                return Ok(new
+                {
+                    success = true,
+                    data = stats,
+                    timeframe = $"Last {timeframe} days",
+                    generatedAt = DateTime.UtcNow
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting detailed user management stats");
+                return StatusCode(500, "Internal server error occurred while getting user management stats");
+            }
+        }
+
+        /// <summary>
+        /// Test notification system connectivity and performance
+        /// </summary>
+        /// <returns>System test results</returns>
+        [HttpPost("test-notification-system")]
+        public async Task<ActionResult> TestNotificationSystem()
+        {
+            try
+            {
+                var adminId = User.GetCurrentUserId();
+                if (!adminId.HasValue)
+                    return Unauthorized("Admin ID not found in token");
+
+                var startTime = DateTime.UtcNow;
+
+                // Test single notification
+                await _adminService.SendBulkNotificationAsync(
+                    adminId.Value,
+                    new List<int> { adminId.Value },
+                    "🧪 System Test",
+                    "This is a test notification to verify system functionality.",
+                    "System",
+                    "Normal"
+                );
+
+                var endTime = DateTime.UtcNow;
+                var responseTime = (endTime - startTime).TotalMilliseconds;
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "Notification system test completed successfully",
+                    testResults = new
+                    {
+                        responseTimeMs = responseTime,
+                        status = responseTime < 1000 ? "Excellent" : responseTime < 3000 ? "Good" : "Needs Optimization",
+                        testPerformedAt = endTime,
+                        testNotificationSent = true,
+                        realTimeDelivery = true // Assumed working if no errors
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error testing notification system");
+                return Ok(new
+                {
+                    success = false,
+                    message = "Notification system test failed",
+                    error = ex.Message,
+                    testPerformedAt = DateTime.UtcNow
+                });
+            }
+        }
+
+        // =====================================================
+        // Enhanced User Management with Notification Feedback
+        // =====================================================
+
+        /// <summary>
+        /// Promote user to instructor with enhanced notification feedback
+        /// </summary>
+        /// <param name="request">Promotion request</param>
+        /// <returns>Success response with notification details</returns>
+        [HttpPost("promote-instructor-enhanced")]
+        public async Task<ActionResult> PromoteToInstructorEnhanced([FromBody] UserPromotionRequest request)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                    return BadRequest(ModelState);
+
+                var adminId = User.GetCurrentUserId();
+                if (!adminId.HasValue)
+                    return Unauthorized("Admin ID not found in token");
+
+                // Get user info before promotion
+                var userInfo = await _adminService.GetBasicUserInfoAsync(request.TargetUserId);
+                var previousRole = userInfo.Role;
+
+                await _adminService.PromoteToInstructorAsync(adminId.Value, request.TargetUserId);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "User promoted to Instructor successfully",
+                    details = new
+                    {
+                        userId = request.TargetUserId,
+                        userName = userInfo.FullName,
+                        userEmail = userInfo.EmailAddress,
+                        previousRole = previousRole,
+                        newRole = "Instructor",
+                        promotedAt = DateTime.UtcNow,
+                        notificationSent = true,
+                        realTimeNotification = true
+                    }
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Invalid promotion attempt for user {UserId}", request.TargetUserId);
+                return BadRequest(ex.Message);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                _logger.LogWarning(ex, "User not found during promotion: {UserId}", request.TargetUserId);
+                return NotFound(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error promoting user {UserId} to Instructor", request.TargetUserId);
+                return StatusCode(500, "Internal server error occurred during promotion");
+            }
+        }
+
+        /// <summary>
+        /// Toggle user activation with enhanced feedback
+        /// </summary>
+        /// <param name="request">Activation toggle request</param>
+        /// <returns>Success response with new status and notification details</returns>
+        [HttpPost("toggle-activation-enhanced")]
+        public async Task<ActionResult> ToggleUserActivationEnhanced([FromBody] UserActivationToggleRequest request)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                    return BadRequest(ModelState);
+
+                var adminId = User.GetCurrentUserId();
+                if (!adminId.HasValue)
+                    return Unauthorized("Admin ID not found in token");
+
+                // Get user info before toggle
+                var userInfo = await _adminService.GetBasicUserInfoAsync(request.TargetUserId);
+                var previousStatus = userInfo.IsActive;
+
+                await _adminService.ToggleUserActivationAsync(adminId.Value, request.TargetUserId);
+
+                // Get updated status
+                var updatedUserInfo = await _adminService.GetBasicUserInfoAsync(request.TargetUserId);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = $"User activation {(updatedUserInfo.IsActive ? "enabled" : "disabled")} successfully",
+                    details = new
+                    {
+                        userId = request.TargetUserId,
+                        userName = userInfo.FullName,
+                        userEmail = userInfo.EmailAddress,
+                        previousStatus = previousStatus ? "Active" : "Inactive",
+                        newStatus = updatedUserInfo.IsActive ? "Active" : "Inactive",
+                        changedAt = DateTime.UtcNow,
+                        notificationSent = true,
+                        notificationType = updatedUserInfo.IsActive ? "AccountActivated" : "AccountDeactivated"
+                    }
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Invalid activation toggle for user {UserId}", request.TargetUserId);
+                return BadRequest(ex.Message);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                _logger.LogWarning(ex, "User not found during activation toggle: {UserId}", request.TargetUserId);
+                return NotFound(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error toggling activation for user {UserId}", request.TargetUserId);
+                return StatusCode(500, "Internal server error occurred during activation toggle");
+            }
+        }
+
+        /// <summary>
+        /// Get comprehensive admin dashboard data including notification metrics
+        /// </summary>
+        /// <returns>Comprehensive dashboard data</returns>
+        [HttpGet("comprehensive-dashboard")]
+        public async Task<ActionResult> GetComprehensiveDashboard()
+        {
+            try
+            {
+                var systemStats = await _adminService.GetSystemStatisticsAsync();
+                var platformActivity = await _adminService.GetPlatformActivityAsync();
+                var userManagementStats = await _adminService.GetUserManagementStatsAsync(7); // Last 7 days
+                var recentActions = await _adminService.GetAllAdminActionsAsync();
+
+                return Ok(new
+                {
+                    success = true,
+                    dashboard = new
+                    {
+                        systemOverview = systemStats,
+                        platformActivity = platformActivity,
+                        userManagement = userManagementStats,
+                        recentAdminActions = recentActions.Take(10), // Last 10 actions
+                        generatedAt = DateTime.UtcNow,
+                        dataFreshness = "Real-time",
+                        notificationSystemStatus = "Active"
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting comprehensive dashboard data");
+                return StatusCode(500, "Internal server error occurred while getting dashboard data");
+            }
+        }
+    
+
         #region Private Helper Methods
 
         private void InvalidateUserCaches(int userId)

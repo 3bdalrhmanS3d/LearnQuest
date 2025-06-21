@@ -336,8 +336,6 @@ namespace LearnQuestV1.Core.Models.UserManagement
         [MaxLength(50)]
         public string Priority { get; set; } = "Normal"; // High, Normal, Low
 
-        // Navigation Properties
-        [ForeignKey(nameof(UserId))]
         public virtual User User { get; set; } = null!;
 
         [ForeignKey(nameof(CourseId))]

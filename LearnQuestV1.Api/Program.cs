@@ -13,6 +13,7 @@ using Microsoft.OpenApi.Models;
 using System.Text;
 using Microsoft.AspNetCore.DataProtection.Repositories;
 using LearnQuestV1.Api.BackgroundServices;
+using LearnQuestV1.Api.Hubs;
 
 namespace LearnQuestV1.Api
 {
@@ -90,6 +91,7 @@ namespace LearnQuestV1.Api
 
             // === CONTROLLERS ===
             builder.Services.AddControllers();
+            builder.Services.AddSignalR();
 
             // === CORS & API EXPLORER ===
             builder.Services.AddEndpointsApiExplorer();
@@ -211,6 +213,8 @@ namespace LearnQuestV1.Api
             app.UseAuthorization();
             app.MapHealthChecks("/health");
             app.MapControllers();
+            app.MapHub<NotificationHub>("/notificationHub");
+            app.MapHub<NotificationHub>("/hubs/notifications");
 
             app.Lifetime.ApplicationStarted.Register(() =>
             {

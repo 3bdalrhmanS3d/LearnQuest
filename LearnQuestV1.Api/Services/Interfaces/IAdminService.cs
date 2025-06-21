@@ -1,102 +1,160 @@
 ﻿using LearnQuestV1.Api.DTOs.Admin;
+using LearnQuestV1.Core.Models;
 using LearnQuestV1.Core.Models.UserManagement;
 
 namespace LearnQuestV1.Api.Services.Interfaces
 {
-    /// <summary>
-    /// Service interface for administrative operations
-    /// </summary>
     public interface IAdminService
     {
-        /// <summary>
-        /// Get all users (activated and non-activated combined)
-        /// </summary>
-        /// <returns>List of all admin user DTOs</returns>
-        Task<IEnumerable<AdminUserDto>> GetAllUsersAsync();
+        // =====================================================
+        // User Management Operations
+        // =====================================================
 
         /// <summary>
         /// Get users grouped by verification status
         /// </summary>
-        /// <returns>Tuple of activated and non-activated users</returns>
+        /// <returns>Tuple of activated and not activated users</returns>
         Task<(IEnumerable<AdminUserDto> Activated, IEnumerable<AdminUserDto> NotActivated)> GetUsersGroupedByVerificationAsync();
 
         /// <summary>
-        /// Get basic information for a specific user
+        /// Get all users for backward compatibility
+        /// </summary>
+        /// <returns>All users combined</returns>
+        Task<IEnumerable<AdminUserDto>> GetAllUsersAsync();
+
+        /// <summary>
+        /// Get basic user information including details
         /// </summary>
         /// <param name="userId">User ID</param>
-        /// <returns>Basic user info DTO</returns>
+        /// <returns>Basic user information</returns>
         Task<BasicUserInfoDto> GetBasicUserInfoAsync(int userId);
 
         /// <summary>
-        /// Promote a user to Instructor role
+        /// Get users with advanced filtering and pagination
+        /// </summary>
+        /// <param name="role">Filter by role</param>
+        /// <param name="isVerified">Filter by verification status</param>
+        /// <param name="searchTerm">Search term for name/email</param>
+        /// <param name="pageNumber">Page number</param>
+        /// <param name="pageSize">Page size</param>
+        /// <returns>Filtered and paginated users</returns>
+        Task<dynamic> GetUsersWithFilteringAsync(
+            string? role = null,
+            bool? isVerified = null,
+            string? searchTerm = null,
+            int pageNumber = 1,
+            int pageSize = 20);
+
+        // =====================================================
+        // Role Management Operations
+        // =====================================================
+
+        /// <summary>
+        /// Promote user to Instructor role
         /// </summary>
         /// <param name="adminId">Admin performing the action</param>
-        /// <param name="targetUserId">User to be promoted</param>
+        /// <param name="targetUserId">Target user ID</param>
         Task PromoteToInstructorAsync(int adminId, int targetUserId);
 
         /// <summary>
-        /// Promote a user to Admin role
+        /// Promote user to Admin role
         /// </summary>
         /// <param name="adminId">Admin performing the action</param>
-        /// <param name="targetUserId">User to be promoted</param>
+        /// <param name="targetUserId">Target user ID</param>
         Task PromoteToAdminAsync(int adminId, int targetUserId);
 
         /// <summary>
-        /// Demote a user to RegularUser role
+        /// Demote user to Regular User role
         /// </summary>
         /// <param name="adminId">Admin performing the action</param>
-        /// <param name="targetUserId">User to be demoted</param>
+        /// <param name="targetUserId">Target user ID</param>
         Task DemoteToRegularUserAsync(int adminId, int targetUserId);
 
+        // =====================================================
+        // Account Management Operations
+        // =====================================================
+
         /// <summary>
-        /// Soft delete a user
+        /// Soft delete user account
         /// </summary>
         /// <param name="adminId">Admin performing the action</param>
-        /// <param name="targetUserId">User to be deleted</param>
+        /// <param name="targetUserId">Target user ID</param>
         Task DeleteUserAsync(int adminId, int targetUserId);
 
         /// <summary>
-        /// Recover a soft-deleted user
+        /// Recover soft deleted user account
         /// </summary>
         /// <param name="adminId">Admin performing the action</param>
-        /// <param name="targetUserId">User to be recovered</param>
+        /// <param name="targetUserId">Target user ID</param>
         Task RecoverUserAsync(int adminId, int targetUserId);
 
         /// <summary>
-        /// Toggle user activation status
+        /// Toggle user account activation status
         /// </summary>
         /// <param name="adminId">Admin performing the action</param>
-        /// <param name="targetUserId">User whose activation to toggle</param>
+        /// <param name="targetUserId">Target user ID</param>
         Task ToggleUserActivationAsync(int adminId, int targetUserId);
 
-        /// <summary>
-        /// Get all admin action logs
-        /// </summary>
-        /// <returns>List of admin action log DTOs</returns>
-        Task<IEnumerable<AdminActionLogDto>> GetAllAdminActionsAsync();
+        // =====================================================
+        // Communication and Notifications
+        // =====================================================
 
         /// <summary>
-        /// Get visit history for a specific user
-        /// </summary>
-        /// <param name="userId">User ID</param>
-        /// <returns>List of user visit history</returns>
-        Task<IEnumerable<UserVisitHistory>> GetUserVisitHistoryAsync(int userId);
-
-        /// <summary>
-        /// Get system-wide statistics
-        /// </summary>
-        /// <returns>System statistics DTO</returns>
-        Task<SystemStatsDto> GetSystemStatisticsAsync();
-
-        /// <summary>
-        /// Send notification to a user
+        /// Send notification to specific user (enhanced with new notification system)
         /// </summary>
         /// <param name="adminId">Admin sending the notification</param>
         /// <param name="input">Notification input data</param>
         Task SendNotificationAsync(int adminId, AdminSendNotificationInput input);
 
         /// <summary>
-        /// Get detailed admin analytics
+        /// Send bulk notifications to multiple users using new notification system
+        /// </summary>
+        /// <param name="adminId">Admin sending the notifications</param>
+        /// <param name="userIds">List of target user IDs</param>
+        /// <param name="title">Notification title</param>
+        /// <param name="message">Notification message</param>
+        /// <param name="type">Notification type (default: System)</param>
+        /// <param name="priority">Notification priority (default: Normal)</param>
+        Task SendBulkNotificationAsync(int adminId, List<int> userIds, string title, string message, string type = "System", string priority = "Normal");
+
+        /// <summary>
+        /// Send system-wide announcement to all active users
+        /// </summary>
+        /// <param name="adminId">Admin sending the announcement</param>
+        /// <param name="title">Announcement title</param>
+        /// <param name="message">Announcement message</param>
+        /// <param name="priority">Announcement priority (default: High)</param>
+        Task SendSystemAnnouncementAsync(int adminId, string title, string message, string priority = "High");
+
+        // =====================================================
+        // Logging and Audit Operations
+        // =====================================================
+
+        /// <summary>
+        /// Get all admin action logs
+        /// </summary>
+        /// <returns>Admin action logs</returns>
+        Task<IEnumerable<AdminActionLogDto>> GetAllAdminActionsAsync();
+
+        /// <summary>
+        /// Get user visit history
+        /// </summary>
+        /// <param name="userId">User ID</param>
+        /// <returns>User visit history</returns>
+        Task<IEnumerable<UserVisitHistory>> GetUserVisitHistoryAsync(int userId);
+
+        // =====================================================
+        // Analytics and Statistics
+        // =====================================================
+
+        /// <summary>
+        /// Get comprehensive system statistics
+        /// </summary>
+        /// <returns>System statistics</returns>
+        Task<SystemStatsDto> GetSystemStatisticsAsync();
+
+        /// <summary>
+        /// Get admin analytics with date range (enhanced with notification analytics)
         /// </summary>
         /// <param name="startDate">Start date for analytics</param>
         /// <param name="endDate">End date for analytics</param>
@@ -104,40 +162,27 @@ namespace LearnQuestV1.Api.Services.Interfaces
         Task<dynamic> GetAdminAnalyticsAsync(DateTime? startDate = null, DateTime? endDate = null);
 
         /// <summary>
-        /// Get user management statistics
+        /// Get user management statistics (enhanced with notification stats)
         /// </summary>
-        /// <param name="timeframe">Timeframe in days (default: 30)</param>
+        /// <param name="timeframe">Timeframe in days</param>
         /// <returns>User management statistics</returns>
         Task<dynamic> GetUserManagementStatsAsync(int timeframe = 30);
 
         /// <summary>
         /// Get security audit summary
         /// </summary>
-        /// <param name="startDate">Start date</param>
-        /// <param name="endDate">End date</param>
+        /// <param name="startDate">Start date for audit</param>
+        /// <param name="endDate">End date for audit</param>
         /// <returns>Security audit summary</returns>
         Task<dynamic> GetSecurityAuditSummaryAsync(DateTime? startDate = null, DateTime? endDate = null);
 
         /// <summary>
-        /// Get platform activity overview
+        /// Get platform activity metrics (enhanced with notification metrics)
         /// </summary>
         /// <returns>Platform activity data</returns>
         Task<dynamic> GetPlatformActivityAsync();
 
-        /// <summary>
-        /// Get users with filtering and pagination
-        /// </summary>
-        /// <param name="role">Optional role filter</param>
-        /// <param name="isVerified">Optional verification status filter</param>
-        /// <param name="searchTerm">Optional search term</param>
-        /// <param name="pageNumber">Page number (1-based)</param>
-        /// <param name="pageSize">Page size</param>
-        /// <returns>Paginated user results</returns>
-        Task<dynamic> GetUsersWithFilteringAsync(
-            string? role = null,
-            bool? isVerified = null,
-            string? searchTerm = null,
-            int pageNumber = 1,
-            int pageSize = 20);
+        Task<int> GetActiveUserCountAsync();
+
     }
 }

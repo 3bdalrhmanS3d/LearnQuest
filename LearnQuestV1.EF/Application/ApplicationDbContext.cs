@@ -1115,8 +1115,130 @@ namespace LearnQuestV1.EF.Application
                 .OnDelete(DeleteBehavior.SetNull);
 
             #endregion
+
+            ConfigureUserNotification(modelBuilder);
         }
 
+        private void ConfigureUserNotification(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<UserNotification>(entity =>
+            {
+                // Primary Key
+                entity.HasKey(e => e.NotificationId);
+
+                // Properties Configuration
+                entity.Property(e => e.NotificationId)
+                    .HasColumnName("NotificationId")
+                    .ValueGeneratedOnAdd();
+
+                entity.Property(e => e.UserId)
+                    .IsRequired()
+                    .HasColumnName("UserId");
+
+                entity.Property(e => e.Title)
+                    .IsRequired()
+                    .HasMaxLength(200)
+                    .HasColumnName("Title");
+
+                entity.Property(e => e.Message)
+                    .IsRequired()
+                    .HasMaxLength(1000)
+                    .HasColumnName("Message");
+
+                entity.Property(e => e.Type)
+                    .IsRequired()
+                    .HasMaxLength(50)
+                    .HasColumnName("Type");
+
+                entity.Property(e => e.IsRead)
+                    .IsRequired()
+                    .HasDefaultValue(false)
+                    .HasColumnName("IsRead");
+
+                entity.Property(e => e.CreatedAt)
+                    .IsRequired()
+                    .HasDefaultValueSql("GETUTCDATE()")
+                    .HasColumnName("CreatedAt");
+
+                entity.Property(e => e.ReadAt)
+                    .HasColumnName("ReadAt");
+
+                entity.Property(e => e.CourseId)
+                    .HasColumnName("CourseId");
+
+                entity.Property(e => e.ContentId)
+                    .HasColumnName("ContentId");
+
+                entity.Property(e => e.AchievementId)
+                    .HasColumnName("AchievementId");
+
+                entity.Property(e => e.ActionUrl)
+                    .HasMaxLength(500)
+                    .HasColumnName("ActionUrl");
+
+                entity.Property(e => e.Icon)
+                    .HasMaxLength(100)
+                    .HasColumnName("Icon");
+
+                entity.Property(e => e.Priority)
+                    .IsRequired()
+                    .HasMaxLength(50)
+                    .HasDefaultValue("Normal")
+                    .HasColumnName("Priority");
+
+                // Foreign Key Relationships
+                entity.HasOne(e => e.User)
+                  .WithMany(u => u.UserNotifications)
+                  .HasForeignKey(e => e.UserId)
+                  .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(e => e.Course)
+                    .WithMany()
+                    .HasForeignKey(e => e.CourseId)
+                    .OnDelete(DeleteBehavior.SetNull)
+                    .HasConstraintName("FK_UserNotifications_Courses_CourseId");
+
+                entity.HasOne(e => e.Content)
+                    .WithMany()
+                    .HasForeignKey(e => e.ContentId)
+                    .OnDelete(DeleteBehavior.SetNull)
+                    .HasConstraintName("FK_UserNotifications_Contents_ContentId");
+
+                entity.HasOne(e => e.Achievement)
+                    .WithMany()
+                    .HasForeignKey(e => e.AchievementId)
+                    .OnDelete(DeleteBehavior.SetNull)
+                    .HasConstraintName("FK_UserNotifications_Achievements_AchievementId");
+
+                // Indexes for Performance
+                entity.HasIndex(e => e.UserId)
+                    .HasDatabaseName("IX_UserNotifications_UserId");
+
+                entity.HasIndex(e => new { e.UserId, e.IsRead })
+                    .HasDatabaseName("IX_UserNotifications_UserId_IsRead");
+
+                entity.HasIndex(e => new { e.UserId, e.CreatedAt })
+                    .HasDatabaseName("IX_UserNotifications_UserId_CreatedAt");
+
+                entity.HasIndex(e => new { e.Type, e.CreatedAt })
+                    .HasDatabaseName("IX_UserNotifications_Type_CreatedAt");
+
+                entity.HasIndex(e => new { e.Priority, e.IsRead })
+                    .HasDatabaseName("IX_UserNotifications_Priority_IsRead");
+
+                entity.HasIndex(e => e.CourseId)
+                    .HasDatabaseName("IX_UserNotifications_CourseId");
+
+                entity.HasIndex(e => e.ContentId)
+                    .HasDatabaseName("IX_UserNotifications_ContentId");
+
+                entity.HasIndex(e => e.AchievementId)
+                    .HasDatabaseName("IX_UserNotifications_AchievementId");
+
+                // Table Configuration
+                entity.ToTable("UserNotifications");
+            });
+        }
 
     }
 }
