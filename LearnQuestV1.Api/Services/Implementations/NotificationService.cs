@@ -45,18 +45,49 @@ namespace LearnQuestV1.Api.Services.Implementations
         // Core Notification Operations
         // =====================================================
 
-        public async Task<int> CreateNotificationAsync(CreateNotificationDto createDto)
+        public async Task<string> CreateNotificationAsync(CreateNotificationDto createDto)
         {
             try
             {
-                // Validate user exists
+                // 1️⃣ تصفير الصفر إلى null
+                createDto.CourseId = createDto.CourseId > 0 ? createDto.CourseId : null;
+                createDto.ContentId = createDto.ContentId > 0 ? createDto.ContentId : null;
+                createDto.AchievementId = createDto.AchievementId > 0 ? createDto.AchievementId : null;
+
+                // 2️⃣ تحقق من وجود المستخدم
                 var user = await _uow.Users.Query()
                     .FirstOrDefaultAsync(u => u.UserId == createDto.UserId && !u.IsDeleted);
-
                 if (user == null)
                     throw new KeyNotFoundException($"User with ID {createDto.UserId} not found");
 
-                // Create notification entity
+                // 3️⃣ تحقق من وجود الـ Course إذا مُرسل
+                if (createDto.CourseId.HasValue)
+                {
+                    var exists = await _uow.Courses.Query()
+                        .AnyAsync(c => c.CourseId == createDto.CourseId.Value);
+                    if (!exists)
+                        throw new ArgumentException($"Course with ID {createDto.CourseId.Value} not found");
+                }
+
+                // 4️⃣ تحقق من وجود الـ Content إذا مُرسل
+                if (createDto.ContentId.HasValue)
+                {
+                    var exists = await _uow.Contents.Query()
+                        .AnyAsync(c => c.ContentId == createDto.ContentId.Value);
+                    if (!exists)
+                        throw new ArgumentException($"Content with ID {createDto.ContentId.Value} not found");
+                }
+
+                // 5️⃣ تحقق من وجود الـ Achievement إذا مُرسل
+                if (createDto.AchievementId.HasValue)
+                {
+                    var exists = await _uow.Achievements.Query()
+                        .AnyAsync(a => a.AchievementId == createDto.AchievementId.Value);
+                    if (!exists)
+                        throw new ArgumentException($"Achievement with ID {createDto.AchievementId.Value} not found");
+                }
+
+                // 6️⃣ بناء الكيان وحفظه
                 var notification = new UserNotification
                 {
                     UserId = createDto.UserId,
@@ -75,22 +106,30 @@ namespace LearnQuestV1.Api.Services.Implementations
                 await _uow.UserNotifications.AddAsync(notification);
                 await _uow.CompleteAsync();
 
-                // Send real-time notification
+                // 7️⃣ إرسال إشعار فوري وتحديث الكاش
                 var notificationDto = await MapToNotificationDto(notification);
                 await SendRealTimeNotificationAsync(createDto.UserId, notificationDto);
-
-                // Clear cache
                 ClearUserNotificationCache(createDto.UserId);
 
-                _logger.LogInformation("Created notification {NotificationId} for user {UserId}",
+                _logger.LogInformation(
+                    "Created notification {NotificationId} for user {UserId}",
                     notification.NotificationId, createDto.UserId);
 
-                return notification.NotificationId;
+
+                if(notification.NotificationId != null)
+                {
+                    return "Notification created successfully with ID: " + notification.NotificationId;
+                }
+                else
+                {
+                    throw new Exception("Notification creation failed, ID is null.");
+                }
             }
-            catch (Exception ex)
+            catch
             {
-                _logger.LogError(ex, "Error creating notification for user {UserId}", createDto.UserId);
-                throw;
+                _logger.LogError(
+                    "Error creating notification for user {UserId}", createDto.UserId);
+                throw; // Controller سيعالج KeyNotFoundException و ArgumentException بشكل مناسب
             }
         }
 

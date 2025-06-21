@@ -293,7 +293,7 @@ namespace LearnQuestV1.Api.Controllers
         /// <returns>Created notification ID</returns>
         [HttpPost]
         [Authorize(Roles = "Admin,Instructor")]
-        public async Task<ActionResult<int>> CreateNotification([FromBody] CreateNotificationDto createDto)
+        public async Task<ActionResult<string>> CreateNotification([FromBody] CreateNotificationDto createDto)
         {
             try
             {

@@ -174,4 +174,12 @@ namespace LearnQuestV1.Api.DTOs.Notifications
         public NotificationStatsDto Stats { get; set; } = new();
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
     }
+
+    public class CreateNotificationResponseDto
+    {
+        public int NotificationId { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public DateTime SentAt { get; set; }
+    }
+
 }

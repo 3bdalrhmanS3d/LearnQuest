@@ -18,7 +18,7 @@ namespace LearnQuestV1.Api.Services.Interfaces
         /// <returns>Created notification ID</returns>
         /// <exception cref="KeyNotFoundException">When user does not exist</exception>
         /// <exception cref="ArgumentException">When validation fails</exception>
-        Task<int> CreateNotificationAsync(CreateNotificationDto createDto);
+        Task<string> CreateNotificationAsync(CreateNotificationDto createDto);
 
         /// <summary>
         /// Create notifications for multiple users
