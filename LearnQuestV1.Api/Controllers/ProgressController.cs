@@ -11,287 +11,266 @@ using System.Threading.Tasks;
 
 namespace LearnQuestV1.Api.Controllers
 {
+    /// <summary>
+    /// Progress tracking controller for user learning progress and content interactions
+    /// </summary>
     [Route("api/progress")]
     [ApiController]
     [Authorize(Roles = "RegularUser,Instructor,Admin")]
+    [Produces("application/json")]
     public class ProgressController : ControllerBase
     {
         private readonly IUserService _userService;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ILogger<ProgressController> _logger;
 
-        public ProgressController(IUserService userService, IHttpContextAccessor httpContextAccessor)
+        public ProgressController(
+            IUserService userService,
+            IHttpContextAccessor httpContextAccessor,
+            ILogger<ProgressController> logger)
         {
             _userService = userService;
             _httpContextAccessor = httpContextAccessor;
+            _logger = logger;
         }
 
-        // GET api/progress/all-tracks
-        [HttpGet("all-tracks")]
-        [AllowAnonymous]
-        public async Task<IActionResult> GetAllTracks()
-        {
-            var tracks = await _userService.GetAllTracksAsync();
-            return Ok(new { totalTracks = tracks.Count(), tracks });
-        }
+        // =====================================================
+        // USER PROGRESS STATISTICS
+        // =====================================================
 
-        // GET api/progress/track-courses/{trackId}
-        [HttpGet("track-courses/{trackId:int}")]
-        [AllowAnonymous]
-        public async Task<IActionResult> GetCoursesInTrack(int trackId)
-        {
-            try
-            {
-                var dto = await _userService.GetCoursesInTrackAsync(trackId);
-                return Ok(dto);
-            }
-            catch (System.Collections.Generic.KeyNotFoundException)
-            {
-                return NotFound(new { message = "Track not found." });
-            }
-        }
-
-        // GET api/progress/search-courses?search=keyword
-        [HttpGet("search-courses")]
-        public async Task<IActionResult> SearchCourses([FromQuery] string? search)
-        {
-            var userId = User.GetCurrentUserId();
-            if (userId == null)
-                return Unauthorized(new { message = "Invalid or missing token." });
-
-            try
-            {
-                var courses = await _userService.SearchCoursesAsync(search);
-                return Ok(new { message = "Filtered courses fetched successfully.", count = courses.Count(), courses });
-            }
-            catch (System.Collections.Generic.KeyNotFoundException)
-            {
-                return NotFound(new { message = "No courses found." });
-            }
-        }
-
-        // GET api/progress/course-levels/{courseId}
-        [HttpGet("course-levels/{courseId:int}")]
-        public async Task<IActionResult> GetCourseLevels(int courseId)
-        {
-            var userId = User.GetCurrentUserId();
-            if (userId == null)
-                return Unauthorized();
-
-            try
-            {
-                var dto = await _userService.GetCourseLevelsAsync(userId.Value, courseId);
-                return Ok(dto);
-            }
-            catch (System.Collections.Generic.KeyNotFoundException)
-            {
-                return NotFound(new { message = "Course not found." });
-            }
-            catch (System.InvalidOperationException)
-            {
-                return BadRequest(new { message = "You are not enrolled in this course." });
-            }
-        }
-
-        // GET api/progress/level-sections/{levelId}
-        [HttpGet("level-sections/{levelId:int}")]
-        public async Task<IActionResult> GetLevelSections(int levelId)
-        {
-            var userId = User.GetCurrentUserId();
-            if (userId == null)
-                return Unauthorized();
-
-            try
-            {
-                var dto = await _userService.GetLevelSectionsAsync(userId.Value, levelId);
-                return Ok(dto);
-            }
-            catch (System.Collections.Generic.KeyNotFoundException)
-            {
-                return NotFound(new { message = "Level not found or no sections available." });
-            }
-            catch (System.InvalidOperationException)
-            {
-                return BadRequest(new { message = "You are not enrolled in this course." });
-            }
-        }
-
-        // GET api/progress/section-contents/{sectionId}
-        [HttpGet("section-contents/{sectionId:int}")]
-        public async Task<IActionResult> GetSectionContents(int sectionId)
-        {
-            var userId = User.GetCurrentUserId();
-            if (userId == null)
-                return Unauthorized();
-
-            try
-            {
-                var dto = await _userService.GetSectionContentsAsync(userId.Value, sectionId);
-                return Ok(dto);
-            }
-            catch (System.Collections.Generic.KeyNotFoundException)
-            {
-                return NotFound(new { message = "Section not found or no contents available." });
-            }
-            catch (System.InvalidOperationException)
-            {
-                return Forbid("You are not enrolled in this course.");
-            }
-        }
-
-        // POST api/progress/start-content/{contentId}
-        [HttpPost("start-content/{contentId:int}")]
-        public async Task<IActionResult> StartContent(int contentId)
-        {
-            var userId = User.GetCurrentUserId();
-            if (userId == null)
-                return Unauthorized();
-
-            try
-            {
-                await _userService.StartContentAsync(userId.Value, contentId);
-                return Ok(new { message = "Content started." });
-            }
-            catch (System.InvalidOperationException ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-        }
-
-        // POST api/progress/end-content/{contentId}
-        [HttpPost("end-content/{contentId:int}")]
-        public async Task<IActionResult> EndContent(int contentId)
-        {
-            var userId = User.GetCurrentUserId();
-            if (userId == null)
-                return Unauthorized();
-
-            try
-            {
-                await _userService.EndContentAsync(userId.Value, contentId);
-                return Ok(new { message = "Content ended." });
-            }
-            catch (System.Collections.Generic.KeyNotFoundException)
-            {
-                return NotFound(new { message = "No active session found for this content." });
-            }
-        }
-
-        // POST api/progress/complete-section/{sectionId}
-        [HttpPost("complete-section/{sectionId:int}")]
-        public async Task<IActionResult> CompleteSection(int sectionId)
-        {
-            var userId = User.GetCurrentUserId();
-            if (userId == null)
-                return Unauthorized();
-
-            try
-            {
-                var result = await _userService.CompleteSectionAsync(userId.Value, sectionId);
-                return Ok(new { message = result.Message, nextSectionId = result.NextSectionId });
-            }
-            catch (System.Collections.Generic.KeyNotFoundException)
-            {
-                return NotFound(new { message = "Section not found." });
-            }
-        }
-
-        // GET api/progress/next-section/{courseId}
-        [HttpGet("next-section/{courseId:int}")]
-        public async Task<IActionResult> GetNextSection(int courseId)
-        {
-            var userId = User.GetCurrentUserId();
-            if (userId == null)
-                return Unauthorized();
-
-            try
-            {
-                var dto = await _userService.GetNextSectionAsync(userId.Value, courseId);
-                return Ok(dto);
-            }
-            catch (System.Collections.Generic.KeyNotFoundException)
-            {
-                return NotFound(new { message = "Progress or course not found." });
-            }
-        }
-
-        // GET api/progress/user-stats
+        /// <summary>
+        /// Get user overall progress statistics
+        /// </summary>
         [HttpGet("user-stats")]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetUserStats()
         {
             var userId = User.GetCurrentUserId();
             if (userId == null)
-                return Unauthorized();
+            {
+                _logger.LogWarning("Unauthorized access attempt to user stats");
+                return Unauthorized(ApiResponse.Error("Invalid or missing token"));
+            }
 
-            var dto = await _userService.GetUserStatsAsync(userId.Value);
-            return Ok(dto);
+            try
+            {
+                var dto = await _userService.GetUserStatsAsync(userId.Value);
+                _logger.LogInformation("User stats retrieved for user {UserId}", userId.Value);
+                return Ok(ApiResponse.Success(dto, "User statistics retrieved successfully"));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving user stats for user {UserId}", userId.Value);
+                return StatusCode(500, ApiResponse.Error("An error occurred while retrieving user statistics"));
+            }
         }
 
-        // GET api/progress/course-completion/{courseId}
+        // =====================================================
+        // COURSE COMPLETION TRACKING
+        // =====================================================
+
+        /// <summary>
+        /// Check if user has completed a specific course
+        /// </summary>
         [HttpGet("course-completion/{courseId:int}")]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> HasCompletedCourse(int courseId)
         {
             var userId = User.GetCurrentUserId();
             if (userId == null)
-                return Unauthorized();
-
-            var dto = await _userService.HasCompletedCourseAsync(userId.Value, courseId);
-            return Ok(dto);
-        }
-
-        // GET api/progress/notifications
-        [HttpGet("notifications")]
-        public async Task<IActionResult> GetNotifications()
-        {
-            var userId = User.GetCurrentUserId();
-            if (userId == null)
-                return Unauthorized();
-
-            var list = await _userService.GetUserNotificationsAsync(userId.Value);
-            return Ok(new { Count = list.Count(), Notifications = list });
-        }
-
-        // GET api/progress/notifications/unread-count
-        [HttpGet("notifications/unread-count")]
-        public async Task<IActionResult> GetUnreadNotificationsCount()
-        {
-            var userId = User.GetCurrentUserId();
-            if (userId == null)
-                return Unauthorized();
-
-            var count = await _userService.GetUnreadNotificationsCountAsync(userId.Value);
-            return Ok(new { UnreadCount = count });
-        }
-
-        // POST api/progress/notifications/mark-read/{notificationId}
-        [HttpPost("notifications/mark-read/{notificationId:int}")]
-        public async Task<IActionResult> MarkNotificationAsRead(int notificationId)
-        {
-            var userId = User.GetCurrentUserId();
-            if (userId == null)
-                return Unauthorized();
+            {
+                _logger.LogWarning("Unauthorized access attempt to course completion check");
+                return Unauthorized(ApiResponse.Error("Invalid or missing token"));
+            }
 
             try
             {
-                await _userService.MarkNotificationAsReadAsync(userId.Value, notificationId);
-                return Ok(new { message = "Notification marked as read." });
+                var dto = await _userService.HasCompletedCourseAsync(userId.Value, courseId);
+                _logger.LogInformation("Course completion check for user {UserId}, course {CourseId}", userId.Value, courseId);
+                return Ok(ApiResponse.Success(dto, "Course completion status retrieved successfully"));
             }
-            catch (System.Collections.Generic.KeyNotFoundException)
+            catch (KeyNotFoundException)
             {
-                return NotFound(new { message = "Notification not found." });
+                _logger.LogWarning("Course {CourseId} not found for completion check", courseId);
+                return NotFound(ApiResponse.Error("Course not found"));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking course completion for user {UserId}, course {CourseId}", userId.Value, courseId);
+                return StatusCode(500, ApiResponse.Error("An error occurred while checking course completion"));
             }
         }
 
-        // POST api/progress/notifications/mark-all-read
-        [HttpPost("notifications/mark-all-read")]
-        public async Task<IActionResult> MarkAllNotificationsAsRead()
+        // =====================================================
+        // CONTENT PROGRESS TRACKING
+        // =====================================================
+
+        /// <summary>
+        /// Start tracking content progress
+        /// </summary>
+        [HttpPost("start-content/{contentId:int}")]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> StartContent(int contentId)
         {
             var userId = User.GetCurrentUserId();
             if (userId == null)
-                return Unauthorized();
+            {
+                _logger.LogWarning("Unauthorized access attempt to start content");
+                return Unauthorized(ApiResponse.Error("Invalid or missing token"));
+            }
 
-            await _userService.MarkAllNotificationsAsReadAsync(userId.Value);
-            return Ok(new { message = "All notifications marked as read." });
+            try
+            {
+                await _userService.StartContentAsync(userId.Value, contentId);
+                _logger.LogInformation("Content {ContentId} started by user {UserId}", contentId, userId.Value);
+                return Ok(ApiResponse.Success("Content started successfully"));
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Invalid operation while starting content {ContentId} for user {UserId}", contentId, userId.Value);
+                return BadRequest(ApiResponse.Error(ex.Message));
+            }
+            catch (KeyNotFoundException)
+            {
+                _logger.LogWarning("Content {ContentId} not found for user {UserId}", contentId, userId.Value);
+                return NotFound(ApiResponse.Error("Content not found"));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error starting content {ContentId} for user {UserId}", contentId, userId.Value);
+                return StatusCode(500, ApiResponse.Error("An error occurred while starting content"));
+            }
         }
 
+        /// <summary>
+        /// End content tracking session
+        /// </summary>
+        [HttpPost("end-content/{contentId:int}")]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> EndContent(int contentId)
+        {
+            var userId = User.GetCurrentUserId();
+            if (userId == null)
+            {
+                _logger.LogWarning("Unauthorized access attempt to end content");
+                return Unauthorized(ApiResponse.Error("Invalid or missing token"));
+            }
+
+            try
+            {
+                await _userService.EndContentAsync(userId.Value, contentId);
+                _logger.LogInformation("Content {ContentId} ended by user {UserId}", contentId, userId.Value);
+                return Ok(ApiResponse.Success("Content ended successfully"));
+            }
+            catch (KeyNotFoundException)
+            {
+                _logger.LogWarning("No active session found for content {ContentId} and user {UserId}", contentId, userId.Value);
+                return NotFound(ApiResponse.Error("No active session found for this content"));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error ending content {ContentId} for user {UserId}", contentId, userId.Value);
+                return StatusCode(500, ApiResponse.Error("An error occurred while ending content"));
+            }
+        }
+
+        // =====================================================
+        // SECTION COMPLETION AND NAVIGATION
+        // =====================================================
+
+        /// <summary>
+        /// Mark section as completed and get next section
+        /// </summary>
+        [HttpPost("complete-section/{sectionId:int}")]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> CompleteSection(int sectionId)
+        {
+            var userId = User.GetCurrentUserId();
+            if (userId == null)
+            {
+                _logger.LogWarning("Unauthorized access attempt to complete section");
+                return Unauthorized(ApiResponse.Error("Invalid or missing token"));
+            }
+
+            try
+            {
+                var result = await _userService.CompleteSectionAsync(userId.Value, sectionId);
+                _logger.LogInformation("Section {SectionId} completed by user {UserId}", sectionId, userId.Value);
+                return Ok(ApiResponse.Success(new
+                {
+                    message = result.Message,
+                    nextSectionId = result.NextSectionId
+                }, "Section completed successfully"));
+            }
+            catch (KeyNotFoundException)
+            {
+                _logger.LogWarning("Section {SectionId} not found for user {UserId}", sectionId, userId.Value);
+                return NotFound(ApiResponse.Error("Section not found"));
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Invalid operation while completing section {SectionId} for user {UserId}", sectionId, userId.Value);
+                return BadRequest(ApiResponse.Error(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error completing section {SectionId} for user {UserId}", sectionId, userId.Value);
+                return StatusCode(500, ApiResponse.Error("An error occurred while completing section"));
+            }
+        }
+
+        /// <summary>
+        /// Get next section in course progression
+        /// </summary>
+        [HttpGet("next-section/{courseId:int}")]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> GetNextSection(int courseId)
+        {
+            var userId = User.GetCurrentUserId();
+            if (userId == null)
+            {
+                _logger.LogWarning("Unauthorized access attempt to get next section");
+                return Unauthorized(ApiResponse.Error("Invalid or missing token"));
+            }
+
+            try
+            {
+                var dto = await _userService.GetNextSectionAsync(userId.Value, courseId);
+                _logger.LogInformation("Next section retrieved for user {UserId}, course {CourseId}", userId.Value, courseId);
+                return Ok(ApiResponse.Success(dto, "Next section retrieved successfully"));
+            }
+            catch (KeyNotFoundException)
+            {
+                _logger.LogWarning("Progress or course {CourseId} not found for user {UserId}", courseId, userId.Value);
+                return NotFound(ApiResponse.Error("Progress or course not found"));
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "User {UserId} not enrolled in course {CourseId}", userId.Value, courseId);
+                return StatusCode(StatusCodes.Status403Forbidden, ApiResponse.Error("You are not enrolled in this course"));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving next section for user {UserId}, course {CourseId}", userId.Value, courseId);
+                return StatusCode(500, ApiResponse.Error("An error occurred while retrieving next section"));
+            }
+        }
     }
 }
