@@ -111,19 +111,18 @@ namespace LearnQuestV1.Api
             // === CONTROLLERS ===
             builder.Services.AddControllers();
 
-            // === CORS & API EXPLORER ===
+            // ===== CORS & API EXPLORER =====
             builder.Services.AddEndpointsApiExplorer();
+
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowReactApp", policy =>
-                {
-                    options.AddPolicy("AllowReactApp", policy =>
-                    {
-                        policy.WithOrigins("http://localhost:3000")
-                              .AllowAnyHeader()
-                              .AllowAnyMethod();
-                    });
-                });
+                    policy
+                      .WithOrigins("http://localhost:3000")  // عنوان الواجهة
+                      .AllowAnyHeader()
+                      .AllowAnyMethod()
+                      .AllowCredentials()
+                );
             });
 
             //builder.Services.AddCors(options =>
@@ -232,6 +231,7 @@ namespace LearnQuestV1.Api
 
             if (!app.Environment.IsDevelopment())
             {
+                app.UseHttpsRedirection();
                 app.UseHsts();
             }
 
@@ -239,8 +239,9 @@ namespace LearnQuestV1.Api
             app.UseRouting();
 
             // 2. CORS / Session / Static / Logging middleware
-            app.UseRateLimiting();
             app.UseCors("AllowReactApp");
+            app.UseRateLimiting();
+
             app.UseSession();
             app.UseStaticFiles();
             app.UseMiddleware<ExceptionHandlingMiddleware>();
