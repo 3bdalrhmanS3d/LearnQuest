@@ -2,13 +2,10 @@
 using LearnQuestV1.Api.DTOs.Users.Response;
 using LearnQuestV1.Api.Services.Interfaces;
 using LearnQuestV1.Core.Interfaces;
-using LearnQuestV1.Core.Models;
 using LearnQuestV1.Core.Models.CourseStructure;
-using LearnQuestV1.Core.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using LearnQuestV1.Api.DTOs.Progress;
-using LearnQuestV1.Api.DTOs.User.Response;
 using LearnQuestV1.Core.Models.LearningAndProgress;
 using LearnQuestV1.Core.Models.UserManagement;
 using LearnQuestV1.Core.Extensions;

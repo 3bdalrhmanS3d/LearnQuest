@@ -9,6 +9,7 @@ using Microsoft.Extensions.Caching.Memory;
 using System.ComponentModel.DataAnnotations;
 using LearnQuestV1.Api.DTOs.Profile;
 using Microsoft.AspNetCore.RateLimiting;
+using static LearnQuestV1.Api.DTOs.Profile.UserActivityDto;
 
 namespace LearnQuestV1.Api.Controllers
 {

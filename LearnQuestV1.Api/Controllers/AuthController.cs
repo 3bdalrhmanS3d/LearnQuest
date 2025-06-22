@@ -1,6 +1,5 @@
 ﻿using LearnQuestV1.Api.Constants;
 using LearnQuestV1.Api.DTOs.Common;
-using LearnQuestV1.Api.DTOs.User.Request;
 using LearnQuestV1.Api.DTOs.Users.Request;
 using LearnQuestV1.Api.DTOs.Users.Response;
 using LearnQuestV1.Api.Services.Interfaces;

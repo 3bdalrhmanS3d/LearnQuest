@@ -1,12 +1,9 @@
 ﻿using LearnQuestV1.Api.DTOs.Payments;
 using LearnQuestV1.Api.DTOs.Profile;
 using LearnQuestV1.Api.DTOs.Progress;
-using LearnQuestV1.Api.DTOs.User.Response;
 using LearnQuestV1.Api.DTOs.Users.Request;
 using LearnQuestV1.Api.DTOs.Users.Response;
-using Microsoft.AspNetCore.Http;
-using System.Collections.Generic;
-using System.Threading.Tasks;
+using static LearnQuestV1.Api.DTOs.Profile.UserActivityDto;
 
 namespace LearnQuestV1.Api.Services.Interfaces
 {

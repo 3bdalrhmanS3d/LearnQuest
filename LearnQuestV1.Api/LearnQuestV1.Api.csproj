@@ -25,8 +25,4 @@
 	   <ProjectReference Include="..\LearnQuestV1.Core\LearnQuestV1.Core.csproj" />	  
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="wwwroot\uploads\profile-pictures\" />
-  </ItemGroup>
-
 </Project>

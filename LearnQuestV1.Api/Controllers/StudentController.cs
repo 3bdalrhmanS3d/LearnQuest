@@ -1,7 +1,5 @@
-﻿using LearnQuestV1.Api.DTOs.PointSystem;
-using LearnQuestV1.Api.DTOs.Progress;
+﻿using LearnQuestV1.Api.DTOs.Progress;
 using LearnQuestV1.Api.DTOs.Student;
-using LearnQuestV1.Api.DTOs.User.Response;
 using LearnQuestV1.Api.DTOs.Users.Response;
 using LearnQuestV1.Api.Services.Interfaces;
 using LearnQuestV1.Api.Utilities;
