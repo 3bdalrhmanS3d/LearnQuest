@@ -113,10 +113,10 @@ namespace LearnQuestV1.Api.Controllers
             {
                 // Check cache first with user-specific key
                 var cacheKey = $"user_profile_{userId}_{User.Identity?.Name}";
-                if (_cache.TryGetValue(cacheKey, out UserProfileDto cachedProfile))
+                if (_cache.TryGetValue(cacheKey, out UserProfileDto dto))
                 {
                     _logger.LogDebug("Profile served from cache for user {UserId}", userId);
-                    return Ok(ApiResponse.Success(cachedProfile, "Profile retrieved from cache"));
+                    return Ok(ApiResponse.Success(dto, "Profile retrieved from cache"));
                 }
 
                 var profile = await _userService.GetUserProfileAsync(userId.Value);

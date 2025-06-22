@@ -18,6 +18,8 @@ namespace LearnQuestV1.Api.DTOs.Profile
         public string Role { get; set; } = string.Empty;
         public string ProfilePhoto { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
+        public bool IsProfileComplete { get; set; }
+        public Dictionary<string, string>? RequiredFields { get; set; }
 
         public DateTime? BirthDate { get; set; }
         public string? Edu { get; set; }

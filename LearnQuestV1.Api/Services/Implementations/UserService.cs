@@ -59,11 +59,14 @@ namespace LearnQuestV1.Api.Services.Implementations
                     throw new KeyNotFoundException($"User with ID {userId} not found.");
                 }
 
-                if (user.UserDetail == null)
+                bool hasDetail = user.UserDetail != null;
+                // إذا لا توجد تفاصيل، لن ننشئ سجل في هذه المرحلة – فقط نُظهر العلم Required
+                var required = hasDetail ? null : new Dictionary<string, string>
                 {
-                    _logger.LogWarning("UserDetail for user ID {UserId} is missing", userId);
-                    throw new InvalidOperationException($"UserDetail for user ID {userId} is missing.");
-                }
+                    { "BirthDate",     "YYYY-MM-DD required" },
+                    { "EducationLevel","Required" },
+                    { "Nationality",   "Required" }
+                };
 
                 var progressDtos = user.UserProgresses.Select(up => new UserProgressDto
                 {
@@ -79,11 +82,13 @@ namespace LearnQuestV1.Api.Services.Implementations
                     FullName = user.FullName,
                     EmailAddress = user.EmailAddress,
                     Role = user.Role.ToString(),
-                    ProfilePhoto = user.ProfilePhoto ?? string.Empty,
+                    ProfilePhoto = user.ProfilePhoto ?? "~\\profile-pictures\\default.png",
+                    IsProfileComplete = hasDetail,
+                    RequiredFields = required,
                     CreatedAt = user.CreatedAt,
-                    BirthDate = user.UserDetail.BirthDate,
-                    Edu = user.UserDetail.EducationLevel,
-                    National = user.UserDetail.Nationality,
+                    BirthDate = user.UserDetail?.BirthDate ?? default,
+                    Edu = user.UserDetail?.EducationLevel,
+                    National = user.UserDetail?.Nationality,
                     Progress = progressDtos
                 };
 

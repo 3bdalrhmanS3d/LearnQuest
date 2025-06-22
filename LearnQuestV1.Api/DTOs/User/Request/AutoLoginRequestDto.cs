@@ -192,4 +192,18 @@ namespace LearnQuestV1.Api.DTOs.Users.Request
         [StringLength(6, MinimumLength = 6)]
         public string VerificationCode { get; set; } = null!;
     }
+
+    /// <summary>
+    /// NEW: Verify account via link request DTO
+    /// </summary>
+    public class VerifyAccountLinkRequestDto
+    {
+        [Required]
+        [EmailAddress]
+        public string Email { get; set; } = null!;
+
+        [Required]
+        [StringLength(6, MinimumLength = 6)]
+        public string VerificationCode { get; set; } = null!;
+    }
 }
