@@ -28,7 +28,24 @@ namespace LearnQuestV1.Api.Services.Implementations
             _logger = logger;
         }
 
-        // Main verification email (matches interface)
+        // NEW: Enhanced verification email with both code and link
+        public void QueueVerificationEmail(string email, string fullName, string verificationCode, string verificationLink)
+        {
+            var emailItem = new EmailQueueItem
+            {
+                EmailAddress = email,
+                FullName = fullName,
+                EmailType = EmailType.VerificationWithLink,
+                VerificationCode = verificationCode,
+                VerificationLink = verificationLink,
+                QueuedAt = DateTime.UtcNow
+            };
+
+            _emailQueue.Enqueue(emailItem);
+            _logger.LogInformation("Enhanced verification email queued for {Email}", email);
+        }
+
+        // Legacy verification email (matches interface)
         public void QueueEmail(string email, string fullName, string verificationCode)
         {
             var emailItem = new EmailQueueItem
@@ -44,7 +61,7 @@ namespace LearnQuestV1.Api.Services.Implementations
             _logger.LogInformation("Verification email queued for {Email}", email);
         }
 
-        // Resend verification email (matches interface)
+        // Resend verification email (deprecated - use QueueVerificationEmail instead)
         public void QueueResendEmail(string email, string fullName, string verificationCode)
         {
             var emailItem = new EmailQueueItem
@@ -214,6 +231,17 @@ namespace LearnQuestV1.Api.Services.Implementations
                     };
                     break;
 
+                case EmailType.VerificationWithLink:
+                    message.Subject = "Email Verification Required";
+                    message.Body = new TextPart("html")
+                    {
+                        Text = _templateService.BuildEnhancedVerificationEmail(
+                            emailItem.FullName,
+                            emailItem.VerificationCode!,
+                            emailItem.VerificationLink!)
+                    };
+                    break;
+
                 case EmailType.ResendVerification:
                     message.Subject = "New Verification Code";
                     message.Body = new TextPart("html")
@@ -313,6 +341,7 @@ namespace LearnQuestV1.Api.Services.Implementations
         public string FullName { get; set; } = string.Empty;
         public EmailType EmailType { get; set; }
         public string? VerificationCode { get; set; }
+        public string? VerificationLink { get; set; }
         public string? ResetLink { get; set; }
         public string? Subject { get; set; }
         public string? Body { get; set; }
@@ -326,6 +355,7 @@ namespace LearnQuestV1.Api.Services.Implementations
     public enum EmailType
     {
         Verification,
+        VerificationWithLink,
         ResendVerification,
         PasswordReset,
         Welcome,

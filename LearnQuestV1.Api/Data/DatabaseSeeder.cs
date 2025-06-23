@@ -217,6 +217,108 @@ namespace LearnQuestV1.Api.Data
         }
 
         /// <summary>
+        /// Seeds up to 50 sample regular users, adding فقط ما ينقص للوصول إلى 50.
+        /// Creates details only للمستخدمين المفعلين.
+        /// </summary>
+        public static async Task SeedSampleUsersAsync(ApplicationDbContext context, int targetCount = 50)
+        {
+            try
+            {
+                // 1. احسب عدد المستخدمين الحاليين
+                var existingCount = await context.Users
+                    .CountAsync(u => u.Role == UserRole.RegularUser && !u.IsDeleted);
+
+                var toCreate = targetCount - existingCount;
+                if (toCreate < 1)
+                {
+                    Console.WriteLine($"ℹ️  Already have {existingCount} regular users. No need to seed more.");
+                    return;
+                }
+
+                Console.WriteLine($"ℹ️  Found {existingCount} regular users. Will create {toCreate} more to reach {targetCount}.");
+
+                var rnd = new Random();
+                var firstNames = new[] { "Ali", "Sara", "Omar", "Laila", "Khaled", "Mona", "Youssef", "Nour" };
+                var lastNames = new[] { "Hassan", "Ahmed", "Saleh", "Mostafa", "Ibrahim", "Fahmy" };
+                var educations = new[] { "High School", "Bachelor's Degree", "Master's Degree", "PhD" };
+                var nationalities = new[] { "Egypt", "Jordan", "Lebanon", "Morocco", "Tunisia", "UAE" };
+
+                var newUsers = new List<User>(capacity: toCreate);
+                for (int i = 1; i <= toCreate; i++)
+                {
+                    var fullName = $"{firstNames[rnd.Next(firstNames.Length)]} {lastNames[rnd.Next(lastNames.Length)]}";
+                    var email = $"{fullName.ToLower().Replace(" ", ".")}{existingCount + i}@learnquest.com";
+
+                    var user = new User
+                    {
+                        FullName = fullName,
+                        EmailAddress = email,
+                        PasswordHash = AuthHelpers.HashPassword("Yg1rb76y@Yg1rb76y"),
+                        CreatedAt = DateTime.UtcNow,
+                        Role = UserRole.RegularUser,
+                        IsActive = rnd.Next(2) == 0,
+                        IsDeleted = false,
+                        ProfilePhoto = userImage
+                    };
+                    newUsers.Add(user);
+                }
+
+                await context.Users.AddRangeAsync(newUsers);
+                await context.SaveChangesAsync();
+
+                var details = new List<UserDetail>();
+                var verifications = new List<AccountVerification>();
+
+                foreach (var u in newUsers)
+                {
+                    if (u.IsActive)
+                    {
+                        var start = new DateTime(1970, 1, 1);
+                        var end = new DateTime(2005, 1, 1);
+                        var span = end - start;
+                        var birth = start + TimeSpan.FromTicks((long)(rnd.NextDouble() * span.Ticks));
+
+                        details.Add(new UserDetail
+                        {
+                            UserId = u.UserId,
+                            BirthDate = birth,
+                            EducationLevel = educations[rnd.Next(educations.Length)],
+                            Nationality = nationalities[rnd.Next(nationalities.Length)],
+                            CreatedAt = DateTime.UtcNow
+                        });
+
+                        var code = ReferenceEquals(u, newUsers.First())
+                            ? "000000"
+                            : AuthHelpers.GenerateVerificationCode();
+
+                        verifications.Add(new AccountVerification
+                        {
+                            UserId = u.UserId,
+                            Code = code,
+                            CheckedOK = true,
+                            Date = DateTime.UtcNow
+                        });
+                    }
+                }
+
+                if (details.Any())
+                    await context.UserDetails.AddRangeAsync(details);
+                if (verifications.Any())
+                    await context.AccountVerifications.AddRangeAsync(verifications);
+
+                await context.SaveChangesAsync();
+
+                Console.WriteLine($"✅ Created {toCreate} regular users, with details for the active ones.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error seeding sample users: {ex.Message}");
+                throw;
+            }
+        }
+
+
+        /// <summary>
         /// Seeds sample courses with levels, sections, and content
         /// </summary>
         public static async Task SeedSampleCoursesAsync(ApplicationDbContext context)
@@ -694,6 +796,7 @@ namespace LearnQuestV1.Api.Data
 
                 // Run all seeders in order
                 await SeedDefaultAdminAsync(context);
+                await SeedSampleUsersAsync(context, 50);
                 await SeedDefaultTracksAsync(context);
                 await SeedSampleInstructorsAsync(context);
                 await SeedSampleCoursesAsync(context);
@@ -711,7 +814,7 @@ namespace LearnQuestV1.Api.Data
                 Console.WriteLine($"📊 Final Statistics:");
 
                 var stats = await GetSeedingStatsAsync(context);
-                Console.WriteLine($"   👥 Users: {stats.TotalUsers} (Admins: {stats.AdminCount}, Instructors: {stats.InstructorCount})");
+                Console.WriteLine($"   👥 Users: {stats.TotalUsers} (Admins: {stats.AdminCount}, Instructors: {stats.InstructorCount} )");
                 Console.WriteLine($"   🎯 Tracks: {stats.TrackCount}");
                 Console.WriteLine($"   📚 Courses: {stats.CourseCount}");
                 Console.WriteLine($"   📈 Levels: {stats.LevelCount}");

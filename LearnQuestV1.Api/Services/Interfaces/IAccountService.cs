@@ -16,9 +16,14 @@ namespace LearnQuestV1.Api.Services.Interfaces
         Task VerifyAccountAsync(VerifyAccountRequestDto input);
 
         /// <summary>
+        /// Verifies user account using verification token from email link
+        /// </summary>
+        Task VerifyAccountByTokenAsync(string token);
+
+        /// <summary>
         /// Resends verification code with configurable cooldown period
         /// </summary>
-        Task ResendVerificationCodeAsync();
+        Task ResendVerificationCodeAsync(string email);
 
         /// <summary>
         /// Authenticates user and returns JWT tokens with enhanced security checks

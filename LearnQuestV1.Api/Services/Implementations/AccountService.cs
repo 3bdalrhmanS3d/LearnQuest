@@ -77,34 +77,27 @@ namespace LearnQuestV1.Api.Services.Implementations
         }
 
         /// <summary>
-        /// Verifies a user's account using a code stored in a cookie.
+        /// Verifies a user's account using a code and email (no cookie dependency).
         /// Enhanced with better error handling and security logging.
         /// </summary>
         public async Task VerifyAccountAsync(VerifyAccountRequestDto input)
         {
-            var httpCtx = _httpContextAccessor.HttpContext
-                          ?? throw new InvalidOperationException("HTTP context is unavailable.");
-
-            // 1. Get email from cookie
-            if (!httpCtx.Request.Cookies.TryGetValue("EmailForVerification", out var email))
-                throw new InvalidOperationException("Verification session expired. Please register again.");
-
             using var transaction = await _uow.BeginTransactionAsync();
             try
             {
-                // 2. Find user with verifications
-                var user = await GetUserWithVerificationsAsync(email);
+                // 1. Find user with verifications using email from request
+                var user = await GetUserWithVerificationsAsync(input.Email);
                 if (user == null)
-                    throw new InvalidOperationException("Verification session invalid.");
+                    throw new InvalidOperationException("User not found or verification session invalid.");
 
-                // 3. Validate verification code
+                // 2. Validate verification code
                 var lastVerification = user.AccountVerifications
                     .OrderByDescending(av => av.Date)
                     .FirstOrDefault();
 
                 ValidateVerificationCode(lastVerification, input.VerificationCode);
 
-                // 4. Activate account
+                // 3. Activate account
                 user.IsActive = true;
                 lastVerification!.CheckedOK = true;
 
@@ -114,10 +107,62 @@ namespace LearnQuestV1.Api.Services.Implementations
                 await _uow.SaveChangesAsync();
                 await transaction.CommitAsync();
 
-                // 5. Clear cookie
-                httpCtx.Response.Cookies.Delete("EmailForVerification");
+                // 4. Send welcome email
+                _emailQueueService.QueueWelcomeEmail(user.EmailAddress, user.FullName);
 
-                _logger.LogInformation("Account verified successfully: {Email}", email);
+                _logger.LogInformation("Account verified successfully: {Email}", input.Email);
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Verifies user account using verification token from email link
+        /// </summary>
+        /// 
+        // By Swagger 
+        // https://localhost:7217/api/Auth/verify-account/ + token 
+        
+        public async Task VerifyAccountByTokenAsync(string token)
+        {
+            if (string.IsNullOrWhiteSpace(token))
+                throw new InvalidOperationException("Invalid verification token.");
+
+            using var transaction = await _uow.BeginTransactionAsync();
+            try
+            {
+                // Decode the token to get email and code
+                var decodedData = AuthHelpers.DecodeVerificationToken(token);
+                if (decodedData == null)
+                    throw new InvalidOperationException("Invalid or expired verification token.");
+
+                var user = await GetUserWithVerificationsAsync(decodedData.Email);
+                if (user == null)
+                    throw new InvalidOperationException("User not found.");
+
+                var lastVerification = user.AccountVerifications
+                    .OrderByDescending(av => av.Date)
+                    .FirstOrDefault();
+
+                ValidateVerificationCode(lastVerification, decodedData.Code);
+
+                // Activate account
+                user.IsActive = true;
+                lastVerification!.CheckedOK = true;
+
+                _uow.Users.Update(user);
+                _uow.AccountVerifications.Update(lastVerification);
+
+                await _uow.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                // Send welcome email
+                _emailQueueService.QueueWelcomeEmail(user.EmailAddress, user.FullName);
+
+                _logger.LogInformation("Account verified successfully via token: {Email}", decodedData.Email);
             }
             catch
             {
@@ -129,11 +174,10 @@ namespace LearnQuestV1.Api.Services.Implementations
         /// <summary>
         /// Resends verification code with configurable cooldown period.
         /// </summary>
-        public async Task ResendVerificationCodeAsync()
+        public async Task ResendVerificationCodeAsync(string email)
         {
-            var httpCtx = _httpContextAccessor.HttpContext!;
-            if (!httpCtx.Request.Cookies.TryGetValue("EmailForVerification", out var email))
-                throw new InvalidOperationException("Verification session not found.");
+            if (string.IsNullOrWhiteSpace(email))
+                throw new InvalidOperationException("Email is required.");
 
             var user = await GetUserWithVerificationsAsync(email);
             if (user == null)
@@ -164,7 +208,11 @@ namespace LearnQuestV1.Api.Services.Implementations
             _uow.AccountVerifications.Update(lastVerification);
             await _uow.SaveChangesAsync();
 
-            _emailQueueService.QueueResendEmail(user.EmailAddress, user.FullName, lastVerification.Code);
+            // Generate verification token for email link
+            var verificationToken = AuthHelpers.GenerateVerificationToken(user.EmailAddress, lastVerification.Code);
+            var verificationLink = $"{_config["FrontendUrl"]}/verify-account?token={verificationToken}";
+
+            _emailQueueService.QueueVerificationEmail(user.EmailAddress, user.FullName, lastVerification.Code, verificationLink);
 
             _logger.LogInformation("Verification code resent: {Email}", email);
         }
@@ -261,17 +309,6 @@ namespace LearnQuestV1.Api.Services.Implementations
         }
 
         /// <summary>
-        /// Deprecated: Use AutoLoginService instead.
-        /// This method will be removed in the next version.
-        /// </summary>
-        [Obsolete("Use AutoLoginService.AutoLoginFromTokenAsync instead")]
-        public async Task<AutoLoginResponseDto> AutoLoginAsync(string email, string password)
-        {
-            _logger.LogWarning("Deprecated AutoLogin method called. Use AutoLoginService instead.");
-            throw new InvalidOperationException("This method is deprecated. Use AutoLoginService instead.");
-        }
-
-        /// <summary>
         /// Enhanced password reset request with better error handling.
         /// </summary>
         public async Task ForgetPasswordAsync(ForgetPasswordRequestDto input)
@@ -295,7 +332,7 @@ namespace LearnQuestV1.Api.Services.Implementations
                 await _uow.SaveChangesAsync();
 
                 // Send reset email
-                var resetLink = $"https://yourfrontend.com/reset-password?email={user.EmailAddress}&code={code}";
+                var resetLink = $"{_config["FrontendUrl"]}/reset-password?email={user.EmailAddress}&code={code}";
                 _emailQueueService.QueuePasswordResetEmail(user.EmailAddress, user.FullName, code, resetLink);
 
                 _logger.LogInformation("Password reset requested: {Email}", input.Email);
@@ -335,6 +372,9 @@ namespace LearnQuestV1.Api.Services.Implementations
 
                 await _uow.SaveChangesAsync();
                 await transaction.CommitAsync();
+
+                // Send password changed notification
+                _emailQueueService.QueuePasswordChangedEmail(user.EmailAddress, user.FullName);
 
                 _logger.LogInformation("Password reset successful: {Email}", input.Email);
             }
@@ -438,12 +478,15 @@ namespace LearnQuestV1.Api.Services.Implementations
 
             await _uow.SaveChangesAsync();
 
-            // Send email
+            // Send email with both code and link
             var codeToSend = existingUser.AccountVerifications
                 .OrderByDescending(av => av.Date)
                 .First().Code;
 
-            _emailQueueService.QueueResendEmail(existingUser.EmailAddress, existingUser.FullName, codeToSend);
+            var verificationToken = AuthHelpers.GenerateVerificationToken(existingUser.EmailAddress, codeToSend);
+            var verificationLink = $"{_config["FrontendUrl"]}/verify-account?token={verificationToken}";
+
+            _emailQueueService.QueueVerificationEmail(existingUser.EmailAddress, existingUser.FullName, codeToSend, verificationLink);
 
             throw new InvalidOperationException("User already exists. Please verify your email.");
         }
@@ -480,11 +523,12 @@ namespace LearnQuestV1.Api.Services.Implementations
             await _uow.AccountVerifications.AddAsync(accountVerification);
             await _uow.SaveChangesAsync();
 
-            // Queue email
-            _emailQueueService.QueueEmail(newUser.EmailAddress, newUser.FullName, verificationCode);
+            // Generate verification token for email link
+            var verificationToken = AuthHelpers.GenerateVerificationToken(newUser.EmailAddress, verificationCode);
+            var verificationLink = $"{_config["FrontendUrl"]}/verify-account?token={verificationToken}";
 
-            // Set cookie
-            SetVerificationCookie(newUser.EmailAddress);
+            // Queue email with both code and link
+            _emailQueueService.QueueVerificationEmail(newUser.EmailAddress, newUser.FullName, verificationCode, verificationLink);
         }
 
         private void ValidateVerificationCode(AccountVerification? verification, string inputCode)
@@ -538,7 +582,10 @@ namespace LearnQuestV1.Api.Services.Implementations
                 _uow.AccountVerifications.Update(lastVerification);
                 await _uow.SaveChangesAsync();
 
-                _emailQueueService.QueueResendEmail(user.EmailAddress, user.FullName, newCode);
+                var verificationToken = AuthHelpers.GenerateVerificationToken(user.EmailAddress, newCode);
+                var verificationLink = $"{_config["FrontendUrl"]}/verify-account?token={verificationToken}";
+
+                _emailQueueService.QueueVerificationEmail(user.EmailAddress, user.FullName, newCode, verificationLink);
 
                 throw new InvalidOperationException("Your account is not verified. A new code has been sent.");
             }
@@ -599,22 +646,6 @@ namespace LearnQuestV1.Api.Services.Implementations
             await _uow.SaveChangesAsync();
 
             return refreshToken;
-        }
-
-        private void SetVerificationCookie(string email)
-        {
-            var cookieOptions = new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
-                Expires = DateTime.UtcNow.AddMinutes(_securitySettings.Verification.CodeExpiryMinutes + 10)
-            };
-
-            _httpContextAccessor.HttpContext!
-                .Response
-                .Cookies
-                .Append("EmailForVerification", email, cookieOptions);
         }
 
         #endregion

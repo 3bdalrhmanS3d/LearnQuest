@@ -3,47 +3,52 @@
     public interface IEmailQueueService
     {
         /// <summary>
-        /// Queue welcome email with verification code for new users
+        /// Queues verification email with both code and link
+        /// </summary>
+        void QueueVerificationEmail(string email, string fullName, string verificationCode, string verificationLink);
+
+        /// <summary>
+        /// Legacy method for backward compatibility - queues basic verification email
         /// </summary>
         void QueueEmail(string email, string fullName, string verificationCode);
 
         /// <summary>
-        /// Queue resend verification email
+        /// Queues resend verification email (deprecated - use QueueVerificationEmail instead)
         /// </summary>
         void QueueResendEmail(string email, string fullName, string verificationCode);
 
         /// <summary>
-        /// Queue password reset email with verification code and reset link
+        /// Queues password reset email with reset link
         /// </summary>
         void QueuePasswordResetEmail(string email, string fullName, string verificationCode, string resetLink);
 
         /// <summary>
-        /// Queue custom email with subject and body
+        /// Queues custom email with subject and body
         /// </summary>
         void QueueEmail(string email, string fullName, string subject, string body, string? templateName = null);
 
         /// <summary>
-        /// Queue welcome email after successful verification
+        /// Queues welcome email after successful verification
         /// </summary>
         void QueueWelcomeEmail(string email, string fullName);
 
         /// <summary>
-        /// Queue notification email when password is changed
+        /// Queues password changed notification email
         /// </summary>
         void QueuePasswordChangedEmail(string email, string fullName);
 
         /// <summary>
-        /// Queue notification email when account is locked
+        /// Queues account locked notification email
         /// </summary>
         void QueueAccountLockedEmail(string email, string fullName, DateTime unlockTime);
 
         /// <summary>
-        /// Process all queued emails (called by background service)
+        /// Processes the email queue asynchronously
         /// </summary>
         Task ProcessQueueAsync();
 
         /// <summary>
-        /// Get current queue count for monitoring
+        /// Gets the current queue count
         /// </summary>
         int GetQueueCount();
     }

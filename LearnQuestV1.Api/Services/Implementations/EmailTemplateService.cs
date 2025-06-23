@@ -33,63 +33,201 @@ namespace LearnQuestV1.Api.Services.Implementations
             ");
         }
 
+        public string BuildEnhancedVerificationEmail(string fullName, string verificationCode, string verificationLink)
+        {
+            return BuildEmailTemplate("Email Verification Required", $@"
+                <p>Hello, <strong>{fullName}</strong>!</p>
+                <p>Thank you for signing up! Please verify your email address using one of the methods below:</p>
+                
+                <div style='margin: 30px 0; padding: 20px; background-color: #f8f9ff; border-radius: 8px; border: 1px solid #e0e6ff;'>
+                    <h3 style='margin: 0 0 15px 0; color: #667eea; font-size: 18px;'>Option 1: Enter Verification Code</h3>
+                    <p style='margin: 0 0 10px 0;'>Enter this code in the verification page:</p>
+                    <div class='code'>{verificationCode}</div>
+                </div>
+
+                <div style='margin: 30px 0; padding: 20px; background-color: #f0f9ff; border-radius: 8px; border: 1px solid #bfdbfe;'>
+                    <h3 style='margin: 0 0 15px 0; color: #3b82f6; font-size: 18px;'>Option 2: Click Verification Link</h3>
+                    <p style='margin: 0 0 15px 0;'>Or simply click the button below to verify instantly:</p>
+                    <p style='text-align: center; margin: 0;'>
+                        <a href='{verificationLink}' class='btn' style='background-color: #3b82f6; padding: 15px 30px; font-size: 16px;'>
+                            ✅ Verify Email Address
+                        </a>
+                    </p>
+                </div>
+
+                <div style='margin: 20px 0; padding: 15px; background-color: #fef2f2; border-radius: 6px; border-left: 4px solid #ef4444;'>
+                    <p style='margin: 0; font-size: 14px; color: #dc2626;'>
+                        <strong>⚠️ Important:</strong> This verification will expire in 30 minutes for security reasons.
+                    </p>
+                </div>
+
+                <p style='font-size: 14px; color: #6b7280; margin-top: 20px;'>
+                    If you did not create an account with us, please ignore this email.
+                </p>
+            ");
+        }
+
         public string BuildPasswordResetEmail(string fullName, string resetLink, string verificationCode)
         {
             return BuildEmailTemplate("Password Reset Request", $@"
                 <p>Hello, <strong>{fullName}</strong>!</p>
-                <p>We received a request to reset your password. Use the code below or click the link to reset your password:</p>
-                <div class='code'>{verificationCode}</div>
-                <p style='text-align: center; margin: 20px 0;'>
-                    <a href='{resetLink}' class='btn'>Reset Password</a>
+                <p>We received a request to reset your password. You can reset it using either method below:</p>
+                
+                <div style='margin: 30px 0; padding: 20px; background-color: #f8f9ff; border-radius: 8px; border: 1px solid #e0e6ff;'>
+                    <h3 style='margin: 0 0 15px 0; color: #667eea; font-size: 18px;'>Option 1: Use Reset Code</h3>
+                    <p style='margin: 0 0 10px 0;'>Enter this code in the password reset page:</p>
+                    <div class='code'>{verificationCode}</div>
+                </div>
+
+                <div style='margin: 30px 0; padding: 20px; background-color: #f0f9ff; border-radius: 8px; border: 1px solid #bfdbfe;'>
+                    <h3 style='margin: 0 0 15px 0; color: #3b82f6; font-size: 18px;'>Option 2: Click Reset Link</h3>
+                    <p style='margin: 0 0 15px 0;'>Or click the button below to reset directly:</p>
+                    <p style='text-align: center; margin: 0;'>
+                        <a href='{resetLink}' class='btn' style='background-color: #dc3545; padding: 15px 30px; font-size: 16px;'>
+                            🔒 Reset Password
+                        </a>
+                    </p>
+                </div>
+
+                <div style='margin: 20px 0; padding: 15px; background-color: #fef2f2; border-radius: 6px; border-left: 4px solid #ef4444;'>
+                    <p style='margin: 0; font-size: 14px; color: #dc2626;'>
+                        <strong>⚠️ Security Notice:</strong> This reset link will expire in 30 minutes.
+                    </p>
+                </div>
+
+                <p style='font-size: 14px; color: #6b7280; margin-top: 20px;'>
+                    If you did not request this password reset, please ignore this email and your password will remain unchanged.
                 </p>
-                <p>This link will expire in 30 minutes.</p>
-                <p>If you did not request this password reset, please ignore this email.</p>
             ");
         }
 
         public string BuildWelcomeEmail(string fullName)
         {
             return BuildEmailTemplate("Welcome to LearnQuest!", $@"
+                <div style='text-align: center; margin: 20px 0;'>
+                    <h2 style='color: #667eea; font-size: 24px; margin: 0;'>🎉 Welcome Aboard!</h2>
+                </div>
+                
                 <p>Hello, <strong>{fullName}</strong>!</p>
-                <p>Welcome to LearnQuest! Your email has been verified successfully.</p>
-                <p>You can now access all our features:</p>
-                <ul style='text-align: left; margin: 20px 0;'>
-                    <li>Browse and enroll in courses</li>
-                    <li>Track your learning progress</li>
-                    <li>Take quizzes and assessments</li>
-                    <li>Earn certificates</li>
-                </ul>
-                <p style='text-align: center; margin: 20px 0;'>
-                    <a href='{_emailSettings.WebsiteUrl}' class='btn'>Start Learning</a>
-                </p>
-                <p>Happy learning!</p>
+                <p>Congratulations! Your email has been verified successfully and your LearnQuest account is now active.</p>
+                
+                <div style='margin: 30px 0; padding: 25px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px; color: white; text-align: center;'>
+                    <h3 style='margin: 0 0 15px 0; font-size: 20px;'>🚀 Ready to Start Learning?</h3>
+                    <p style='margin: 0 0 20px 0; opacity: 0.9;'>Explore thousands of courses and unlock your potential!</p>
+                    <a href='{_emailSettings.WebsiteUrl}' class='btn' style='background-color: white; color: #667eea; padding: 15px 30px; font-size: 16px; text-decoration: none; border-radius: 6px; font-weight: 600;'>
+                        🎓 Start Learning Now
+                    </a>
+                </div>
+
+                <div style='margin: 30px 0;'>
+                    <h3 style='color: #374151; font-size: 18px; margin: 0 0 15px 0;'>What You Can Do Now:</h3>
+                    <ul style='text-align: left; margin: 0; padding-left: 20px; color: #4b5563;'>
+                        <li style='margin: 10px 0;'>📚 Browse and enroll in courses</li>
+                        <li style='margin: 10px 0;'>📊 Track your learning progress</li>
+                        <li style='margin: 10px 0;'>📝 Take quizzes and assessments</li>
+                        <li style='margin: 10px 0;'>🏆 Earn certificates and badges</li>
+                        <li style='margin: 10px 0;'>💬 Connect with other learners</li>
+                    </ul>
+                </div>
+
+                <div style='margin: 25px 0; padding: 20px; background-color: #f0f9ff; border-radius: 8px; border-left: 4px solid #3b82f6;'>
+                    <p style='margin: 0; font-size: 14px; color: #1e40af;'>
+                        <strong>💡 Pro Tip:</strong> Complete your profile to get personalized course recommendations!
+                    </p>
+                </div>
+
+                <p style='color: #4b5563;'>Happy learning!</p>
+                <p style='color: #667eea; font-weight: 600;'>The LearnQuest Team</p>
             ");
         }
 
         public string BuildPasswordChangedEmail(string fullName)
         {
             return BuildEmailTemplate("Password Changed Successfully", $@"
+                <div style='text-align: center; margin: 20px 0;'>
+                    <div style='width: 80px; height: 80px; background-color: #10b981; border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; font-size: 40px;'>
+                        ✅
+                    </div>
+                </div>
+
                 <p>Hello, <strong>{fullName}</strong>!</p>
                 <p>Your password has been changed successfully.</p>
-                <p><strong>When:</strong> {DateTime.UtcNow:yyyy-MM-dd HH:mm} UTC</p>
-                <p>If you did not make this change, please contact our support team immediately.</p>
-                <p style='text-align: center; margin: 20px 0;'>
-                    <a href='mailto:{_emailSettings.SupportEmail}' class='btn' style='background-color: #dc3545;'>Contact Support</a>
-                </p>
+                
+                <div style='margin: 25px 0; padding: 20px; background-color: #f0fdf4; border-radius: 8px; border: 1px solid #bbf7d0;'>
+                    <h3 style='margin: 0 0 10px 0; color: #166534; font-size: 16px;'>✅ Password Update Confirmed</h3>
+                    <p style='margin: 0; color: #166534;'><strong>When:</strong> {DateTime.UtcNow:yyyy-MM-dd HH:mm} UTC</p>
+                </div>
+
+                <div style='margin: 25px 0; padding: 20px; background-color: #fef2f2; border-radius: 8px; border-left: 4px solid #ef4444;'>
+                    <h3 style='margin: 0 0 10px 0; color: #dc2626; font-size: 16px;'>🚨 Didn't Make This Change?</h3>
+                    <p style='margin: 0 0 15px 0; color: #dc2626;'>If you did not change your password, your account may have been compromised.</p>
+                    <p style='text-align: center; margin: 0;'>
+                        <a href='mailto:{_emailSettings.SupportEmail}' class='btn' style='background-color: #dc3545; padding: 12px 25px;'>
+                            🆘 Contact Support Immediately
+                        </a>
+                    </p>
+                </div>
+
+                <div style='margin: 25px 0; padding: 15px; background-color: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0;'>
+                    <h4 style='margin: 0 0 10px 0; color: #475569; font-size: 14px;'>🔐 Security Tips:</h4>
+                    <ul style='margin: 0; padding-left: 20px; font-size: 14px; color: #64748b;'>
+                        <li>Use a unique password for your LearnQuest account</li>
+                        <li>Enable two-factor authentication if available</li>
+                        <li>Never share your password with anyone</li>
+                        <li>Update your password regularly</li>
+                    </ul>
+                </div>
             ");
         }
 
         public string BuildAccountLockedEmail(string fullName, DateTime unlockTime)
         {
+            var timeZoneNote = unlockTime.ToString("yyyy-MM-dd HH:mm") + " UTC";
+            var remainingTime = unlockTime - DateTime.UtcNow;
+            var waitTime = remainingTime.TotalMinutes > 60
+                ? $"{Math.Ceiling(remainingTime.TotalHours)} hour(s)"
+                : $"{Math.Ceiling(remainingTime.TotalMinutes)} minute(s)";
+
             return BuildEmailTemplate("Account Temporarily Locked", $@"
+                <div style='text-align: center; margin: 20px 0;'>
+                    <div style='width: 80px; height: 80px; background-color: #f59e0b; border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; font-size: 40px;'>
+                        🔒
+                    </div>
+                </div>
+
                 <p>Hello, <strong>{fullName}</strong>!</p>
                 <p>Your account has been temporarily locked due to multiple failed login attempts.</p>
-                <p><strong>Unlock Time:</strong> {unlockTime:yyyy-MM-dd HH:mm} UTC</p>
-                <p>For security reasons, please wait until the unlock time before attempting to log in again.</p>
-                <p>If you believe this was not you, please contact our support team.</p>
-                <p style='text-align: center; margin: 20px 0;'>
-                    <a href='mailto:{_emailSettings.SupportEmail}' class='btn' style='background-color: #dc3545;'>Contact Support</a>
-                </p>
+                
+                <div style='margin: 25px 0; padding: 20px; background-color: #fef3c7; border-radius: 8px; border: 1px solid #fcd34d;'>
+                    <h3 style='margin: 0 0 15px 0; color: #92400e; font-size: 16px;'>⏰ Lockout Details</h3>
+                    <p style='margin: 0 0 10px 0; color: #92400e;'><strong>Unlock Time:</strong> {timeZoneNote}</p>
+                    <p style='margin: 0; color: #92400e;'><strong>Time Remaining:</strong> Approximately {waitTime}</p>
+                </div>
+
+                <div style='margin: 25px 0; padding: 20px; background-color: #f0f9ff; border-radius: 8px; border-left: 4px solid #3b82f6;'>
+                    <h3 style='margin: 0 0 10px 0; color: #1e40af; font-size: 16px;'>🛡️ Security Information</h3>
+                    <p style='margin: 0; color: #1e40af;'>This temporary lockout is a security measure to protect your account from unauthorized access attempts.</p>
+                </div>
+
+                <div style='margin: 25px 0; padding: 20px; background-color: #fef2f2; border-radius: 8px; border-left: 4px solid #ef4444;'>
+                    <h3 style='margin: 0 0 10px 0; color: #dc2626; font-size: 16px;'>🚨 Suspicious Activity?</h3>
+                    <p style='margin: 0 0 15px 0; color: #dc2626;'>If you believe these login attempts were not made by you, please contact our support team immediately.</p>
+                    <p style='text-align: center; margin: 0;'>
+                        <a href='mailto:{_emailSettings.SupportEmail}' class='btn' style='background-color: #dc3545; padding: 12px 25px;'>
+                            📞 Contact Support
+                        </a>
+                    </p>
+                </div>
+
+                <div style='margin: 25px 0; padding: 15px; background-color: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0;'>
+                    <h4 style='margin: 0 0 10px 0; color: #475569; font-size: 14px;'>💡 Next Steps:</h4>
+                    <ol style='margin: 0; padding-left: 20px; font-size: 14px; color: #64748b;'>
+                        <li>Wait for the lockout period to expire</li>
+                        <li>Try logging in again with the correct credentials</li>
+                        <li>Consider resetting your password if you've forgotten it</li>
+                        <li>Contact support if you continue experiencing issues</li>
+                    </ol>
+                </div>
             ");
         }
 

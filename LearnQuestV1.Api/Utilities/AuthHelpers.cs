@@ -5,6 +5,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace LearnQuestV1.Api.Utilities
@@ -286,5 +287,55 @@ namespace LearnQuestV1.Api.Utilities
 
             return Math.Max(0, Math.Min(100, score));
         }
+
+        /// <summary>
+        /// Generates a verification token that contains email and code
+        /// </summary>
+        public static string GenerateVerificationToken(string email, string code)
+        {
+            var data = new VerificationTokenData
+            {
+                Email = email,
+                Code = code,
+                ExpiryTime = DateTime.UtcNow.AddMinutes(30) // 30 minutes expiry
+            };
+
+            var json = JsonSerializer.Serialize(data);
+            var bytes = Encoding.UTF8.GetBytes(json);
+            return Convert.ToBase64String(bytes);
+        }
+
+        /// <summary>
+        /// Decodes a verification token to extract email and code
+        /// </summary>
+        public static VerificationTokenData? DecodeVerificationToken(string token)
+        {
+            try
+            {
+                var bytes = Convert.FromBase64String(token);
+                var json = Encoding.UTF8.GetString(bytes);
+                var data = JsonSerializer.Deserialize<VerificationTokenData>(json);
+
+                // Check if token is expired
+                if (data?.ExpiryTime < DateTime.UtcNow)
+                {
+                    return null;
+                }
+
+                return data;
+            }
+            catch
+            {
+                return null;
+            }
+        }
     }
+
+    public class VerificationTokenData
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Code { get; set; } = string.Empty;
+        public DateTime ExpiryTime { get; set; }
+    }
+
 }

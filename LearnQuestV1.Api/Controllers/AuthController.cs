@@ -84,7 +84,7 @@ namespace LearnQuestV1.Api.Controllers
 
                 // Log successful verification
                 await _securityAuditLogger.LogEmailVerificationAsync(
-                    GetEmailFromCookie(),
+                    input.Email,
                     clientIp,
                     success: true);
 
@@ -96,7 +96,45 @@ namespace LearnQuestV1.Api.Controllers
             {
                 // Log failed verification
                 await _securityAuditLogger.LogEmailVerificationAsync(
-                    GetEmailFromCookie() ?? "unknown",
+                    input.Email,
+                    clientIp,
+                    success: false);
+
+                return BadRequest(SecureAuthResponse.Error(
+                    AuthErrorCodes.VERIFICATION_EXPIRED,
+                    AuthMessages.VERIFICATION_EXPIRED));
+            }
+        }
+
+        // -------------------- Verify Account by Token --------------------
+
+        [HttpGet("verify-account/{token}")]
+        public async Task<IActionResult> VerifyAccountByToken(string token)
+        {
+            if (string.IsNullOrWhiteSpace(token))
+                return BadRequest(SecureAuthResponse.Error(AuthErrorCodes.INVALID_TOKEN, AuthMessages.INVALID_TOKEN));
+
+            var clientIp = GetClientIp();
+
+            try
+            {
+                await _accountService.VerifyAccountByTokenAsync(token);
+
+                // Log successful verification
+                await _securityAuditLogger.LogEmailVerificationAsync(
+                    "token-based",
+                    clientIp,
+                    success: true);
+
+                return Ok(SecureAuthResponse.Success(
+                    AuthErrorCodes.OPERATION_SUCCESSFUL,
+                    AuthMessages.OPERATION_SUCCESSFUL));
+            }
+            catch (InvalidOperationException ex)
+            {
+                // Log failed verification
+                await _securityAuditLogger.LogEmailVerificationAsync(
+                    "token-based",
                     clientIp,
                     success: false);
 
@@ -109,11 +147,14 @@ namespace LearnQuestV1.Api.Controllers
         // -------------------- Resend Verification Code --------------------
 
         [HttpPost("resend-verification-code")]
-        public async Task<IActionResult> ResendVerificationCode()
+        public async Task<IActionResult> ResendVerificationCode([FromBody] ResendVerificationCodeRequestDto input)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(SecureAuthResponse.Error(AuthErrorCodes.INVALID_REQUEST, AuthMessages.INVALID_REQUEST));
+
             try
             {
-                await _accountService.ResendVerificationCodeAsync();
+                await _accountService.ResendVerificationCodeAsync(input.Email);
                 return Ok(SecureAuthResponse.Success(
                     AuthErrorCodes.VERIFICATION_CODE_SENT,
                     AuthMessages.VERIFICATION_CODE_SENT));
@@ -185,7 +226,6 @@ namespace LearnQuestV1.Api.Controllers
                     AuthMessages.INVALID_CREDENTIALS));
             }
         }
-
 
         // -------------------- Refresh Token --------------------
 
@@ -396,11 +436,6 @@ namespace LearnQuestV1.Api.Controllers
             }
 
             return context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-        }
-
-        private string? GetEmailFromCookie()
-        {
-            return _httpContextAccessor.HttpContext?.Request.Cookies["EmailForVerification"];
         }
 
         private void SetAutoLoginCookie(string autoLoginToken)
