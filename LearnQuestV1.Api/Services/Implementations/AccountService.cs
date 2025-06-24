@@ -544,26 +544,68 @@ namespace LearnQuestV1.Api.Services.Implementations
                 throw new InvalidOperationException("Verification code expired.");
         }
 
-        private async Task CheckAccountLockoutAsync(string email)
+        //private async Task CheckAccountLockoutAsync(string email)
+        //{
+        //    var failedMap = _failedLoginTracker.GetFailedAttempts();
+        //    if (failedMap.TryGetValue(email, out var data) && data.LockoutEnd > DateTime.UtcNow)
+        //    {
+        //        var remaining = data.LockoutEnd - DateTime.UtcNow;
+        //        throw new InvalidOperationException($"Account locked. Try again after {remaining:mm\\:ss}.");
+        //    }
+        //}
+
+        private Task CheckAccountLockoutAsync(string email)
         {
-            var failedMap = _failedLoginTracker.GetFailedAttempts();
-            if (failedMap.TryGetValue(email, out var data) && data.LockoutEnd > DateTime.UtcNow)
+            if (_failedLoginTracker.IsAccountLocked(email))
             {
-                var remaining = data.LockoutEnd - DateTime.UtcNow;
-                throw new InvalidOperationException($"Account locked. Try again after {remaining:mm\\:ss}.");
+                var remaining = _failedLoginTracker.GetRemainingLockoutTime(email) ?? TimeSpan.Zero;
+                // Optionally, send a notification if needed (ensure idempotency in your notification logic)
+                
+                _emailQueueService.QueueAccountLockedEmail(email, "", DateTime.UtcNow.Add(remaining));
+
+                throw new InvalidOperationException(
+                    $"Account locked. Try again after {remaining:mm\\:ss} (unlocks at {DateTime.UtcNow.Add(remaining):u})."
+                );
             }
+            return Task.CompletedTask;
         }
 
+
+        //private async Task HandleFailedLoginAsync(string email)
+        //{
+        //    _failedLoginTracker.RecordFailedAttempt(email);
+        //    var failedMap = _failedLoginTracker.GetFailedAttempts();
+
+        //    if (failedMap.TryGetValue(email, out var attemptData) &&
+        //        attemptData.Attempts >= _securitySettings.Lockout.MaxFailedAttempts)
+        //    {
+        //        _failedLoginTracker.LockUser(email);
+        //        throw new InvalidOperationException("Too many failed login attempts. Account locked.");
+        //    }
+        //}
         private async Task HandleFailedLoginAsync(string email)
         {
             _failedLoginTracker.RecordFailedAttempt(email);
-            var failedMap = _failedLoginTracker.GetFailedAttempts();
 
-            if (failedMap.TryGetValue(email, out var attemptData) &&
-                attemptData.Attempts >= _securitySettings.Lockout.MaxFailedAttempts)
+            // Check if account is now locked
+            if (_failedLoginTracker.IsAccountLocked(email))
             {
-                _failedLoginTracker.LockUser(email);
-                throw new InvalidOperationException("Too many failed login attempts. Account locked.");
+                var remaining = _failedLoginTracker.GetRemainingLockoutTime(email) ?? TimeSpan.Zero;
+                var unlockTime = DateTime.UtcNow.Add(remaining);
+
+                // Try to get user's full name for notification (optional)
+                string fullName = string.Empty;
+                var users = await _uow.Users.FindAsync(u => u.EmailAddress == email);
+                var user = users.FirstOrDefault();
+                if (user != null)
+                    fullName = user.FullName;
+
+                // Send account locked notification
+                _emailQueueService.QueueAccountLockedEmail(email, fullName, unlockTime);
+
+                throw new InvalidOperationException(
+                    $"Too many failed login attempts. Account locked. Try again after {remaining:mm\\:ss} (unlocks at {unlockTime:u})."
+                );
             }
         }
 
