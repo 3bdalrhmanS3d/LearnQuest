@@ -6,5 +6,6 @@
         public string CourseName { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
         public DateTime EnrolledAt { get; set; }
+        public int? ProgressPercentage { get; set; }
     }
 }

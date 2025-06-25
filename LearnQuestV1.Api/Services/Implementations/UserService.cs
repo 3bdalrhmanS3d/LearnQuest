@@ -272,48 +272,65 @@ namespace LearnQuestV1.Api.Services.Implementations
         /// </summary>
         public async Task<IEnumerable<MyCourseDto>> GetMyCoursesAsync(int userId)
         {
-            try
+            var enrollments = await _uow.CourseEnrollments.Query()
+                .Include(e => e.Course)
+                .Where(e => e.UserId == userId)
+                .ToListAsync();
+
+            var result = new List<MyCourseDto>();
+
+            foreach (var e in enrollments)
             {
-                _logger.LogInformation("Retrieving courses for user {UserId}", userId);
+ 
+                //1) Confirm payment
+                bool isPaid = await _uow.Payments.Query()
+                    .AnyAsync(p =>
+                        p.UserId == userId &&
+                        p.CourseId == e.CourseId &&
+                        p.Status == PaymentStatus.Completed);
 
-                var enrollments = await _uow.CourseEnrollments.Query()
-                    .Include(e => e.Course)
-                    .Where(e => e.UserId == userId)
-                    .ToListAsync();
+                if (!isPaid)
+                    continue;
+ 
+                // 2) Total Contents 
+                var courseId = e.CourseId;
+                var totalContents = await _uow.Contents.Query()
+                    .Where(ct =>
+                        ct.Section.Level.CourseId == courseId &&
+                        !ct.IsDeleted &&
+                        ct.IsVisible)
+                    .CountAsync();
 
-                var result = new List<MyCourseDto>();
+                //  Completed Contents
+ 
+                var completedContents = await _uow.UserContentActivities.Query()
+                    .Where(uca =>
+                        uca.UserId == userId &&
+                        uca.IsCompleted &&
+                        uca.Content.Section.Level.CourseId == courseId)
+                    .Select(uca => uca.ContentId)
+                    .Distinct()
+                    .CountAsync();
+ 
+                // 4) Calculate the ratio
+ 
+                int progress = totalContents == 0
+                    ? 0
+                    : (int)(completedContents * 100.0 / totalContents);
 
-                foreach (var e in enrollments)
+                result.Add(new MyCourseDto
                 {
-                    if (e.Course == null)
-                        continue;
-
-                    var isPaid = await _uow.Payments.Query()
-                        .AnyAsync(p => p.UserId == userId &&
-                                 p.CourseId == e.CourseId &&
-                                 p.Status == PaymentStatus.Completed);
-
-                    if (!isPaid)
-                        continue;
-
-                    result.Add(new MyCourseDto
-                    {
-                        CourseId = e.CourseId,
-                        CourseName = e.Course.CourseName,
-                        Description = e.Course.Description,
-                        EnrolledAt = e.EnrolledAt
-                    });
-                }
-
-                _logger.LogInformation("Retrieved {CourseCount} courses for user {UserId}", result.Count, userId);
-                return result;
+                    CourseId = courseId,
+                    CourseName = e.Course.CourseName,
+                    Description = e.Course.Description,
+                    EnrolledAt = e.EnrolledAt,
+                    ProgressPercentage = progress
+                });
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error retrieving courses for user {UserId}", userId);
-                throw;
-            }
+
+            return result;
         }
+
 
         /// <summary>
         /// Retrieves all favorite courses for the user.
