@@ -6,6 +6,7 @@ using LearnQuestV1.Core.Interfaces;
 using LearnQuestV1.Core.Models;
 using LearnQuestV1.Core.Models.LearningAndProgress;
 using LearnQuestV1.Core.Models.Quiz;
+using LearnQuestV1.EF.Repositories;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 
@@ -16,14 +17,16 @@ namespace LearnQuestV1.Api.Services.Implementations
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
         private readonly IPointsService _pointsService;
+        private readonly IQuizAttemptRepository _quizAttemptRepository;
         private readonly ILogger<QuizService> _logger;
 
-        public QuizService(IUnitOfWork unitOfWork, IMapper mapper, IPointsService pointsService, ILogger<QuizService> logger)
+        public QuizService(IUnitOfWork unitOfWork, IMapper mapper, IPointsService pointsService, ILogger<QuizService> logger, IQuizAttemptRepository quizAttemptRepository)
         {
             _unitOfWork = unitOfWork;
             _mapper = mapper;
             _pointsService = pointsService;
             _logger = logger;
+            _quizAttemptRepository = quizAttemptRepository;
         }
 
         #region Quiz Management
@@ -172,6 +175,16 @@ namespace LearnQuestV1.Api.Services.Implementations
             await _unitOfWork.SaveChangesAsync();
 
             return true;
+        }
+
+        public async Task<QuizAttemptResponseDto?> GetCurrentQuizAttemptAsync(int quizId, int userId)
+        {
+            // تستخدم المستودع للحصول على المحاولة النشطة إن وجدت
+            var activeAttempt = await _quizAttemptRepository.GetActiveAttemptAsync(quizId, userId);
+            if (activeAttempt == null) return null;
+
+            // ثمّ تحولها إلى DTO بنفس المنطق الموجود في Start/Submit
+            return _mapper.Map<QuizAttemptResponseDto>(activeAttempt);
         }
 
         #endregion

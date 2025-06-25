@@ -6,7 +6,8 @@
         ContentQuiz = 1,
         SectionQuiz = 2,
         LevelQuiz = 3,
-        CourseQuiz = 4
+        CourseQuiz = 4,
+        ExamQuiz = 5
     }
 
     public enum QuestionType

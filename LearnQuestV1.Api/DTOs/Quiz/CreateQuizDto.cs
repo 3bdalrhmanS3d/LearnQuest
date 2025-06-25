@@ -328,9 +328,14 @@ namespace LearnQuestV1.Core.DTOs.Quiz
         public bool Passed { get; set; }
 
         public DateTime StartedAt { get; set; }
-        public DateTime? CompletedAt { get; set; }
+        public DateTime CompletedAt { get; set; }
         public int AttemptNumber { get; set; }
         public int? TimeTakenInMinutes { get; set; }
+
+        public int? TimeLimitInMinutes { get; set; }
+        public TimeSpan? RemainingTime { get; set; }
+        public bool IsActive { get; set; }
+        public List<QuestionResponseDto> Questions { get; set; } = new();
 
         public List<UserAnswerResponseDto> Answers { get; set; } = new();
     }

@@ -194,5 +194,44 @@ namespace LearnQuestV1.EF.Repositories
             // Check if user is enrolled in the course
             return quiz.Course.CourseEnrollments.Any(ce => ce.UserId == userId);
         }
+        public async Task<Quiz?> GetExamWithAttemptsAsync(int examId, int instructorId)
+        {
+            return await _context.Quizzes
+                .Include(q => q.QuizAttempts)
+                    .ThenInclude(qa => qa.UserAnswers)
+                        .ThenInclude(ua => ua.Question)
+                .Include(q => q.QuizAttempts)
+                    .ThenInclude(qa => qa.UserAnswers)
+                        .ThenInclude(ua => ua.SelectedOption)
+                .FirstOrDefaultAsync(q =>
+                    q.QuizId == examId &&
+                    q.InstructorId == instructorId &&
+                    q.QuizType == QuizType.ExamQuiz);
+        }
+
+        public async Task<IEnumerable<Quiz>> GetExamQuizzesByCourseAsync(int courseId, int instructorId)
+        {
+            return await _context.Quizzes
+                .Include(q => q.QuizAttempts)       // يحشّي كل المحاولات
+                .Where(q => q.CourseId == courseId
+                         && q.InstructorId == instructorId
+                         && q.QuizType == QuizType.ExamQuiz)
+                .ToListAsync();
+        }
+
+        public async Task<Quiz?> GetExamWithQuestionsAndAttemptsAsync(int examId, int instructorId)
+        {
+            return await _context.Quizzes
+                .Include(q => q.QuizQuestions)
+                    .ThenInclude(qq => qq.Question)
+                        .ThenInclude(qu => qu.QuestionOptions)
+                .Include(q => q.QuizAttempts)
+                    .ThenInclude(qa => qa.UserAnswers)
+                .FirstOrDefaultAsync(q =>
+                    q.QuizId == examId
+                 && q.InstructorId == instructorId
+                 && q.QuizType == QuizType.ExamQuiz);
+        }
+
     }
 }

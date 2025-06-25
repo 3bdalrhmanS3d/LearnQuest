@@ -25,5 +25,11 @@ namespace LearnQuestV1.Core.Interfaces
         Task<IEnumerable<Quiz>> GetRequiredQuizzesForLevelAsync(int levelId);
         Task<IEnumerable<Quiz>> GetRequiredQuizzesForCourseAsync(int courseId);
         Task<bool> IsQuizAccessibleToUserAsync(int quizId, int userId);
+        Task<Quiz?> GetExamWithAttemptsAsync(int examId, int instructorId);
+
+        Task<IEnumerable<Quiz>> GetExamQuizzesByCourseAsync(int courseId, int instructorId);
+        // في IQuizRepository.cs
+        Task<Quiz?> GetExamWithQuestionsAndAttemptsAsync(int examId, int instructorId);
+
     }
 }

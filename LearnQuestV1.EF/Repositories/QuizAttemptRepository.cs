@@ -1,4 +1,5 @@
-﻿using LearnQuestV1.Core.Interfaces;
+﻿using LearnQuestV1.Core.Enums;
+using LearnQuestV1.Core.Interfaces;
 using LearnQuestV1.Core.Models;
 using LearnQuestV1.Core.Models.Quiz;
 using LearnQuestV1.EF.Application;
@@ -104,6 +105,16 @@ namespace LearnQuestV1.EF.Repositories
                                          qa.CompletedAt == null);
         }
 
+        public async Task<QuizAttempt?> GetActiveAttemptWithQuizAsync(int quizId, int userId)
+        {
+            return await _context.QuizAttempts
+                .Include(qa => qa.Quiz)          // هنا نقوم بتحميل الـ Quiz
+                .FirstOrDefaultAsync(qa =>
+                    qa.QuizId == quizId &&
+                    qa.UserId == userId &&
+                    qa.CompletedAt == null);
+        }
+
         public async Task<bool> CanUserStartNewAttemptAsync(int quizId, int userId)
         {
             var quiz = await _context.Quizzes
@@ -125,5 +136,64 @@ namespace LearnQuestV1.EF.Repositories
             var attemptCount = await GetAttemptCountForUserAsync(quizId, userId);
             return attemptCount < quiz.MaxAttempts;
         }
+        public async Task<IEnumerable<QuizAttempt>> GetUserExamAttemptsAsync(int userId, int? courseId = null)
+        {
+            var query = _context.QuizAttempts
+                .Include(qa => qa.Quiz)
+                .Include(qa => qa.User)
+                .Where(qa => qa.UserId == userId
+                          && qa.Quiz.QuizType == QuizType.ExamQuiz);
+
+            if (courseId.HasValue)
+                query = query.Where(qa => qa.Quiz.CourseId == courseId.Value);
+
+            return await query
+                .OrderByDescending(qa => qa.StartedAt)
+                .ToListAsync();
+        }
+
+        public async Task<QuizAttempt?> GetExamAttemptDetailAsync(int attemptId, int userId)
+        {
+            return await _context.QuizAttempts
+                .Include(qa => qa.Quiz)
+                .Include(qa => qa.User)
+                .Include(qa => qa.UserAnswers)
+                    .ThenInclude(ua => ua.Question)
+                .Include(qa => qa.UserAnswers)
+                    .ThenInclude(ua => ua.SelectedOption)
+                .FirstOrDefaultAsync(qa =>
+                    qa.AttemptId == attemptId &&
+                    qa.UserId == userId &&
+                    qa.Quiz.QuizType == QuizType.ExamQuiz);
+        }
+        public async Task<IEnumerable<QuizAttempt>> GetExamAttemptsByQuizIdAsync(int quizId, int pageNumber, int pageSize)
+        {
+            return await _context.QuizAttempts
+                .Include(qa => qa.User)            // جلب بيانات المستخدم
+                .Include(qa => qa.Quiz)            // (اختياري) لو تحتاج بيانات الامتحان
+                .Where(qa => qa.QuizId == quizId)
+                .OrderByDescending(qa => qa.StartedAt)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+        }
+
+        public async Task<QuizAttempt?> GetBestExamAttemptAsync(int examId, int userId)
+        {
+            return await _context.QuizAttempts
+                .Include(qa => qa.Quiz)
+                .Include(qa => qa.User)
+                .Include(qa => qa.UserAnswers)
+                    .ThenInclude(ua => ua.Question)
+                .Include(qa => qa.UserAnswers)
+                    .ThenInclude(ua => ua.SelectedOption)
+                .Where(qa =>
+                    qa.QuizId == examId &&
+                    qa.UserId == userId &&
+                    qa.Quiz.QuizType == QuizType.ExamQuiz)
+                .OrderByDescending(qa => qa.ScorePercentage)
+                .FirstOrDefaultAsync();
+        }
+
     }
 }

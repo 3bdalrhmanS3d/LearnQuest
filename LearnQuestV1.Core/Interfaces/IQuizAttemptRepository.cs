@@ -19,5 +19,14 @@ namespace LearnQuestV1.Core.Interfaces
         Task<IEnumerable<QuizAttempt>> GetRecentAttemptsAsync(int instructorId, int count = 10);
         Task<QuizAttempt?> GetActiveAttemptAsync(int quizId, int userId);
         Task<bool> CanUserStartNewAttemptAsync(int quizId, int userId);
+        Task<QuizAttempt?> GetActiveAttemptWithQuizAsync(int quizId, int userId);
+        Task<IEnumerable<QuizAttempt>> GetUserExamAttemptsAsync(int userId, int? courseId = null);
+        
+        Task<QuizAttempt?> GetExamAttemptDetailAsync(int attemptId, int userId);
+        Task<IEnumerable<QuizAttempt>> GetExamAttemptsByQuizIdAsync(int quizId, int pageNumber, int pageSize);
+
+
+        Task<QuizAttempt?> GetBestExamAttemptAsync(int examId, int userId);
+
     }
 }

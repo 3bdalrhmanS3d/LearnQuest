@@ -12,6 +12,9 @@ namespace LearnQuestV1.Api.Services.Interfaces
         Task<bool> DeleteQuizAsync(int quizId, int instructorId);
         Task<bool> ToggleQuizStatusAsync(int quizId, int instructorId);
 
+        // Quiz Taking
+        Task<QuizAttemptResponseDto?> GetCurrentQuizAttemptAsync(int quizId, int userId);
+
         // Quiz Retrieval
         Task<QuizResponseDto?> GetQuizByIdAsync(int quizId, int? userId = null);
         Task<IEnumerable<QuizSummaryDto>> GetQuizzesByCourseAsync(int courseId, int? userId = null);
