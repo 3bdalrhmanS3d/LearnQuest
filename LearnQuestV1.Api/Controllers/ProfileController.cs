@@ -402,7 +402,7 @@ namespace LearnQuestV1.Api.Controllers
         [HttpGet("my-courses")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
-        public async Task<IActionResult> GetMyCourses()
+        public async Task<IActionResult> GetMyCourses([FromQuery] bool onlyCompleted = false)
         {
             var userId = User.GetCurrentUserId();
             if (userId == null)
@@ -424,7 +424,7 @@ namespace LearnQuestV1.Api.Controllers
                     return Ok(cachedCourses);
                 }
 
-                var courses = await _userService.GetMyCoursesAsync(userId.Value);
+                var courses = await _userService.GetMyCoursesAsync(userId.Value, onlyCompleted);
 
                 var result = ApiResponse.Success(new
                 {

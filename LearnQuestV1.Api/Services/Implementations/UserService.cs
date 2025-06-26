@@ -270,7 +270,7 @@ namespace LearnQuestV1.Api.Services.Implementations
         /// Retrieves all courses the user has paid for and is enrolled in.
         /// Returns an empty list if none.
         /// </summary>
-        public async Task<IEnumerable<MyCourseDto>> GetMyCoursesAsync(int userId)
+        public async Task<IEnumerable<MyCourseDto>> GetMyCoursesAsync(int userId, bool onlyCompleted = false)
         {
             var enrollments = await _uow.CourseEnrollments.Query()
                 .Include(e => e.Course)
@@ -281,46 +281,41 @@ namespace LearnQuestV1.Api.Services.Implementations
 
             foreach (var e in enrollments)
             {
- 
-                //1) Confirm payment
+                // تحقق من الدفع
                 bool isPaid = await _uow.Payments.Query()
                     .AnyAsync(p =>
                         p.UserId == userId &&
                         p.CourseId == e.CourseId &&
                         p.Status == PaymentStatus.Completed);
+                if (!isPaid) continue;
 
-                if (!isPaid)
-                    continue;
- 
-                // 2) Total Contents 
-                var courseId = e.CourseId;
+                // إجمالي عدد الـ Contents
+                var cid = e.CourseId;
                 var totalContents = await _uow.Contents.Query()
-                    .Where(ct =>
-                        ct.Section.Level.CourseId == courseId &&
-                        !ct.IsDeleted &&
-                        ct.IsVisible)
+                    .Where(ct => ct.Section.Level.CourseId == cid && !ct.IsDeleted && ct.IsVisible)
                     .CountAsync();
 
-                //  Completed Contents
- 
+                // عدد الـ Contents المنجزة
                 var completedContents = await _uow.UserContentActivities.Query()
                     .Where(uca =>
                         uca.UserId == userId &&
                         uca.IsCompleted &&
-                        uca.Content.Section.Level.CourseId == courseId)
+                        uca.Content.Section.Level.CourseId == cid)
                     .Select(uca => uca.ContentId)
                     .Distinct()
                     .CountAsync();
- 
-                // 4) Calculate the ratio
- 
+
                 int progress = totalContents == 0
                     ? 0
                     : (int)(completedContents * 100.0 / totalContents);
 
+                // فلترة الكورسات المكتملة إذا طُلب ذلك
+                if (onlyCompleted && progress < 100)
+                    continue;
+
                 result.Add(new MyCourseDto
                 {
-                    CourseId = courseId,
+                    CourseId = cid,
                     CourseName = e.Course.CourseName,
                     Description = e.Course.Description,
                     EnrolledAt = e.EnrolledAt,

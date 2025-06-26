@@ -63,7 +63,8 @@ namespace LearnQuestV1.Api.Services.Interfaces
         /// </summary>
         /// <param name="userId">The user's unique identifier</param>
         /// <returns>List of enrolled courses</returns>
-        Task<IEnumerable<MyCourseDto>> GetMyCoursesAsync(int userId);
+        // واجهة الخدمة
+        Task<IEnumerable<MyCourseDto>> GetMyCoursesAsync(int userId, bool onlyCompleted = false);
 
         /// <summary>
         /// Retrieves all favorite courses for the user
