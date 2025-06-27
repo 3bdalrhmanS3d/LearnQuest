@@ -332,18 +332,6 @@ namespace LearnQuestV1.Api.DTOs.Exam
 
     #region Supporting DTOs
 
-    public class CourseExamPerformanceDto
-    {
-        public int CourseId { get; set; }
-        public string CourseName { get; set; } = string.Empty;
-        public int ExamsTaken { get; set; }
-        public int ExamsPassed { get; set; }
-        public decimal AverageScore { get; set; }
-        public decimal BestScore { get; set; }
-        public DateTime LastExamDate { get; set; }
-        public string ProgressStatus { get; set; } = string.Empty;
-    }
-
     public class RecentExamActivityDto
     {
         public int ExamId { get; set; }

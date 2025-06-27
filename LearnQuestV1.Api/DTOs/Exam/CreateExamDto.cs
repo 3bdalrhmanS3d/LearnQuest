@@ -1,10 +1,8 @@
 ﻿using LearnQuestV1.Core.Enums;
 using System.ComponentModel.DataAnnotations;
 
-namespace LearnQuestV1.Core.DTOs.Exam
+namespace LearnQuestV1.Api.DTOs.Exam
 {
-    // === CREATE DTOs ===
-
     public class CreateExamDto
     {
         [Required(ErrorMessage = "Exam title is required")]
@@ -561,6 +559,64 @@ namespace LearnQuestV1.Core.DTOs.Exam
         public string Severity { get; set; } = string.Empty;
     }
 
+    /// <summary>
+    /// DTO for reporting suspicious activity during exam attempts
+    /// </summary>
+    public class SuspiciousActivityDto
+    {
+        [Required(ErrorMessage = "Activity type is required")]
+        [StringLength(100, ErrorMessage = "Activity type cannot exceed 100 characters")]
+        public required string ActivityType { get; set; }
+
+        [Required(ErrorMessage = "Details are required")]
+        [StringLength(1000, ErrorMessage = "Details cannot exceed 1000 characters")]
+        public required string Details { get; set; }
+
+        public DateTime? OccurredAt { get; set; } = DateTime.UtcNow;
+
+        [StringLength(50, ErrorMessage = "Severity cannot exceed 50 characters")]
+        public string Severity { get; set; } = "Medium"; // Low, Medium, High, Critical
+
+        [StringLength(200, ErrorMessage = "User agent cannot exceed 200 characters")]
+        public string? UserAgent { get; set; }
+
+        [StringLength(45, ErrorMessage = "IP address cannot exceed 45 characters")]
+        public string? IpAddress { get; set; }
+
+        public Dictionary<string, object>? AdditionalData { get; set; }
+    }
+
+    /// <summary>
+    /// Common activity types for flagging
+    /// </summary>
+    public static class SuspiciousActivityTypes
+    {
+        public const string TabSwitch = "TabSwitch";
+        public const string WindowFocusLoss = "WindowFocusLoss";
+        public const string Copy = "Copy";
+        public const string Paste = "Paste";
+        public const string RightClick = "RightClick";
+        public const string PrintScreen = "PrintScreen";
+        public const string DevToolsOpen = "DevToolsOpen";
+        public const string MultipleDevices = "MultipleDevices";
+        public const string SuspiciousKeystrokes = "SuspiciousKeystrokes";
+        public const string TimeoutWarning = "TimeoutWarning";
+        public const string ExcessivePageRefresh = "ExcessivePageRefresh";
+        public const string UnauthorizedAccess = "UnauthorizedAccess";
+        public const string IpAddressChange = "IpAddressChange";
+        public const string UserAgentChange = "UserAgentChange";
+    }
+
+    /// <summary>
+    /// Common severity levels
+    /// </summary>
+    public static class ActivitySeverity
+    {
+        public const string Low = "Low";
+        public const string Medium = "Medium";
+        public const string High = "High";
+        public const string Critical = "Critical";
+    }
     // === ENUMS ===
 
     public enum ExamType
