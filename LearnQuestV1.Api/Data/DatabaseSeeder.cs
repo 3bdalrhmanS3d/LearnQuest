@@ -202,6 +202,28 @@ namespace LearnQuestV1.Api.Data
                     await context.Users.AddRangeAsync(instructors);
                     await context.SaveChangesAsync();
 
+                    var verifications = instructors.Select(inst => new AccountVerification
+                    {
+                        UserId = inst.UserId,
+                        Code = "000000",  
+                        CheckedOK = true,         
+                        Date = DateTime.UtcNow
+                    }).ToList();
+
+                    await context.AccountVerifications.AddRangeAsync(verifications);
+
+                    // 3. لكل Instructor: إنشاء تفاصيل المستخدم (UserDetail)
+                    var details = instructors.Select(inst => new UserDetail
+                    {
+                        UserId = inst.UserId,
+                        BirthDate = DateTime.UtcNow.AddYears(-30), 
+                        EducationLevel = "Not specified",
+                        Nationality = "Unknown",
+                        CreatedAt = DateTime.UtcNow
+                    }).ToList();
+
+                    await context.UserDetails.AddRangeAsync(details);
+                    await context.SaveChangesAsync();
                     Console.WriteLine($"✅ Created {instructors.Count} sample instructors!");
                 }
                 else
