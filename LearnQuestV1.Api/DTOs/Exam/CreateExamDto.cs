@@ -187,6 +187,7 @@ namespace LearnQuestV1.Api.DTOs.Exam
         public DateTime? ScheduledEndTime { get; set; }
     }
 
+
     // === RESPONSE DTOs ===
 
     public class ExamResponseDto
@@ -539,17 +540,61 @@ namespace LearnQuestV1.Api.DTOs.Exam
         public string? Instructions { get; set; }
     }
 
-    // === PROCTORING DTOs (Future Enhancement) ===
 
+    // SuspiciousActivityDto.cs
+    public class SuspiciousActivityDto
+    {
+        [Required]
+        public required string ActivityType { get; set; }
+
+        [Required]
+        public required string Details { get; set; }
+    }
+
+    // EmergencyActionDto.cs  
+    public class EmergencyActionDto
+    {
+        [Required]
+        public int SessionId { get; set; }
+
+        [Required]
+        public required string Reason { get; set; }
+    }
+
+    // ExamProctoringDto.cs
     public class ExamProctoringDto
     {
         public int AttemptId { get; set; }
         public int ExamId { get; set; }
-        public int UserId { get; set; }
-        public DateTime StartedAt { get; set; }
+        public string ProctoringLevel { get; set; } = string.Empty;
         public bool IsActive { get; set; }
-        public List<ProctoringEventDto> Events { get; set; } = new();
+        public DateTime StartedAt { get; set; }
+        public int SuspiciousEvents { get; set; }
+        public decimal IntegrityScore { get; set; }
     }
+
+    // IdentityDocumentDto.cs
+    //public class IdentityDocumentDto
+    //{
+    //    [Required]
+    //    public required string DocumentType { get; set; }
+
+    //    [Required]
+    //    public required string DocumentNumber { get; set; }
+
+    //    public DateTime? ExpiryDate { get; set; }
+    //}
+    // === PROCTORING DTOs (Future Enhancement) ===
+
+    //public class ExamProctoringDto
+    //{
+    //    public int AttemptId { get; set; }
+    //    public int ExamId { get; set; }
+    //    public int UserId { get; set; }
+    //    public DateTime StartedAt { get; set; }
+    //    public bool IsActive { get; set; }
+    //    public List<ProctoringEventDto> Events { get; set; } = new();
+    //}
 
     public class ProctoringEventDto
     {
@@ -562,29 +607,29 @@ namespace LearnQuestV1.Api.DTOs.Exam
     /// <summary>
     /// DTO for reporting suspicious activity during exam attempts
     /// </summary>
-    public class SuspiciousActivityDto
-    {
-        [Required(ErrorMessage = "Activity type is required")]
-        [StringLength(100, ErrorMessage = "Activity type cannot exceed 100 characters")]
-        public required string ActivityType { get; set; }
+    //public class SuspiciousActivityDto
+    //{
+    //    [Required(ErrorMessage = "Activity type is required")]
+    //    [StringLength(100, ErrorMessage = "Activity type cannot exceed 100 characters")]
+    //    public required string ActivityType { get; set; }
 
-        [Required(ErrorMessage = "Details are required")]
-        [StringLength(1000, ErrorMessage = "Details cannot exceed 1000 characters")]
-        public required string Details { get; set; }
+    //    [Required(ErrorMessage = "Details are required")]
+    //    [StringLength(1000, ErrorMessage = "Details cannot exceed 1000 characters")]
+    //    public required string Details { get; set; }
 
-        public DateTime? OccurredAt { get; set; } = DateTime.UtcNow;
+    //    public DateTime? OccurredAt { get; set; } = DateTime.UtcNow;
 
-        [StringLength(50, ErrorMessage = "Severity cannot exceed 50 characters")]
-        public string Severity { get; set; } = "Medium"; // Low, Medium, High, Critical
+    //    [StringLength(50, ErrorMessage = "Severity cannot exceed 50 characters")]
+    //    public string Severity { get; set; } = "Medium"; // Low, Medium, High, Critical
 
-        [StringLength(200, ErrorMessage = "User agent cannot exceed 200 characters")]
-        public string? UserAgent { get; set; }
+    //    [StringLength(200, ErrorMessage = "User agent cannot exceed 200 characters")]
+    //    public string? UserAgent { get; set; }
 
-        [StringLength(45, ErrorMessage = "IP address cannot exceed 45 characters")]
-        public string? IpAddress { get; set; }
+    //    [StringLength(45, ErrorMessage = "IP address cannot exceed 45 characters")]
+    //    public string? IpAddress { get; set; }
 
-        public Dictionary<string, object>? AdditionalData { get; set; }
-    }
+    //    public Dictionary<string, object>? AdditionalData { get; set; }
+    //}
 
     /// <summary>
     /// Common activity types for flagging
@@ -621,7 +666,67 @@ namespace LearnQuestV1.Api.DTOs.Exam
 
     public enum ExamType
     {
-        LevelExam = 1,
-        FinalExam = 2
+        FinalExam = 1,
+        LevelExam = 2,
+        MidtermExam = 3,
+        QuizExam = 4,
+        CertificationExam = 5
+    }
+
+    public enum ExamStatus
+    {
+        Draft = 1,
+        Scheduled = 2,
+        Active = 3,
+        InProgress = 4,
+        Completed = 5,
+        Cancelled = 6,
+        Suspended = 7
+    }
+
+    /// <summary>
+    /// Proctoring levels for exams
+    /// </summary>
+    public enum ProctoringLevel
+    {
+        None = 0,
+        Basic = 1,
+        Standard = 2,
+        Advanced = 3,
+        HighSecurity = 4
+    }
+
+    /// <summary>
+    /// Exam security risk levels
+    /// </summary>
+    public enum SecurityRiskLevel
+    {
+        Low = 1,
+        Medium = 2,
+        High = 3,
+        Critical = 4
+    }
+
+    /// <summary>
+    /// Admin action impact levels for auditing
+    /// </summary>
+    public enum AdminActionImpactLevel
+    {
+        Low = 1,
+        Medium = 2,
+        High = 3,
+        Critical = 4
+    }
+
+    /// <summary>
+    /// Exam grading status
+    /// </summary>
+    public enum ExamGradingStatus
+    {
+        Pending = 1,
+        AutoGraded = 2,
+        ManualGrading = 3,
+        Completed = 4,
+        UnderReview = 5
     }
 }

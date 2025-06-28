@@ -197,40 +197,43 @@ namespace LearnQuestV1.EF.Repositories
         public async Task<Quiz?> GetExamWithAttemptsAsync(int examId, int instructorId)
         {
             return await _context.Quizzes
+                .Include(q => q.Course)
+                .Include(q => q.Level)
+                .Include(q => q.QuizAttempts)
+                    .ThenInclude(qa => qa.User)
                 .Include(q => q.QuizAttempts)
                     .ThenInclude(qa => qa.UserAnswers)
-                        .ThenInclude(ua => ua.Question)
-                .Include(q => q.QuizAttempts)
-                    .ThenInclude(qa => qa.UserAnswers)
-                        .ThenInclude(ua => ua.SelectedOption)
-                .FirstOrDefaultAsync(q =>
-                    q.QuizId == examId &&
-                    q.InstructorId == instructorId &&
-                    q.QuizType == QuizType.ExamQuiz);
+                .Where(q => q.QuizId == examId && q.InstructorId == instructorId && q.QuizType == QuizType.ExamQuiz)
+                .FirstOrDefaultAsync();
         }
 
         public async Task<IEnumerable<Quiz>> GetExamQuizzesByCourseAsync(int courseId, int instructorId)
         {
             return await _context.Quizzes
-                .Include(q => q.QuizAttempts)       // يحشّي كل المحاولات
-                .Where(q => q.CourseId == courseId
-                         && q.InstructorId == instructorId
-                         && q.QuizType == QuizType.ExamQuiz)
+                .Include(q => q.Course)
+                .Include(q => q.Level)
+                .Include(q => q.QuizAttempts)
+                    .ThenInclude(qa => qa.User)
+                .Where(q => q.CourseId == courseId && q.InstructorId == instructorId && q.QuizType == QuizType.ExamQuiz)
+                .OrderByDescending(q => q.CreatedAt)
                 .ToListAsync();
         }
 
         public async Task<Quiz?> GetExamWithQuestionsAndAttemptsAsync(int examId, int instructorId)
         {
             return await _context.Quizzes
+                .Include(q => q.Course)
+                .Include(q => q.Level)
                 .Include(q => q.QuizQuestions)
                     .ThenInclude(qq => qq.Question)
-                        .ThenInclude(qu => qu.QuestionOptions)
+                        .ThenInclude(quest => quest.QuestionOptions)
+                .Include(q => q.QuizAttempts)
+                    .ThenInclude(qa => qa.User)
                 .Include(q => q.QuizAttempts)
                     .ThenInclude(qa => qa.UserAnswers)
-                .FirstOrDefaultAsync(q =>
-                    q.QuizId == examId
-                 && q.InstructorId == instructorId
-                 && q.QuizType == QuizType.ExamQuiz);
+                        .ThenInclude(ua => ua.Question)
+                .Where(q => q.QuizId == examId && q.InstructorId == instructorId && q.QuizType == QuizType.ExamQuiz)
+                .FirstOrDefaultAsync();
         }
 
     }

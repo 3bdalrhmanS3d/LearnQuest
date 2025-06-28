@@ -178,16 +178,6 @@ namespace LearnQuestV1.Api.DTOs.Exam
 
     // === EMERGENCY & COMMUNICATION DTOs ===
 
-    public class EmergencyActionDto
-    {
-        [Required(ErrorMessage = "Session ID is required")]
-        public int SessionId { get; set; }
-
-        [Required(ErrorMessage = "Reason is required")]
-        [StringLength(500, ErrorMessage = "Reason cannot exceed 500 characters")]
-        public required string Reason { get; set; }
-    }
-
     public class BroadcastMessageDto
     {
         [Required(ErrorMessage = "Session ID is required")]

@@ -8,6 +8,7 @@ using LearnQuestV1.Core.Models.Quiz;
 using LearnQuestV1.EF.Repositories;
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
+using LearnQuestV1.Core.Models.CourseStructure;
 
 namespace LearnQuestV1.Api.Services.Implementations
 {
@@ -672,6 +673,7 @@ namespace LearnQuestV1.Api.Services.Implementations
 
         #region Exam Scheduling (Future Enhancement)
 
+
         public async Task<bool> ScheduleExamAsync(int examId, ScheduleExamDto scheduleDto, int instructorId)
         {
             try
@@ -815,7 +817,7 @@ namespace LearnQuestV1.Api.Services.Implementations
                 ExamId = quiz.QuizId,
                 Title = quiz.Title,
                 Description = quiz.Description,
-                ExamType = ConvertToExamType(quiz),
+                ExamType = quiz.QuizType == QuizType.LevelQuiz ? ExamType.LevelExam : ExamType.FinalExam,
                 LevelId = quiz.LevelId,
                 LevelName = quiz.LevelName,
                 CourseId = quiz.CourseId,
@@ -850,7 +852,7 @@ namespace LearnQuestV1.Api.Services.Implementations
             {
                 ExamId = quiz.QuizId,
                 Title = quiz.Title,
-                ExamType = ConvertToExamType(quiz),
+                ExamType = quiz.QuizType == QuizType.LevelQuiz ? ExamType.LevelExam : ExamType.FinalExam,
                 TotalQuestions = quiz.TotalQuestions,
                 TotalPoints = quiz.TotalPoints,
                 PassingScore = quiz.PassingScore,
@@ -1027,7 +1029,7 @@ namespace LearnQuestV1.Api.Services.Implementations
 
         private ExamType ConvertToExamType(QuizResponseDto quiz)
         {
-            return quiz.LevelId.HasValue ? ExamType.LevelExam : ExamType.FinalExam;
+            return quiz.QuizType == QuizType.LevelQuiz ? ExamType.LevelExam : ExamType.FinalExam;
         }
 
         private ExamType ConvertToExamType(QuizSummaryDto quiz)

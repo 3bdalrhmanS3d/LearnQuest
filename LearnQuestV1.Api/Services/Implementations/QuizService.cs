@@ -179,12 +179,152 @@ namespace LearnQuestV1.Api.Services.Implementations
 
         public async Task<QuizAttemptResponseDto?> GetCurrentQuizAttemptAsync(int quizId, int userId)
         {
-            // تستخدم المستودع للحصول على المحاولة النشطة إن وجدت
             var activeAttempt = await _quizAttemptRepository.GetActiveAttemptAsync(quizId, userId);
             if (activeAttempt == null) return null;
 
-            // ثمّ تحولها إلى DTO بنفس المنطق الموجود في Start/Submit
-            return _mapper.Map<QuizAttemptResponseDto>(activeAttempt);
+            var attemptDto = _mapper.Map<QuizAttemptResponseDto>(activeAttempt);
+
+            // Add questions for the attempt
+            var questions = await GetQuizQuestionsForAttemptAsync(quizId, userId);
+            attemptDto.Questions = questions.Select(q => _mapper.Map<QuestionResponseDto>(q)).ToList();
+
+            return attemptDto;
+        }
+
+        /// <summary>
+        /// Get quiz questions for attempt (student view - no correct answers shown)
+        /// </summary>
+        /// 
+        /// <summary>
+        /// Get quiz questions for attempt (student view - no correct answers shown)
+        /// </summary>
+        public async Task<IEnumerable<QuizQuestionResponseDto>> GetQuizQuestionsForAttemptAsync(int quizId, int userId)
+        {
+            // Verify user can access quiz
+            if (!await CanUserAccessQuizAsync(quizId, userId))
+                throw new UnauthorizedAccessException("Access denied to quiz questions");
+
+            var quiz = await _unitOfWork.Quizzes.GetQuizWithQuestionsAsync(quizId);
+            if (quiz == null || !quiz.IsActive)
+                throw new ArgumentException("Quiz not found or inactive");
+
+            var quizQuestions = quiz.QuizQuestions.OrderBy(qq => qq.OrderIndex).ToList();
+            var questionDtos = _mapper.Map<List<QuizQuestionResponseDto>>(quizQuestions);
+
+            // Hide correct answers and explanations for active attempt
+            foreach (var dto in questionDtos)
+            {
+                dto.Explanation = null; // Hidden during attempt
+                foreach (var option in dto.Options)
+                {
+                    option.IsCorrect = null; // Hidden during attempt
+                }
+            }
+
+            return questionDtos;
+        }
+
+        /// <summary>
+        /// Get quiz questions with answers revealed (instructor view or post-completion)
+        /// </summary>
+        public async Task<IEnumerable<QuizQuestionResponseDto>> GetQuizQuestionsWithAnswersAsync(int quizId, int instructorId)
+        {
+            var quiz = await _unitOfWork.Quizzes.GetQuizWithQuestionsAsync(quizId);
+            if (quiz == null || quiz.InstructorId != instructorId)
+                throw new UnauthorizedAccessException("Access denied to quiz questions");
+
+            var quizQuestions = quiz.QuizQuestions.OrderBy(qq => qq.OrderIndex).ToList();
+            var questionDtos = _mapper.Map<List<QuizQuestionResponseDto>>(quizQuestions);
+
+            // Show correct answers and explanations for instructor
+            foreach (var dto in questionDtos)
+            {
+                foreach (var option in dto.Options)
+                {
+                    var originalOption = quiz.QuizQuestions
+                        .SelectMany(qq => qq.Question.QuestionOptions)
+                        .FirstOrDefault(o => o.OptionId == option.OptionId);
+                    option.IsCorrect = originalOption?.IsCorrect;
+                }
+            }
+
+            return questionDtos;
+        }
+
+        /// <summary>
+        /// Get question statistics for analytics
+        /// </summary>
+        public async Task<QuizQuestionStatsDto?> GetQuestionStatisticsAsync(int questionId, int instructorId)
+        {
+            var question = await _unitOfWork.Questions.GetQuestionWithOptionsAsync(questionId);
+            if (question == null || question.InstructorId != instructorId)
+                return null;
+
+            var statsDto = _mapper.Map<QuizQuestionStatsDto>(question);
+
+            // Calculate statistics
+            var allAnswers = await _unitOfWork.UserAnswers
+                .Where(ua => ua.QuestionId == questionId)
+                .Include(ua => ua.SelectedOption)
+                .ToListAsync();
+
+            statsDto.TotalAttempts = allAnswers.Count;
+            statsDto.CorrectAttempts = allAnswers.Count(a => a.IsCorrect);
+            statsDto.AccuracyRate = allAnswers.Any()
+                ? (decimal)statsDto.CorrectAttempts / statsDto.TotalAttempts * 100
+                : 0;
+
+            // Calculate difficulty index (higher percentage = easier question)
+            statsDto.DifficultyIndex = statsDto.AccuracyRate / 100;
+            statsDto.DifficultyLevel = statsDto.AccuracyRate switch
+            {
+                >= 80 => "Easy",
+                >= 60 => "Medium",
+                >= 40 => "Hard",
+                _ => "Very Hard"
+            };
+
+            // Generate recommendations
+            statsDto.Recommendations = GenerateQuestionRecommendations(statsDto);
+
+            return statsDto;
+        }
+        /// <summary>
+        /// Bulk update quiz questions
+        /// </summary>
+        /// 
+        public async Task<bool> BulkUpdateQuizQuestionsAsync(int quizId, BulkQuestionOperationDto operation, int instructorId)
+        {
+            var quiz = await _unitOfWork.Quizzes.GetByIdAsync(quizId);
+            if (quiz == null || quiz.InstructorId != instructorId)
+                return false;
+
+            switch (operation.Operation.ToUpper())
+            {
+                case "ADD":
+                    return await BulkAddQuestionsAsync(quizId, operation.QuestionIds);
+
+                case "REMOVE":
+                    return await BulkRemoveQuestionsAsync(quizId, operation.QuestionIds);
+
+                case "REORDER":
+                    if (operation.Parameters?.ContainsKey("newOrder") == true)
+                    {
+                        var newOrder = (Dictionary<int, int>)operation.Parameters["newOrder"];
+                        return await ReorderQuizQuestionsAsync(quizId, newOrder, instructorId);
+                    }
+                    break;
+
+                case "UPDATE_POINTS":
+                    if (operation.Parameters?.ContainsKey("pointsMap") == true)
+                    {
+                        var pointsMap = (Dictionary<int, int>)operation.Parameters["pointsMap"];
+                        return await BulkUpdateQuestionPointsAsync(quizId, pointsMap);
+                    }
+                    break;
+            }
+
+            return false;
         }
 
         #endregion
@@ -816,6 +956,94 @@ namespace LearnQuestV1.Api.Services.Implementations
             if (scorePercentage < passingScore) return PointSource.QuizCompletion;
             if (scorePercentage == 100) return PointSource.QuizPerfectScore;
             return PointSource.QuizCompletion;
+        }
+
+        public async Task<Quiz?> GetQuizWithQuestionsAsync(int quizId)
+        {
+            return await _unitOfWork.Quizzes.GetQuizWithQuestionsAsync(quizId);
+        }
+
+        private string GenerateOptionAnalysis(QuestionOption option, List<UserAnswer> allAnswers)
+        {
+            if (!allAnswers.Any()) return "No attempts yet";
+
+            var selectionCount = allAnswers.Count(a => a.SelectedOptionId == option.OptionId);
+            var selectionRate = (decimal)selectionCount / allAnswers.Count * 100;
+
+            if (option.IsCorrect)
+            {
+                return selectionRate switch
+                {
+                    >= 80 => "Well understood - most students selected correctly",
+                    >= 60 => "Generally understood - majority selected correctly",
+                    >= 40 => "Some confusion - review this concept",
+                    _ => "Poorly understood - requires attention"
+                };
+            }
+            else
+            {
+                return selectionRate switch
+                {
+                    >= 30 => "Common misconception - consider explaining why this is incorrect",
+                    >= 15 => "Occasional confusion - minor clarification needed",
+                    _ => "Rarely selected - functioning as intended"
+                };
+            }
+        }
+
+        private List<string> GenerateQuestionRecommendations(QuizQuestionStatsDto stats)
+        {
+            var recommendations = new List<string>();
+
+            if (stats.AccuracyRate < 40)
+            {
+                recommendations.Add("Consider reviewing the question clarity and difficulty");
+                recommendations.Add("Provide additional learning materials for this topic");
+            }
+            else if (stats.AccuracyRate > 90)
+            {
+                recommendations.Add("Question may be too easy - consider increasing difficulty");
+                recommendations.Add("Students have mastered this concept well");
+            }
+
+            return recommendations;
+        }
+
+        private async Task<bool> BulkAddQuestionsAsync(int quizId, List<int> questionIds)
+        {
+            foreach (var questionId in questionIds)
+            {
+                await AddQuestionsToQuizAsync(quizId, new List<int> { questionId }, 0);
+            }
+            return true;
+        }
+
+        private async Task<bool> BulkRemoveQuestionsAsync(int quizId, List<int> questionIds)
+        {
+            foreach (var questionId in questionIds)
+            {
+                await RemoveQuestionFromQuizAsync(quizId, questionId, 0);
+            }
+            return true;
+        }
+
+        private async Task<bool> BulkUpdateQuestionPointsAsync(int quizId, Dictionary<int, int> pointsMap)
+        {
+            var quizQuestions = await _unitOfWork.QuizQuestions
+                .Where(qq => qq.QuizId == quizId && pointsMap.ContainsKey(qq.QuestionId))
+                .ToListAsync();
+
+            foreach (var quizQuestion in quizQuestions)
+            {
+                if (pointsMap.TryGetValue(quizQuestion.QuestionId, out var newPoints))
+                {
+                    quizQuestion.CustomPoints = newPoints;
+                    _unitOfWork.QuizQuestions.Update(quizQuestion);
+                }
+            }
+
+            await _unitOfWork.SaveChangesAsync();
+            return true;
         }
     }
 }

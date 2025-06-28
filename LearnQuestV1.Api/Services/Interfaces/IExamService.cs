@@ -77,6 +77,7 @@ namespace LearnQuestV1.Api.Services.Interfaces
         #endregion
 
         #region Exam Scheduling (EXISTING)
+        //Task<int> GetRecentAvailabilityChecksAsync(int examId, int userId, TimeSpan timeWindow);
         Task<bool> ScheduleExamAsync(int examId, ScheduleExamDto scheduleDto, int instructorId);
         Task<IEnumerable<ScheduledExamDto>> GetScheduledExamsAsync(int userId, int? courseId = null);
         Task<bool> CancelScheduledExamAsync(int examId, int instructorId);

@@ -140,9 +140,9 @@ namespace LearnQuestV1.EF.Repositories
         {
             var query = _context.QuizAttempts
                 .Include(qa => qa.Quiz)
+                    .ThenInclude(q => q.Course)
                 .Include(qa => qa.User)
-                .Where(qa => qa.UserId == userId
-                          && qa.Quiz.QuizType == QuizType.ExamQuiz);
+                .Where(qa => qa.UserId == userId && qa.Quiz.QuizType == QuizType.ExamQuiz);
 
             if (courseId.HasValue)
                 query = query.Where(qa => qa.Quiz.CourseId == courseId.Value);
@@ -156,22 +156,23 @@ namespace LearnQuestV1.EF.Repositories
         {
             return await _context.QuizAttempts
                 .Include(qa => qa.Quiz)
+                    .ThenInclude(q => q.Course)
                 .Include(qa => qa.User)
                 .Include(qa => qa.UserAnswers)
                     .ThenInclude(ua => ua.Question)
+                        .ThenInclude(q => q.QuestionOptions)
                 .Include(qa => qa.UserAnswers)
                     .ThenInclude(ua => ua.SelectedOption)
-                .FirstOrDefaultAsync(qa =>
-                    qa.AttemptId == attemptId &&
-                    qa.UserId == userId &&
-                    qa.Quiz.QuizType == QuizType.ExamQuiz);
+                .Where(qa => qa.AttemptId == attemptId && qa.UserId == userId && qa.Quiz.QuizType == QuizType.ExamQuiz)
+                .FirstOrDefaultAsync();
         }
+
         public async Task<IEnumerable<QuizAttempt>> GetExamAttemptsByQuizIdAsync(int quizId, int pageNumber, int pageSize)
         {
             return await _context.QuizAttempts
-                .Include(qa => qa.User)            // جلب بيانات المستخدم
-                .Include(qa => qa.Quiz)            // (اختياري) لو تحتاج بيانات الامتحان
-                .Where(qa => qa.QuizId == quizId)
+                .Include(qa => qa.Quiz)
+                .Include(qa => qa.User)
+                .Where(qa => qa.QuizId == quizId && qa.CompletedAt.HasValue)
                 .OrderByDescending(qa => qa.StartedAt)
                 .Skip((pageNumber - 1) * pageSize)
                 .Take(pageSize)
@@ -181,18 +182,17 @@ namespace LearnQuestV1.EF.Repositories
         public async Task<QuizAttempt?> GetBestExamAttemptAsync(int examId, int userId)
         {
             return await _context.QuizAttempts
-                .Include(qa => qa.Quiz)
-                .Include(qa => qa.User)
-                .Include(qa => qa.UserAnswers)
-                    .ThenInclude(ua => ua.Question)
-                .Include(qa => qa.UserAnswers)
-                    .ThenInclude(ua => ua.SelectedOption)
-                .Where(qa =>
-                    qa.QuizId == examId &&
-                    qa.UserId == userId &&
-                    qa.Quiz.QuizType == QuizType.ExamQuiz)
-                .OrderByDescending(qa => qa.ScorePercentage)
-                .FirstOrDefaultAsync();
+            .Include(qa => qa.Quiz)
+            .Include(qa => qa.User)
+            .Include(qa => qa.UserAnswers)
+                .ThenInclude(ua => ua.Question)
+                    .ThenInclude(q => q.QuestionOptions)
+            .Include(qa => qa.UserAnswers)
+                .ThenInclude(ua => ua.SelectedOption)
+            .Where(qa => qa.QuizId == examId && qa.UserId == userId && qa.CompletedAt.HasValue)
+            .OrderByDescending(qa => qa.ScorePercentage)
+            .ThenByDescending(qa => qa.StartedAt)
+            .FirstOrDefaultAsync();
         }
 
     }

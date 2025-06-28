@@ -219,6 +219,137 @@ namespace LearnQuestV1.Core.DTOs.Quiz
         public List<UpdateQuestionOptionDto>? Options { get; set; }
     }
 
+    /// <summary>
+    /// DTO for quiz questions during quiz attempt (student view)
+    /// </summary>
+    public class QuizQuestionResponseDto
+    {
+        public int QuestionId { get; set; }
+        public required string QuestionText { get; set; }
+        public QuestionType QuestionType { get; set; }
+        public string QuestionTypeName => QuestionType.ToString();
+
+        public bool HasCode { get; set; }
+        public string? CodeSnippet { get; set; }
+        public string? ProgrammingLanguage { get; set; }
+
+        public int Points { get; set; }
+        public int OrderIndex { get; set; }
+
+        // Options for MCQ questions (without showing correct answers during attempt)
+        public List<QuestionOptionResponseDto> Options { get; set; } = new();
+
+        // For instructor view or post-completion analysis
+        public string? Explanation { get; set; }
+
+        // Metadata
+        public DateTime? TimeStarted { get; set; }
+        public bool IsAnswered { get; set; }
+        public bool IsMarkedForReview { get; set; }
+
+        // For analytics (optional)
+        public string? DifficultyLevel { get; set; }
+        public string? Topic { get; set; }
+        public TimeSpan? RecommendedTime { get; set; }
+    }
+
+    /// <summary>
+    /// Enhanced question option DTO for quiz attempts
+    /// </summary>
+    public class QuizQuestionOptionDto
+    {
+        public int OptionId { get; set; }
+        public required string OptionText { get; set; }
+        public int OrderIndex { get; set; }
+
+        // Only shown in specific contexts (instructor view, post-completion)
+        public bool? IsCorrect { get; set; }
+
+        // For analytics
+        public int? SelectionCount { get; set; }
+        public decimal? SelectionPercentage { get; set; }
+    }
+
+    /// <summary>
+    /// DTO for question statistics and analytics
+    /// </summary>
+    public class QuizQuestionStatsDto
+    {
+        public int QuestionId { get; set; }
+        public required string QuestionText { get; set; }
+        public QuestionType QuestionType { get; set; }
+        public int Points { get; set; }
+
+        // Performance metrics
+        public int TotalAttempts { get; set; }
+        public int CorrectAttempts { get; set; }
+        public decimal AccuracyRate { get; set; }
+        public TimeSpan AverageTimeSpent { get; set; }
+
+        // Difficulty analysis
+        public string DifficultyLevel { get; set; } = string.Empty;
+        public decimal DifficultyIndex { get; set; }
+
+        // Option analysis (for MCQ)
+        public List<QuizQuestionOptionStatsDto> OptionStats { get; set; } = new();
+
+        // Recommendations
+        public List<string> Recommendations { get; set; } = new();
+    }
+
+    /// <summary>
+    /// DTO for option-level statistics
+    /// </summary>
+    public class QuizQuestionOptionStatsDto
+    {
+        public int OptionId { get; set; }
+        public required string OptionText { get; set; }
+        public bool IsCorrect { get; set; }
+        public int SelectionCount { get; set; }
+        public decimal SelectionPercentage { get; set; }
+        public string Analysis { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// DTO for bulk question operations
+    /// </summary>
+    public class BulkQuestionOperationDto
+    {
+        [Required]
+        public List<int> QuestionIds { get; set; } = new();
+
+        [Required]
+        public string Operation { get; set; } = string.Empty; // "ADD", "REMOVE", "REORDER", "UPDATE_POINTS"
+
+        public Dictionary<string, object>? Parameters { get; set; }
+
+        public string? Reason { get; set; }
+    }
+
+    /// <summary>
+    /// DTO for question import/export
+    /// </summary>
+    public class QuestionImportDto
+    {
+        public required string QuestionText { get; set; }
+        public QuestionType QuestionType { get; set; }
+        public int Points { get; set; }
+        public string? CodeSnippet { get; set; }
+        public string? ProgrammingLanguage { get; set; }
+        public string? Explanation { get; set; }
+        public string? Topic { get; set; }
+        public string? DifficultyLevel { get; set; }
+
+        public List<QuestionOptionImportDto> Options { get; set; } = new();
+    }
+
+    public class QuestionOptionImportDto
+    {
+        public required string OptionText { get; set; }
+        public bool IsCorrect { get; set; }
+        public int OrderIndex { get; set; }
+    }
+
     public class UpdateQuestionOptionDto
     {
         public int? OptionId { get; set; } // null for new options
@@ -427,4 +558,5 @@ namespace LearnQuestV1.Core.DTOs.Quiz
         public DateTime CreatedAt { get; set; }
         public int UsageCount { get; set; } // How many quizzes use this question
     }
+
 }

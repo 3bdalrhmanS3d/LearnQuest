@@ -65,6 +65,7 @@ namespace LearnQuestV1.Api.Extensions
             // === QUIZ SERVICES ===
             services.AddScoped<IQuizService, QuizService>();
 
+            services.AddScoped<IExamService, ExamService>();
             return services;
         }
 
