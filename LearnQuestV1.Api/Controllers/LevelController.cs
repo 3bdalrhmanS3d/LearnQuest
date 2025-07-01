@@ -4,26 +4,31 @@ using LearnQuestV1.Api.Utilities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
+using System.Security.Cryptography;
 
 namespace LearnQuestV1.Api.Controllers
 {
     [Route("api/levels")]
     [ApiController]
     [Authorize(Roles = "Instructor, Admin")]
+    [Produces("application/json")]
     public class LevelController : ControllerBase
     {
         private readonly ILevelService _levelService;
         private readonly IActionLogService _actionLogService;
         private readonly ILogger<LevelController> _logger;
+        private readonly ISecurityAuditLogger _securityAuditLogger;
 
         public LevelController(
             ILevelService levelService,
             IActionLogService actionLogService,
-            ILogger<LevelController> logger)
+            ILogger<LevelController> logger,
+            ISecurityAuditLogger securityAuditLogger)
         {
             _levelService = levelService;
             _actionLogService = actionLogService;
             _logger = logger;
+            _securityAuditLogger = securityAuditLogger;
         }
 
         /// <summary>
@@ -47,18 +52,22 @@ namespace LearnQuestV1.Api.Controllers
 
             try
             {
-                var newLevelId = await _levelService.CreateLevelAsync(input);
 
                 var userId = User.GetCurrentUserId();
-                if (userId.HasValue)
+                if (!userId.HasValue)
                 {
-                    await _actionLogService.LogAsync(
-                        userId.Value,
-                        null,
-                        "CreateLevel",
-                        $"Created new level '{input.LevelName}' in course {input.CourseId}"
-                    );
+                    _logger.LogWarning("Unauthorized access attempt to create level without user ID.");
+                    return Unauthorized(new { message = "User not authenticated." });
                 }
+
+                var newLevelId = await _levelService.CreateLevelAsync(input);
+
+                await _securityAuditLogger.LogResourceAccessAsync(
+                    userId.Value,
+                    resourceType: "Level",
+                    resourceId: newLevelId,
+                    action: "CREATE",
+                    details: $"name={input.LevelName}, courseId={input.CourseId}");
 
                 _logger.LogInformation("Level created successfully: {LevelId}", newLevelId);
 
@@ -115,18 +124,23 @@ namespace LearnQuestV1.Api.Controllers
 
             try
             {
-                await _levelService.UpdateLevelAsync(input);
 
                 var userId = User.GetCurrentUserId();
-                if (userId.HasValue)
+                if (userId == null)
                 {
-                    await _actionLogService.LogAsync(
-                        userId.Value,
-                        null,
-                        "UpdateLevel",
-                        $"Updated level with ID {levelId}"
-                    );
+                    _logger.LogWarning("Unauthorized access attempt to update level without user ID.");
+                    return Unauthorized(new { message = "User not authenticated." });
                 }
+
+                await _levelService.UpdateLevelAsync(input);
+
+                await _securityAuditLogger.LogContentModificationAsync(
+                    userId.Value,
+                    contentId: levelId,
+                    changes: "Name/Order etc.",
+                    previousValues: new Dictionary<string, object> { ["LevelName"] = input.LevelName },
+                    newValues: new Dictionary<string, object> { ["LevelName"] = input.LevelName });
+
 
                 _logger.LogInformation("Level updated successfully: {LevelId}", levelId);
                 return Ok(new { message = "Level updated successfully" });
@@ -169,18 +183,22 @@ namespace LearnQuestV1.Api.Controllers
         {
             try
             {
+                var userId = User.GetCurrentUserId();
+
+                if (userId == null)
+                {
+                    _logger.LogWarning("Unauthorized access attempt to delete level without user ID.");
+                    return Unauthorized(new { message = "User not authenticated." });
+                }
+
                 await _levelService.DeleteLevelAsync(levelId);
 
-                var userId = User.GetCurrentUserId();
-                if (userId.HasValue)
-                {
-                    await _actionLogService.LogAsync(
-                        userId.Value,
-                        null,
-                        "DeleteLevel",
-                        $"Soft-deleted level with ID {levelId}"
-                    );
-                }
+                await _securityAuditLogger.LogResourceAccessAsync(
+                    userId.Value,
+                    resourceType: "Level",
+                    resourceId: levelId,
+                    action: "DELETE",
+                    details: $"Deleted level with ID {levelId}");
 
                 _logger.LogInformation("Level deleted successfully: {LevelId}", levelId);
                 return Ok(new { message = "Level deleted successfully" });
@@ -224,6 +242,16 @@ namespace LearnQuestV1.Api.Controllers
             try
             {
                 var details = await _levelService.GetLevelDetailsAsync(levelId);
+
+                if (details == null)
+                    return NotFound(new { message = $"Level with ID {levelId} not found." });
+
+                await _securityAuditLogger.LogResourceAccessAsync(
+                    User.GetCurrentUserId() ?? 0,
+                    resourceType: "Level",
+                    resourceId: levelId,
+                    action: "READ",
+                    details: $"Retrieved details for level {levelId}");
 
                 _logger.LogInformation("Retrieved details for level {LevelId}", levelId);
                 return Ok(new
@@ -277,6 +305,13 @@ namespace LearnQuestV1.Api.Controllers
 
                 if (levels == null || !levels.Any())
                     return NotFound(new { message = $"No levels found for course with ID {courseId}." });
+
+                await _securityAuditLogger.LogResourceAccessAsync(
+                    User.GetCurrentUserId() ?? 0,
+                    resourceType: "Course",
+                    resourceId: courseId,
+                    action: "READ",
+                    details: $"Retrieved levels for course {courseId}, includeHidden={includeHidden}");
 
                 _logger.LogInformation("Retrieved {Count} levels for course {CourseId}", levels.Count(), courseId);
                 return Ok(new

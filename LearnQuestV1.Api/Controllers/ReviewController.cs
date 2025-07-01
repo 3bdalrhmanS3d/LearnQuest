@@ -47,6 +47,17 @@ namespace LearnQuestV1.Api.Controllers
             try
             {
                 var review = await _reviewService.CreateReviewAsync(userId.Value, createReviewDto);
+
+                await _securityAuditLogger.LogResourceAccessAsync(
+                    userId.Value,
+                    resourceType: "Review",
+                    resourceId: review.ReviewId,
+                    action: "CREATE",
+                    details: $"courseId={createReviewDto.CourseId}, rating={createReviewDto.Rating}");
+
+                _logger.LogInformation("Review created successfully by user {UserId} for course {CourseId}",
+                    userId, createReviewDto.CourseId);
+
                 return CreatedAtAction(nameof(GetReviewById), new { reviewId = review.ReviewId }, new
                 {
                     message = "Review created successfully",
@@ -55,6 +66,8 @@ namespace LearnQuestV1.Api.Controllers
             }
             catch (InvalidOperationException ex)
             {
+                _logger.LogWarning(ex, "Review creation failed for user {UserId} on course {CourseId}",
+                    userId, createReviewDto.CourseId);
                 return BadRequest(new { message = ex.Message });
             }
             catch (Exception ex)
@@ -83,6 +96,19 @@ namespace LearnQuestV1.Api.Controllers
             try
             {
                 var review = await _reviewService.UpdateReviewAsync(userId.Value, reviewId, updateReviewDto);
+
+                if (review == null)
+                {
+                    return NotFound(new { message = "Review not found or you do not have permission to update it" });
+                }
+                await _securityAuditLogger.LogResourceAccessAsync(
+                    userId.Value,
+                    resourceType: "Review",
+                    resourceId: review.ReviewId,
+                    action: "UPDATE",
+                    details: $"rating={updateReviewDto.Rating}, comment={updateReviewDto.ReviewComment}");
+
+                _logger.LogInformation("Review {ReviewId} updated successfully by user {UserId}", reviewId, userId);
                 return Ok(new
                 {
                     message = "Review updated successfully",
@@ -91,6 +117,7 @@ namespace LearnQuestV1.Api.Controllers
             }
             catch (KeyNotFoundException ex)
             {
+                _logger.LogWarning(ex, "Review {ReviewId} not found for user {UserId}", reviewId, userId);
                 return NotFound(new { message = ex.Message });
             }
             catch (Exception ex)
@@ -115,10 +142,20 @@ namespace LearnQuestV1.Api.Controllers
             try
             {
                 await _reviewService.DeleteReviewAsync(userId.Value, reviewId);
+                await _securityAuditLogger.LogResourceAccessAsync(
+                    userId.Value,
+                    resourceType: "Review",
+                    resourceId: reviewId,
+                    action: "DELETE",
+                    details: $"Deleted by user {userId}");
+
+                _logger.LogInformation("Review {ReviewId} deleted successfully by user {UserId}", reviewId, userId);
+
                 return Ok(new { message = "Review deleted successfully" });
             }
             catch (KeyNotFoundException ex)
             {
+                _logger.LogWarning(ex, "Review {ReviewId} not found for user {UserId}", reviewId, userId);
                 return NotFound(new { message = ex.Message });
             }
             catch (Exception ex)
@@ -139,6 +176,17 @@ namespace LearnQuestV1.Api.Controllers
             {
                 var userId = User.GetCurrentUserId();
                 var review = await _reviewService.GetReviewByIdAsync(reviewId, userId);
+                if (review == null) return NotFound(new { message = "Review not found" });
+
+                await _securityAuditLogger.LogResourceAccessAsync(
+                    userId,
+                    resourceType: "Review",
+                    resourceId: review.ReviewId,
+                    action: "READ",
+                    details: $"Retrieved review for course {review.CourseId}");
+
+                _logger.LogInformation("Review {ReviewId} retrieved successfully", reviewId);
+
                 return Ok(new
                 {
                     message = "Review retrieved successfully",
@@ -147,6 +195,7 @@ namespace LearnQuestV1.Api.Controllers
             }
             catch (KeyNotFoundException ex)
             {
+                _logger.LogWarning(ex, "Review {ReviewId} not found", reviewId);
                 return NotFound(new { message = ex.Message });
             }
             catch (Exception ex)
@@ -177,6 +226,21 @@ namespace LearnQuestV1.Api.Controllers
                 if (pageSize > 100) pageSize = 100; // Limit page size
 
                 var reviews = await _reviewService.GetCourseReviewsAsync(courseId, pageNumber, pageSize, sortBy, sortOrder);
+
+                if (reviews == null)
+                {
+                    return NotFound(new { message = "No reviews found for this course" });
+                }
+
+                await _securityAuditLogger.LogResourceAccessAsync(
+                    null, // No user ID for public access
+                    resourceType: "Course",
+                    resourceId: courseId,
+                    action: "READ",
+                    details: $"Retrieved reviews for course {courseId}");
+
+                _logger.LogInformation("Course reviews retrieved successfully for course {CourseId}", courseId);
+
                 return Ok(new
                 {
                     message = "Course reviews retrieved successfully",
@@ -185,6 +249,7 @@ namespace LearnQuestV1.Api.Controllers
             }
             catch (KeyNotFoundException ex)
             {
+                _logger.LogWarning(ex, "Course {CourseId} not found", courseId);
                 return NotFound(new { message = ex.Message });
             }
             catch (Exception ex)
@@ -201,10 +266,25 @@ namespace LearnQuestV1.Api.Controllers
         [HttpPost("course/{courseId}/filter")]
         public async Task<IActionResult> GetCourseReviewsWithFilter(int courseId, [FromBody] ReviewFilterDto filter)
         {
+
             try
             {
                 filter.CourseId = courseId; // Ensure course ID is set
                 var reviews = await _reviewService.GetCourseReviewsWithFilterAsync(courseId, filter);
+                if (reviews == null)
+                {
+                    return NotFound(new { message = "No reviews found for this course with the specified filters" });
+                }
+
+                await _securityAuditLogger.LogResourceAccessAsync(
+                    null, // No user ID for public access
+                    resourceType: "Course",
+                    resourceId: courseId,
+                    action: "READ",
+                    details: $"Retrieved filtered reviews for course {courseId}");
+
+                _logger.LogInformation("Filtered course reviews retrieved successfully for course {CourseId}", courseId);
+
                 return Ok(new
                 {
                     message = "Filtered course reviews retrieved successfully",
@@ -267,6 +347,9 @@ namespace LearnQuestV1.Api.Controllers
             {
                 if (pageSize > 100) pageSize = 100;
 
+                _logger.LogInformation("Retrieving reviews for user {UserId} - Page {PageNumber}, Size {PageSize}",
+                    userId, pageNumber, pageSize);
+
                 var reviews = await _reviewService.GetUserReviewsAsync(userId.Value, pageNumber, pageSize);
                 return Ok(new
                 {
@@ -296,6 +379,17 @@ namespace LearnQuestV1.Api.Controllers
             try
             {
                 var review = await _reviewService.GetUserReviewForCourseAsync(userId.Value, courseId);
+                _logger.LogInformation("Retrieving review for user {UserId} on course {CourseId}", userId, courseId);
+
+                await _securityAuditLogger.LogResourceAccessAsync(
+                    userId.Value,
+                    resourceType: "Course",
+                    resourceId: courseId,
+                    action: "READ",
+                    details: $"Retrieved user review for course {courseId}");
+
+                _logger.LogInformation("User {UserId} review for course {CourseId} retrieved successfully", userId, courseId);
+
                 if (review == null)
                 {
                     return NotFound(new { message = "You have not reviewed this course yet" });
