@@ -140,7 +140,7 @@ namespace LearnQuestV1.Api.Services.Interfaces
         /// <param name="action">Action performed (CREATE, READ, UPDATE, DELETE)</param>
         /// <param name="details">Additional details about the action</param>
         /// <param name="success">Whether the action was successful</param>
-        Task LogResourceAccessAsync(int userId, string resourceType, int resourceId, string action, string? details = null, bool success = true); // +
+        Task LogResourceAccessAsync(int? userId, string resourceType, int resourceId, string action, string? details = null, bool success = true); // +
 
         /// <summary>
         /// Logs suspicious activities that may indicate security threats

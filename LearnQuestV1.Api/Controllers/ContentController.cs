@@ -5,7 +5,6 @@ using LearnQuestV1.Core.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-using System.ComponentModel.DataAnnotations;
 
 namespace LearnQuestV1.Api.Controllers
 {
@@ -69,6 +68,17 @@ namespace LearnQuestV1.Api.Controllers
                 await _actionLogService.LogAsync(userId.Value, null, "CreateContent",
                     $"Created content with ID {newId} under section {input.SectionId}");
 
+                await _securityAuditLogger.LogContentCreationAsync(
+                    userId.Value,
+                    newId,
+                    input.ContentType.ToString(),
+                    input.SectionId,
+                    input.Title,
+                    metadata: new Dictionary<string, object>
+                    {
+                        ["SectionOrder"] = input.SectionId
+                    });
+
                 _logger.LogInformation("Content created successfully with ID {ContentId} by user {UserId}",
                     newId, userId.Value);
 
@@ -90,6 +100,13 @@ namespace LearnQuestV1.Api.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
+                await _securityAuditLogger.LogAuthorizationEventAsync(
+                    userId.Value,
+                    "CreateContent",
+                    $"Section:{input.SectionId}",
+                    success: false,
+                    denialReason: ex.Message);
+
                 _logger.LogWarning(ex, "Unauthorized content creation attempt by user {UserId}", userId);
                 return Forbid(ex.Message);
             }
@@ -126,6 +143,13 @@ namespace LearnQuestV1.Api.Controllers
                 await _actionLogService.LogAsync(userId.Value, null, "UpdateContent",
                     $"Updated content with ID {input.ContentId}");
 
+                await _securityAuditLogger.LogContentModificationAsync(
+                userId.Value,
+                input.ContentId,
+                changes: "Updated title/description",
+                previousValues: new Dictionary<string, object> { ["Title"] = input.Title },
+                newValues: new Dictionary<string, object> { ["Title"] = input.Title });
+
                 _logger.LogInformation("Content updated successfully with ID {ContentId} by user {UserId}",
                     input.ContentId, userId.Value);
 
@@ -143,6 +167,13 @@ namespace LearnQuestV1.Api.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
+                await _securityAuditLogger.LogAuthorizationEventAsync(
+                    userId.Value,
+                    "UpdateContent",
+                    $"Content:{input.ContentId}",
+                    success: false,
+                    denialReason: ex.Message);
+
                 _logger.LogWarning(ex, "Unauthorized content update attempt by user {UserId}", userId);
                 return Forbid(ex.Message);
             }
@@ -160,7 +191,7 @@ namespace LearnQuestV1.Api.Controllers
         /// <param name="contentId">Content ID to delete</param>
         /// <returns>Success confirmation</returns>
         [HttpDelete("{contentId}")]
-        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> DeleteContent(int contentId)
@@ -171,11 +202,18 @@ namespace LearnQuestV1.Api.Controllers
 
             try
             {
+
                 await _contentService.DeleteContentAsync(contentId, userId.Value);
 
                 await _actionLogService.LogAsync(userId.Value, null, "DeleteContent",
                     $"Deleted content with ID {contentId}");
 
+                await _securityAuditLogger.LogContentDeletionAsync(
+                    userId.Value,
+                    contentId,
+                    title: "deletedTitle",
+                    deletionType: "Soft",
+                    reason: "Instructor request");
                 _logger.LogInformation("Content deleted successfully with ID {ContentId} by user {UserId}",
                     contentId, userId.Value);
 
@@ -188,6 +226,12 @@ namespace LearnQuestV1.Api.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
+                await _securityAuditLogger.LogAuthorizationEventAsync(
+                    userId.Value,
+                    "DeleteContent",
+                    $"Content:{contentId}",
+                    success: false,
+                    denialReason: ex.Message);
                 _logger.LogWarning(ex, "Unauthorized content deletion attempt by user {UserId}", userId);
                 return Forbid(ex.Message);
             }
@@ -217,14 +261,38 @@ namespace LearnQuestV1.Api.Controllers
             try
             {
                 var content = await _contentService.GetContentDetailsAsync(contentId, userId.Value);
+
+                if (content == null)
+                    throw new KeyNotFoundException($"Content with ID {contentId} not found");
+
+                await _securityAuditLogger.LogResourceAccessAsync(
+                    userId.Value,
+                    resourceType: "Content",
+                    resourceId: contentId,
+                    action: "READ",
+                    details: null,
+                    success: true);
+
+                _logger.LogInformation("Content details retrieved successfully for ID {ContentId} by user {UserId}",
+                    contentId, userId.Value);
+
                 return Ok(ApiResponse.Success(content));
             }
             catch (KeyNotFoundException ex)
             {
+                _logger.LogWarning(ex, "Failed to get content details: {Message}", ex.Message);
                 return NotFound(ApiResponse.Error(ex.Message));
             }
             catch (UnauthorizedAccessException ex)
             {
+                await _securityAuditLogger.LogAuthorizationEventAsync(
+                    userId.Value,
+                    "GetContentDetails",
+                    $"Content:{contentId}",
+                    success: false,
+                    denialReason: ex.Message);
+
+                _logger.LogWarning(ex, "Unauthorized content details access attempt by user {UserId}", userId);
                 return Forbid(ex.Message);
             }
             catch (Exception ex)
@@ -254,6 +322,13 @@ namespace LearnQuestV1.Api.Controllers
         [ProducesResponseType(StatusCodes.Status413PayloadTooLarge)]
         public async Task<IActionResult> UploadFile([FromForm] UploadFileDto request)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ApiResponse.Error("Invalid input data", ModelState));
+
+            var userId = User.GetCurrentUserId();
+            if (userId == null)
+                return Unauthorized(ApiResponse.Error("Invalid or missing token"));
+
             var file = request.File;
             var type = request.Type;
 
@@ -270,6 +345,14 @@ namespace LearnQuestV1.Api.Controllers
                 _logger.LogInformation("File uploaded successfully: {FileName} -> {Url}",
                     file.FileName, url);
 
+                await _securityAuditLogger.LogFileUploadAsync(
+                    userId.Value,
+                    file.FileName,
+                    file.Length,
+                    file.ContentType,
+                    uploadPath: url,
+                    success: true);
+
                 return Ok(ApiResponse.Success(new
                 {
                     message = "File uploaded successfully",
@@ -280,6 +363,13 @@ namespace LearnQuestV1.Api.Controllers
             }
             catch (ArgumentException ex)
             {
+                await _securityAuditLogger.LogSuspiciousActivityAsync(
+                    userId.Value,
+                    activityType: "InvalidFileUpload",
+                    description: ex.Message,
+                    riskLevel: SecurityRiskLevel.Low,
+                    ipAddress: HttpContext.Connection.RemoteIpAddress?.ToString());
+
                 _logger.LogWarning(ex, "File upload validation failed: {Message}", ex.Message);
                 return BadRequest(ApiResponse.Error(ex.Message));
             }
@@ -302,10 +392,13 @@ namespace LearnQuestV1.Api.Controllers
         [EnableRateLimiting("BulkFileUploadPolicy")]
         [ProducesResponseType(typeof(ApiResponse<IEnumerable<ContentFileUploadResultDto>>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> UploadMultipleFiles(
-            [FromForm] IEnumerable<IFormFile> files,
-            [FromQuery] ContentType type)
+        public async Task<IActionResult> UploadMultipleFiles( [FromForm] IEnumerable<IFormFile> files, [FromQuery] ContentType type)
         {
+
+            var userId = User.GetCurrentUserId();
+            if (userId == null)
+                return Unauthorized(ApiResponse.Error("Invalid or missing token"));
+
             if (files == null || !files.Any())
                 return BadRequest(ApiResponse.Error("At least one file is required"));
 
@@ -318,6 +411,10 @@ namespace LearnQuestV1.Api.Controllers
 
                 var successCount = results.Count(r => r.Success);
                 var failureCount = results.Count(r => !r.Success);
+
+                
+                await _actionLogService.LogAsync(userId.Value, null, "UploadMultipleFiles",
+                    $"Uploaded {files.Count()} files of type {type} with {successCount} successes and {failureCount} failures");
 
                 _logger.LogInformation("Multiple file upload completed: {SuccessCount} successful, {FailureCount} failed",
                     successCount, failureCount);
@@ -344,9 +441,25 @@ namespace LearnQuestV1.Api.Controllers
             if (string.IsNullOrWhiteSpace(filePath))
                 return BadRequest(ApiResponse.Error("File path is required"));
 
+            var userId = User.GetCurrentUserId();
+            if (userId == null)
+                return Unauthorized(ApiResponse.Error("Invalid or missing token"));
+
             try
             {
                 var fileInfo = await _contentService.GetContentFileInfoAsync(filePath);
+                if (fileInfo == null)
+                    return NotFound(ApiResponse.Error($"File not found: {filePath}"));
+
+                await _securityAuditLogger.LogFileAccessAsync(
+                    userId.Value,
+                    filePath,
+                    Path.GetFileName(filePath),
+                    accessType: "INFO",
+                    contentId: null);
+
+                _logger.LogInformation("File info retrieved successfully for {FilePath}", filePath);
+
                 return Ok(ApiResponse.Success(fileInfo));
             }
             catch (Exception ex)
@@ -387,10 +500,20 @@ namespace LearnQuestV1.Api.Controllers
 
                 _logger.LogInformation("Contents reordered successfully by user {UserId}", userId.Value);
 
+                await _securityAuditLogger.LogResourceAccessAsync(
+                    userId.Value,
+                    resourceType: "Content",
+                    resourceId: 0,
+                    action: "UPDATE_ORDER",
+                    details: $"Reordered {input.Length} items");
+
                 return Ok(ApiResponse.Success(new { message = "Contents reordered successfully" }));
             }
             catch (UnauthorizedAccessException ex)
             {
+                await _securityAuditLogger.LogAuthorizationEventAsync(
+                         userId.Value, "ReorderContents", "Content", success: false, denialReason: ex.Message);
+
                 _logger.LogWarning(ex, "Unauthorized content reorder attempt by user {UserId}", userId);
                 return Forbid(ex.Message);
             }
@@ -426,10 +549,17 @@ namespace LearnQuestV1.Api.Controllers
                 _logger.LogInformation("Content visibility toggled for ID {ContentId} by user {UserId} to {IsVisible}",
                     contentId, userId.Value, newVisibility);
 
+                await _securityAuditLogger.LogContentVisibilityChangeAsync(
+                    userId.Value,
+                    contentId,
+                    previousVisibility: !newVisibility,
+                    newVisibility: newVisibility,
+                    reason: "Instructor toggle");
+
                 return Ok(ApiResponse.Success(new
                 {
                     message = "Content visibility toggled successfully",
-                    contentId = contentId,
+                    ContentId = contentId,
                     isVisible = newVisibility
                 }));
             }
@@ -439,6 +569,14 @@ namespace LearnQuestV1.Api.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
+                await _securityAuditLogger.LogAuthorizationEventAsync(
+                    userId.Value,
+                    "ToggleContentVisibility",
+                    $"Content:{contentId}",
+                    success: false,
+                    denialReason: ex.Message);
+
+                _logger.LogWarning(ex, "Unauthorized content visibility toggle attempt by user {UserId}", userId);
                 return Forbid(ex.Message);
             }
             catch (Exception ex)
@@ -478,6 +616,13 @@ namespace LearnQuestV1.Api.Controllers
                 await _actionLogService.LogAsync(userId.Value, null, "BulkToggleVisibility",
                     $"Bulk visibility toggle: {result.SuccessfulActions} successful, {result.FailedActions} failed");
 
+                await _securityAuditLogger.LogBulkContentOperationAsync(
+                    userId.Value,
+                    operation: "BulkToggleVisibility",
+                    contentIds: request.ContentIds,
+                    successCount: result.SuccessfulActions,
+                    failureCount: result.FailedActions);
+
                 return Ok(ApiResponse.Success(result, "Bulk visibility toggle completed"));
             }
             catch (Exception ex)
@@ -509,6 +654,19 @@ namespace LearnQuestV1.Api.Controllers
             try
             {
                 var contents = await _contentService.GetSectionContentsAsync(sectionId, userId.Value);
+                if (contents == null || !contents.Any())
+                    throw new KeyNotFoundException($"No contents found for section {sectionId}");
+
+                await _securityAuditLogger.LogResourceAccessAsync(
+                    userId.Value,
+                    resourceType: "Section",
+                    resourceId: sectionId,
+                    action: "READ",
+                    details: $"Fetched {contents.Count()} items");
+
+                _logger.LogInformation("Section contents retrieved successfully for section {SectionId} by user {UserId}",
+                    sectionId, userId.Value);
+
                 return Ok(ApiResponse.Success(contents));
             }
             catch (KeyNotFoundException ex)
@@ -517,6 +675,15 @@ namespace LearnQuestV1.Api.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
+                await _securityAuditLogger.LogAuthorizationEventAsync(
+                    userId.Value,
+                    "GetSectionContents",
+                    $"Section:{sectionId}",
+                    success: false,
+                    denialReason: ex.Message);
+
+                _logger.LogWarning(ex, "Unauthorized section contents access attempt by user {UserId}", userId);
+
                 return Forbid(ex.Message);
             }
             catch (Exception ex)
@@ -549,14 +716,31 @@ namespace LearnQuestV1.Api.Controllers
             try
             {
                 var stats = await _contentService.GetContentStatsAsync(contentId, userId.Value);
+
+                _logger.LogInformation("Content stats retrieved successfully for ID {ContentId} by user {UserId}",
+                    contentId, userId.Value);
+
+                await _securityAuditLogger.LogResourceAccessAsync(
+                    userId.Value, "ContentStats", contentId, action: "READ_STATS");
+
                 return Ok(ApiResponse.Success(stats));
             }
             catch (KeyNotFoundException ex)
             {
+                _logger.LogWarning(ex, "Failed to get content stats: {Message}", ex.Message);
                 return NotFound(ApiResponse.Error(ex.Message));
             }
             catch (UnauthorizedAccessException ex)
             {
+                await _securityAuditLogger.LogAuthorizationEventAsync(
+                    userId.Value,
+                    "GetContentStats",
+                    $"Content:{contentId}",
+                    success: false,
+                    denialReason: ex.Message);
+
+                _logger.LogWarning(ex, "Unauthorized content stats access attempt by user {UserId}", userId);
+
                 return Forbid(ex.Message);
             }
             catch (Exception ex)
@@ -584,6 +768,19 @@ namespace LearnQuestV1.Api.Controllers
             try
             {
                 var stats = await _contentService.GetSystemContentStatsAsync();
+
+                if (stats == null)
+                    throw new NotImplementedException("System content statistics are not yet implemented");
+
+                await _securityAuditLogger.LogAdministrativeActionAsync(
+                    adminId: User.GetCurrentUserId()!.Value,
+                    action: "GetSystemContentStats",
+                    targetType: "System",
+                    targetId: null,
+                    description: "Fetched system-wide content statistics",
+                    impactLevel: AdminActionImpactLevel.Medium);
+
+                _logger.LogInformation("System content statistics retrieved successfully");
                 return Ok(ApiResponse.Success(stats));
             }
             catch (NotImplementedException)
@@ -611,6 +808,20 @@ namespace LearnQuestV1.Api.Controllers
             try
             {
                 var results = await _contentService.GetAllContentsForAdminAsync(filter);
+
+                if (results == null )
+                    throw new NotImplementedException("Admin content search is not yet implemented");
+
+                await _securityAuditLogger.LogAdministrativeActionAsync(
+                    adminId: User.GetCurrentUserId()!.Value,
+                    action: "GetAllContentsForAdmin",
+                    targetType: "Content",
+                    targetId: null,
+                    description: "Fetched all contents with filtering for admin",
+                    impactLevel: AdminActionImpactLevel.High);
+
+                _logger.LogInformation("Admin content search completed successfully with {Count} results", results.TotalCount);
+
                 return Ok(ApiResponse.Success(results));
             }
             catch (NotImplementedException)
@@ -645,21 +856,37 @@ namespace LearnQuestV1.Api.Controllers
             try
             {
                 var hasAccess = await _contentService.ValidateContentAccessAsync(contentId, userId.Value);
+
+                if (hasAccess)
+                    await _securityAuditLogger.LogResourceAccessAsync(
+                        userId.Value,
+                        resourceType: "Content",
+                        resourceId: contentId,
+                        action: "ACCESS",
+                        details: "Access validated successfully",
+                        success: true);
+                else
+                    await _securityAuditLogger.LogAuthorizationEventAsync(
+                        userId.Value,
+                        "ValidateContentAccess",
+                        $"Content:{contentId}",
+                        success: false,
+                        denialReason: "User does not have access to this content");
+
                 return Ok(ApiResponse.Success(new
                 {
-                    contentId = contentId,
-                    hasAccess = hasAccess,
-                    message = hasAccess ? "Access granted" : "Access denied"
+                    ContentId = contentId,
+                    HasAccess = hasAccess,
+                    Message = hasAccess ? "Access granted" : "Access denied"
                 }));
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Unexpected error validating content access {ContentId} for user {UserId}",
                     contentId, userId);
+
                 return StatusCode(500, ApiResponse.Error("An unexpected error occurred"));
             }
         }
-    }
-
-    
+    }   
 }

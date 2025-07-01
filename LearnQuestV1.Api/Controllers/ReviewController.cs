@@ -16,11 +16,13 @@ namespace LearnQuestV1.Api.Controllers
     {
         private readonly IReviewService _reviewService;
         private readonly ILogger<ReviewController> _logger;
+        private readonly ISecurityAuditLogger _securityAuditLogger;
 
-        public ReviewController(IReviewService reviewService, ILogger<ReviewController> logger)
+        public ReviewController(IReviewService reviewService, ILogger<ReviewController> logger, ISecurityAuditLogger securityAuditLogger)
         {
             _reviewService = reviewService;
             _logger = logger;
+            _securityAuditLogger = securityAuditLogger;
         }
 
         // =====================================================

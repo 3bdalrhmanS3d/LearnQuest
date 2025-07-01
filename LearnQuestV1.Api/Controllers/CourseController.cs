@@ -5,7 +5,6 @@ using LearnQuestV1.Api.Services.Interfaces;
 using LearnQuestV1.Api.Utilities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 using System.ComponentModel.DataAnnotations;
 
 namespace LearnQuestV1.Api.Controllers
@@ -17,15 +16,19 @@ namespace LearnQuestV1.Api.Controllers
         private readonly ICourseService _courseService;
         private readonly IActionLogService _actionLogService;
         private readonly ILogger<CourseController> _logger;
+        private readonly ISecurityAuditLogger _securityAuditLogger;
+
 
         public CourseController(
             ICourseService courseService,
             IActionLogService actionLogService,
-            ILogger<CourseController> logger)
+            ILogger<CourseController> logger,
+            ISecurityAuditLogger securityAuditLogger)
         {
             _courseService = courseService;
             _actionLogService = actionLogService;
             _logger = logger;
+            _securityAuditLogger = securityAuditLogger;
         }
 
         // =====================================================
@@ -54,6 +57,8 @@ namespace LearnQuestV1.Api.Controllers
             [FromQuery] int? maxDuration = null,
             [FromQuery] decimal? minRating = null)
         {
+
+            int userId = User.GetCurrentUserId() ?? 0; // Get user ID if logged in, otherwise 0
             try
             {
                 if (pageSize > 50) pageSize = 50;
@@ -77,6 +82,21 @@ namespace LearnQuestV1.Api.Controllers
                 };
 
                 var result = await _courseService.BrowseCoursesAsync(filter);
+
+                if (result == null || result.Items.Count == 0)
+                {
+                    _logger.LogInformation("No courses found for browse request: {SearchTerm}, Page: {PageNumber}", searchTerm, pageNumber);
+                    return Ok(ApiResponse.Success(new PagedResult<PublicCourseDto>(), "No courses found"));
+                }
+
+                // Log the browse request details
+                await _securityAuditLogger.LogResourceAccessAsync(
+                      userId: userId,
+                      resourceType: "Course",
+                      resourceId: 0,
+                      action: "BROWSE",
+                      details: $"search='{searchTerm}', page={pageNumber}, size={pageSize}"
+                    );
 
                 _logger.LogInformation("Course browse request: {SearchTerm}, Page: {PageNumber}, Results: {Count}",
                     searchTerm, pageNumber, result.Items.Count);
@@ -123,6 +143,14 @@ namespace LearnQuestV1.Api.Controllers
                     // You can add enrollment status to response if needed
                 }
 
+                await _securityAuditLogger.LogResourceAccessAsync(
+                    userId: userId ?? 0,
+                    resourceType: "Course",
+                    resourceId: courseId,
+                    action: "VIEW_PUBLIC_DETAILS",
+                    details: $"Viewed public details for course {courseId}"
+                );
+
                 _logger.LogInformation("Public course details retrieved for course {CourseId}", courseId);
                 return Ok(ApiResponse.Success(courseDetails, "Course details retrieved successfully"));
             }
@@ -148,6 +176,20 @@ namespace LearnQuestV1.Api.Controllers
                 if (limit < 1) limit = 6;
 
                 var featuredCourses = await _courseService.GetFeaturedCoursesAsync(limit);
+
+                if (featuredCourses == null || featuredCourses.Count == 0)
+                {
+                    _logger.LogInformation("No featured courses found");
+                    return Ok(ApiResponse.Success(new List<PublicCourseDto>(), "No featured courses available"));
+                }
+
+                await _securityAuditLogger.LogResourceAccessAsync(
+                    userId: User.GetCurrentUserId() ?? 0,
+                    resourceType: "Course",
+                    resourceId: 0,
+                    action: "VIEW_FEATURED_COURSES",
+                    details: $"Viewed featured courses, limit={limit}"
+                );
 
                 _logger.LogInformation("Featured courses retrieved, count: {Count}", featuredCourses.Count);
                 return Ok(ApiResponse.Success(featuredCourses, "Featured courses retrieved successfully"));
@@ -300,7 +342,7 @@ namespace LearnQuestV1.Api.Controllers
 
 
         // =====================================================
-        // EXISTING INSTRUCTOR/ADMIN ENDPOINTS 
+        // INSTRUCTOR/ADMIN ENDPOINTS 
         // =====================================================
 
         /// <summary>
@@ -342,6 +384,33 @@ namespace LearnQuestV1.Api.Controllers
                     courses = await _courseService.GetMyCoursesAsync(pageNumber, pageSize);
                 }
 
+                if (courses == null || !courses.Any())
+                {
+                    _logger.LogInformation("No courses found for user {UserId} on page {PageNumber}", User.GetCurrentUserId(), pageNumber);
+                    return Ok(new
+                    {
+                        message = "No courses found",
+                        data = new List<CourseCDto>(),
+                        pagination = new
+                        {
+                            pageNumber,
+                            pageSize,
+                            hasMore = false
+                        }
+                    });
+                }
+
+                await _securityAuditLogger.LogResourceAccessAsync(
+                    userId: User.GetCurrentUserId() ?? 0,
+                    resourceType: "Course",
+                    resourceId: 0,
+                    action: "VIEW_COURSES",
+                    details: $"Viewed courses on page {pageNumber}, size {pageSize}, search='{searchTerm}', active={isActive}, instructorId={instructorId}"
+                );
+
+                _logger.LogInformation("Courses retrieved for user {UserId} on page {PageNumber}, count: {Count}",
+                    User.GetCurrentUserId(), pageNumber, courses.Count());
+
                 return Ok(new
                 {
                     message = "Courses retrieved successfully",
@@ -356,6 +425,8 @@ namespace LearnQuestV1.Api.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
+                
+                _logger.LogWarning(ex, "Unauthorized access while retrieving courses for user {UserId}", User.GetCurrentUserId());
                 return Unauthorized(new { message = ex.Message });
             }
             catch (Exception ex)
@@ -376,6 +447,22 @@ namespace LearnQuestV1.Api.Controllers
             try
             {
                 var overview = await _courseService.GetCourseOverviewAsync(courseId);
+                if (overview == null)
+                {
+                    _logger.LogWarning("Course overview not found for course {CourseId}", courseId);
+                    return NotFound(new { message = "Course overview not found" });
+                }
+
+                await _securityAuditLogger.LogResourceAccessAsync(
+                    userId: User.GetCurrentUserId() ?? 0,
+                    resourceType: "Course",
+                    resourceId: courseId,
+                    action: "VIEW_COURSE_OVERVIEW",
+                    details: $"Viewed overview for course {courseId}"
+                );
+
+                _logger.LogInformation("Course overview retrieved for course {CourseId}", courseId);
+
                 return Ok(new
                 {
                     message = "Course overview retrieved successfully",
@@ -384,10 +471,12 @@ namespace LearnQuestV1.Api.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
+                _logger.LogWarning(ex, "Unauthorized access while retrieving course overview for course {CourseId}", courseId);
                 return Unauthorized(new { message = ex.Message });
             }
             catch (KeyNotFoundException ex)
             {
+                _logger.LogWarning(ex, "Course overview not found for course {CourseId}", courseId);
                 return NotFound(new { message = ex.Message });
             }
             catch (Exception ex)
@@ -408,6 +497,22 @@ namespace LearnQuestV1.Api.Controllers
             try
             {
                 var details = await _courseService.GetCourseDetailsAsync(courseId);
+                if (details == null)
+                {
+                    _logger.LogWarning("Course details not found for course {CourseId}", courseId);
+                    return NotFound(new { message = "Course details not found" });
+                }
+
+                await _securityAuditLogger.LogResourceAccessAsync(
+                    userId: User.GetCurrentUserId() ?? 0,
+                    resourceType: "Course",
+                    resourceId: courseId,
+                    action: "VIEW_COURSE_DETAILS",
+                    details: $"Viewed details for course {courseId}"
+                );
+
+                _logger.LogInformation("Course details retrieved for course {CourseId}", courseId);
+
                 return Ok(new
                 {
                     message = "Course details retrieved successfully",
@@ -416,10 +521,12 @@ namespace LearnQuestV1.Api.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
+                _logger.LogWarning(ex, "Unauthorized access while retrieving course details for course {CourseId}", courseId);
                 return Unauthorized(new { message = ex.Message });
             }
             catch (KeyNotFoundException ex)
             {
+                _logger.LogWarning(ex, "Course details not found for course {CourseId}", courseId);
                 return NotFound(new { message = ex.Message });
             }
             catch (Exception ex)
@@ -445,6 +552,34 @@ namespace LearnQuestV1.Api.Controllers
                 if (pageSize > 100) pageSize = 100; // Limit page size
 
                 var enrollments = await _courseService.GetCourseEnrollmentsAsync(courseId, pageNumber, pageSize);
+
+                if (enrollments == null || !enrollments.Any())
+                {
+                    _logger.LogInformation("No enrollments found for course {CourseId} on page {PageNumber}", courseId, pageNumber);
+                    return Ok(new
+                    {
+                        message = "No enrollments found",
+                        data = enrollments,
+                        pagination = new
+                        {
+                            pageNumber,
+                            pageSize,
+                            hasMore = false
+                        }
+                    });
+                }
+
+                await _securityAuditLogger.LogResourceAccessAsync(
+                    userId: User.GetCurrentUserId() ?? 0,
+                    resourceType: "Course",
+                    resourceId: courseId,
+                    action: "VIEW_COURSE_ENROLLMENTS",
+                    details: $"Viewed enrollments for course {courseId} on page {pageNumber}, size {pageSize}"
+                );
+
+                _logger.LogInformation("Course enrollments retrieved for course {CourseId} on page {PageNumber}, count: {Count}",
+                    courseId, pageNumber, enrollments.Count());
+
                 return Ok(new
                 {
                     message = "Course enrollments retrieved successfully",
@@ -459,10 +594,12 @@ namespace LearnQuestV1.Api.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
+                _logger.LogWarning(ex, "Unauthorized access while retrieving enrollments for course {CourseId}", courseId);
                 return Unauthorized(new { message = ex.Message });
             }
             catch (KeyNotFoundException ex)
             {
+                _logger.LogWarning(ex, "Enrollments not found for course {CourseId}", courseId);
                 return NotFound(new { message = ex.Message });
             }
             catch (Exception ex)
@@ -483,6 +620,22 @@ namespace LearnQuestV1.Api.Controllers
             try
             {
                 var reviewSummary = await _courseService.GetCourseReviewSummaryAsync(courseId);
+                if (reviewSummary == null)
+                {
+                    _logger.LogWarning("Course reviews not found for course {CourseId}", courseId);
+                    return NotFound(new { message = "Course reviews not found" });
+                }
+
+                await _securityAuditLogger.LogResourceAccessAsync(
+                    userId: User.GetCurrentUserId() ?? 0,
+                    resourceType: "Course",
+                    resourceId: courseId,
+                    action: "VIEW_COURSE_REVIEWS",
+                    details: $"Viewed reviews for course {courseId}"
+                );
+
+                _logger.LogInformation("Course reviews retrieved for course {CourseId}", courseId);
+
                 return Ok(new
                 {
                     message = "Course reviews retrieved successfully",
@@ -491,10 +644,12 @@ namespace LearnQuestV1.Api.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
+                _logger.LogWarning(ex, "Unauthorized access while retrieving reviews for course {CourseId}", courseId);
                 return Unauthorized(new { message = ex.Message });
             }
             catch (KeyNotFoundException ex)
             {
+                _logger.LogWarning(ex, "Reviews not found for course {CourseId}", courseId);
                 return NotFound(new { message = ex.Message });
             }
             catch (Exception ex)
@@ -518,6 +673,23 @@ namespace LearnQuestV1.Api.Controllers
             try
             {
                 var analytics = await _courseService.GetCourseAnalyticsAsync(courseId, startDate, endDate);
+
+                if (analytics == null)
+                {
+                    _logger.LogWarning("Course analytics not found for course {CourseId}", courseId);
+                    return NotFound(new { message = "Course analytics not found" });
+                }
+
+                await _securityAuditLogger.LogResourceAccessAsync(
+                    userId: User.GetCurrentUserId() ?? 0,
+                    resourceType: "Course",
+                    resourceId: courseId,
+                    action: "VIEW_COURSE_ANALYTICS",
+                    details: $"Viewed analytics for course {courseId}, startDate={startDate}, endDate={endDate}"
+                );
+
+                _logger.LogInformation("Course analytics retrieved for course {CourseId}", courseId);
+
                 return Ok(new
                 {
                     message = "Course analytics retrieved successfully",
@@ -526,10 +698,13 @@ namespace LearnQuestV1.Api.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
+                _logger.LogWarning(ex, "Unauthorized access while retrieving analytics for course {CourseId}", courseId);
+
                 return Unauthorized(new { message = ex.Message });
             }
             catch (KeyNotFoundException ex)
             {
+                _logger.LogWarning(ex, "Analytics not found for course {CourseId}", courseId);
                 return NotFound(new { message = ex.Message });
             }
             catch (Exception ex)
@@ -561,12 +736,16 @@ namespace LearnQuestV1.Api.Controllers
                 var imageFile = input.CourseImage;
                 var newCourseId = await _courseService.CreateCourseAsync(input, imageFile);
 
-                await _actionLogService.LogAsync(
-                    userId.Value,
-                    null,
-                    "CreateCourse",
-                    $"Created new course with ID {newCourseId} and name '{input.CourseName}'"
+               
+                await _securityAuditLogger.LogResourceAccessAsync(
+                    userId: userId.Value,
+                    resourceType: "Course",
+                    resourceId: newCourseId,
+                    action: "CREATE",
+                    details: $"Created new course with ID {newCourseId} and name '{input.CourseName}'"
                 );
+
+                _logger.LogInformation("Course created successfully with ID {CourseId} by user {UserId}", newCourseId, userId.Value);
 
                 return CreatedAtAction(
                     nameof(GetCourseDetails),
@@ -576,14 +755,17 @@ namespace LearnQuestV1.Api.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
+                _logger.LogWarning(ex, "Unauthorized access while creating course by user {UserId}", userId);
                 return Unauthorized(new { message = ex.Message });
             }
             catch (InvalidOperationException ex)
             {
+                _logger.LogWarning(ex, "Invalid operation while creating course by user {UserId}", userId);
                 return BadRequest(new { message = ex.Message });
             }
             catch (KeyNotFoundException ex)
             {
+                _logger.LogWarning(ex, "Key not found while creating course by user {UserId}", userId);
                 return NotFound(new { message = ex.Message });
             }
             catch (Exception ex)
@@ -613,25 +795,31 @@ namespace LearnQuestV1.Api.Controllers
             {
                 await _courseService.UpdateCourseAsync(courseId, input);
 
-                await _actionLogService.LogAsync(
-                    userId.Value,
-                    null,
-                    "UpdateCourse",
-                    $"Updated course with ID {courseId}"
+                await _securityAuditLogger.LogResourceAccessAsync(
+                    userId: userId.Value,
+                    resourceType: "Course",
+                    resourceId: courseId,
+                    action: "UPDATE",
+                    details: $"Updated course with ID {courseId} and name '{input.CourseName}'"
                 );
+
+                _logger.LogInformation("Course updated successfully with ID {CourseId} by user {UserId}", courseId, userId.Value);
 
                 return Ok(new { message = "Course updated successfully" });
             }
             catch (UnauthorizedAccessException ex)
             {
+                _logger.LogWarning(ex, "Unauthorized access while updating course {CourseId} by user {UserId}", courseId, userId);
                 return Unauthorized(new { message = ex.Message });
             }
             catch (InvalidOperationException ex)
             {
+                _logger.LogWarning(ex, "Invalid operation while updating course {CourseId} by user {UserId}", courseId, userId);
                 return BadRequest(new { message = ex.Message });
             }
             catch (KeyNotFoundException ex)
             {
+                _logger.LogWarning(ex, "Course {CourseId} not found for update by user {UserId}", courseId, userId);
                 return NotFound(new { message = ex.Message });
             }
             catch (Exception ex)
@@ -657,25 +845,31 @@ namespace LearnQuestV1.Api.Controllers
             {
                 await _courseService.DeleteCourseAsync(courseId);
 
-                await _actionLogService.LogAsync(
-                    userId.Value,
-                    null,
-                    "DeleteCourse",
-                    $"Soft-deleted course with ID {courseId}"
+                await _securityAuditLogger.LogResourceAccessAsync(
+                    userId: userId.Value,
+                    resourceType: "Course",
+                    resourceId: courseId,
+                    action: "DELETE",
+                    details: $"Deleted course with ID {courseId}"
                 );
+
+                _logger.LogInformation("Course deleted successfully with ID {CourseId} by user {UserId}", courseId, userId.Value);
 
                 return Ok(new { message = "Course deleted successfully" });
             }
             catch (UnauthorizedAccessException ex)
             {
+                _logger.LogWarning(ex, "Unauthorized access while deleting course {CourseId} by user {UserId}", courseId, userId);
                 return Unauthorized(new { message = ex.Message });
             }
             catch (InvalidOperationException ex)
             {
+                _logger.LogWarning(ex, "Invalid operation while deleting course {CourseId} by user {UserId}", courseId, userId);
                 return BadRequest(new { message = ex.Message });
             }
             catch (KeyNotFoundException ex)
             {
+                _logger.LogWarning(ex, "Course {CourseId} not found for deletion by user {UserId}", courseId, userId);
                 return NotFound(new { message = ex.Message });
             }
             catch (Exception ex)
@@ -708,18 +902,31 @@ namespace LearnQuestV1.Api.Controllers
                     $"Toggled status for course with ID {courseId}"
                 );
 
+                await _securityAuditLogger.LogResourceAccessAsync(
+                    userId: userId.Value,
+                    resourceType: "Course",
+                    resourceId: courseId,
+                    action: "TOGGLE_STATUS",
+                    details: $"Toggled status for course {courseId}"
+                );
+
+                _logger.LogInformation("Course status toggled successfully for course {CourseId} by user {UserId}", courseId, userId.Value);
                 return Ok(new { message = "Course status toggled successfully" });
             }
             catch (UnauthorizedAccessException ex)
             {
+                _logger.LogWarning(ex, "Unauthorized access while toggling status for course {CourseId} by user {UserId}", courseId, userId);
+
                 return Unauthorized(new { message = ex.Message });
             }
             catch (InvalidOperationException ex)
             {
+                _logger.LogWarning(ex, "Invalid operation while toggling status for course {CourseId} by user {UserId}", courseId, userId);
                 return BadRequest(new { message = ex.Message });
             }
             catch (KeyNotFoundException ex)
             {
+                _logger.LogWarning(ex, "Course {CourseId} not found for toggling status by user {UserId}", courseId, userId);
                 return NotFound(new { message = ex.Message });
             }
             catch (Exception ex)
@@ -755,18 +962,31 @@ namespace LearnQuestV1.Api.Controllers
                     $"Uploaded image for course with ID {courseId}"
                 );
 
+                await _securityAuditLogger.LogResourceAccessAsync(
+                    userId: userId.Value,
+                    resourceType: "Course",
+                    resourceId: courseId,
+                    action: "UPLOAD_IMAGE",
+                    details: $"Uploaded image for course {courseId}"
+                );
+
+                _logger.LogInformation("Course image uploaded successfully for course {CourseId} by user {UserId}", courseId, userId.Value);
+
                 return Ok(new { message = "Course image uploaded successfully", imageUrl });
             }
             catch (UnauthorizedAccessException ex)
             {
+                _logger.LogWarning(ex, "Unauthorized access while uploading image for course {CourseId} by user {UserId}", courseId, userId);
                 return Unauthorized(new { message = ex.Message });
             }
             catch (InvalidOperationException ex)
             {
+                _logger.LogWarning(ex, "Invalid operation while uploading image for course {CourseId} by user {UserId}", courseId, userId);
                 return BadRequest(new { message = ex.Message });
             }
             catch (KeyNotFoundException ex)
             {
+                _logger.LogWarning(ex, "Course {CourseId} not found for uploading image by user {UserId}", courseId, userId);
                 return NotFound(new { message = ex.Message });
             }
             catch (Exception ex)
@@ -792,6 +1012,33 @@ namespace LearnQuestV1.Api.Controllers
                 if (pageSize > 100) pageSize = 100;
 
                 var skills = await _courseService.GetAvailableSkillsAsync(searchTerm, pageNumber, pageSize);
+                if (skills == null )
+                {
+                    _logger.LogInformation("No skills found for search term '{SearchTerm}' on page {PageNumber}", searchTerm, pageNumber);
+                    return Ok(new
+                    {
+                        message = "No skills found",
+                        data =skills,
+                        pagination = new
+                        {
+                            pageNumber,
+                            pageSize,
+                            hasMore = false
+                        }
+                    });
+                }
+
+                await _securityAuditLogger.LogResourceAccessAsync(
+                    userId: User.GetCurrentUserId() ?? 0,
+                    resourceType: "Course",
+                    resourceId: 0,
+                    action: "VIEW_AVAILABLE_SKILLS",
+                    details: $"Viewed available skills with search='{searchTerm}', page={pageNumber}, size={pageSize}"
+                );
+
+                _logger.LogInformation("Available skills retrieved for search term '{SearchTerm}' on page {PageNumber}",
+                    searchTerm, pageNumber);
+
                 return Ok(new
                 {
                     message = "Available skills retrieved successfully",
@@ -824,13 +1071,16 @@ namespace LearnQuestV1.Api.Controllers
             {
                 var result = await _courseService.BulkCourseActionAsync(request);
 
-                await _actionLogService.LogAsync(
-                    userId.Value,
-                    null,
-                    "BulkCourseAction",
-                    $"Performed bulk action '{request.Action}' on {result.SuccessCount} courses"
+                await _securityAuditLogger.LogResourceAccessAsync(
+                    userId: userId.Value,
+                    resourceType: "Course",
+                    resourceId: 0,
+                    action: "BULK_COURSE_ACTION",
+                    details: $"Performed bulk action '{request.Action}' on {result.SuccessCount} courses"
                 );
 
+                _logger.LogInformation("Bulk course action '{Action}' completed by user {UserId}, affected {Count} courses",
+                    request.Action, userId.Value, result.SuccessCount);
                 return Ok(new
                 {
                     message = "Bulk action completed",
@@ -839,6 +1089,7 @@ namespace LearnQuestV1.Api.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
+                _logger.LogWarning(ex, "Unauthorized access while performing bulk course action by user {UserId}", userId);
                 return Unauthorized(new { message = ex.Message });
             }
             catch (Exception ex)
@@ -874,14 +1125,19 @@ namespace LearnQuestV1.Api.Controllers
                     $"Transferred ownership of course {courseId} to instructor {request.NewInstructorId}"
                 );
 
+                _logger.LogInformation("Ownership of course {CourseId} transferred to instructor {NewInstructorId} by admin {UserId}",
+                    courseId, request.NewInstructorId, userId.Value);
+
                 return Ok(new { message = "Course ownership transferred successfully" });
             }
             catch (UnauthorizedAccessException ex)
             {
+                _logger.LogWarning(ex, "Unauthorized access while transferring ownership for course {CourseId} by user {UserId}", courseId, userId);
                 return Unauthorized(new { message = ex.Message });
             }
             catch (KeyNotFoundException ex)
             {
+                _logger.LogWarning(ex, "Course {CourseId} or instructor {NewInstructorId} not found for transfer by user {UserId}", courseId, request.NewInstructorId, userId);
                 return NotFound(new { message = ex.Message });
             }
             catch (Exception ex)
@@ -910,6 +1166,18 @@ namespace LearnQuestV1.Api.Controllers
                 if (pageSize > 50) pageSize = 50;
 
                 var courses = await _courseService.SearchCoursesAsync(searchTerm, pageNumber, pageSize);
+
+                await _securityAuditLogger.LogResourceAccessAsync(
+                    userId: User.GetCurrentUserId() ?? 0,
+                    resourceType: "Course",
+                    resourceId: 0,
+                    action: "SEARCH_COURSES",
+                    details: $"Searched courses with term '{searchTerm}' on page {pageNumber}, size {pageSize}"
+                );
+
+                _logger.LogInformation("Courses searched with term '{SearchTerm}' on page {PageNumber}, count: {Count}",
+                    searchTerm, pageNumber, courses.Count());
+
                 return Ok(new
                 {
                     message = "Search completed successfully",
@@ -925,6 +1193,7 @@ namespace LearnQuestV1.Api.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
+                _logger.LogWarning(ex, "Unauthorized access while searching courses with term: {SearchTerm}", searchTerm);
                 return Unauthorized(new { message = ex.Message });
             }
             catch (Exception ex)
