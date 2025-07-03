@@ -1,0 +1,173 @@
+erDiagram
+    %% =====================================================
+    %% CORE ENTITIES - SIMPLIFIED VIEW
+    %% =====================================================
+    
+    Users {
+        int UserId PK
+        varchar FullName
+        varchar EmailAddress UK
+        varchar PasswordHash
+        enum Role
+        bool IsActive
+        datetime CreatedAt
+    }
+    
+    Courses {
+        int CourseId PK
+        int InstructorId FK
+        varchar Title
+        text Description
+        decimal Price
+        enum DifficultyLevel
+        bool IsPublished
+        datetime CreatedAt
+    }
+    
+    Levels {
+        int LevelId PK
+        int CourseId FK
+        varchar LevelName
+        int LevelOrder
+        bool IsLocked
+    }
+    
+    Sections {
+        int SectionId PK
+        int LevelId FK
+        varchar SectionName
+        int SectionOrder
+    }
+    
+    Contents {
+        int ContentId PK
+        int SectionId FK
+        varchar ContentName
+        enum ContentType
+        varchar ContentUrl
+        bool IsRequired
+    }
+    
+    CourseEnrollments {
+        int EnrollmentId PK
+        int UserId FK
+        int CourseId FK
+        datetime EnrollmentDate
+        decimal Progress
+        bool CertificateEarned
+    }
+    
+    UserProgress {
+        int ProgressId PK
+        int UserId FK
+        int CourseId FK
+        int CurrentLevelId FK
+        decimal CompletionPercentage
+        datetime LastAccessedAt
+    }
+    
+    Quizzes {
+        int QuizId PK
+        int CourseId FK
+        int InstructorId FK
+        varchar Title
+        enum QuizType
+        decimal PassingScore
+        bool IsRequired
+    }
+    
+    Questions {
+        int QuestionId PK
+        int QuizId FK
+        text QuestionText
+        enum QuestionType
+        decimal Points
+    }
+    
+    QuizAttempts {
+        int AttemptId PK
+        int QuizId FK
+        int UserId FK
+        int AttemptNumber
+        decimal TotalScore
+        bool IsPassed
+        datetime SubmittedAt
+    }
+    
+    Payments {
+        int PaymentId PK
+        int UserId FK
+        int CourseId FK
+        decimal Amount
+        enum PaymentStatus
+        datetime PaymentDate
+    }
+    
+    CourseReviews {
+        int ReviewId PK
+        int UserId FK
+        int CourseId FK
+        int Rating
+        text ReviewText
+        datetime ReviewDate
+    }
+    
+    UserNotifications {
+        int NotificationId PK
+        int UserId FK
+        varchar Title
+        text Message
+        bool IsRead
+        datetime CreatedAt
+    }
+    
+    %% =====================================================
+    %% KEY RELATIONSHIPS
+    %% =====================================================
+    
+    %% Instructor-Course Relationship (One-to-Many)
+    Users ||--o{ Courses : "instructs"
+    
+    %% Course Hierarchy (One-to-Many cascading)
+    Courses ||--o{ Levels : "contains levels"
+    Levels ||--o{ Sections : "divided into sections"
+    Sections ||--o{ Contents : "contains content"
+    
+    %% Student-Course Enrollment (Many-to-Many)
+    Users ||--o{ CourseEnrollments : "enrolls in"
+    Courses ||--o{ CourseEnrollments : "has enrollments"
+    
+    %% Progress Tracking
+    Users ||--o{ UserProgress : "tracks progress in"
+    Courses ||--o{ UserProgress : "progress tracked for"
+    Levels ||--o{ UserProgress : "current level"
+    
+    %% Quiz System
+    Courses ||--o{ Quizzes : "contains quizzes"
+    Users ||--o{ Quizzes : "creates (instructor)"
+    Quizzes ||--o{ Questions : "has questions"
+    
+    %% Quiz Taking
+    Users ||--o{ QuizAttempts : "attempts quizzes"
+    Quizzes ||--o{ QuizAttempts : "attempted by students"
+    
+    %% Financial System
+    Users ||--o{ Payments : "makes payments"
+    Courses ||--o{ Payments : "paid for"
+    
+    %% Reviews & Feedback
+    Users ||--o{ CourseReviews : "reviews courses"
+    Courses ||--o{ CourseReviews : "has reviews"
+    
+    %% Notifications
+    Users ||--o{ UserNotifications : "receives notifications"
+    
+    %% =====================================================
+    %% BUSINESS RULES NOTES
+    %% =====================================================
+    
+    %% Note: CourseEnrollments has UNIQUE constraint on (UserId, CourseId)
+    %% Note: QuizAttempts has UNIQUE constraint on (QuizId, UserId, AttemptNumber)
+    %% Note: Users.EmailAddress has UNIQUE constraint
+    %% Note: Soft delete used (IsDeleted field) instead of hard delete
+    %% Note: All foreign keys use OnDelete(DeleteBehavior.NoAction) for referential integrity

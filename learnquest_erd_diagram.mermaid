@@ -1,0 +1,509 @@
+erDiagram
+    %% =====================================================
+    %% USER MANAGEMENT MODULE
+    %% =====================================================
+    
+    Users {
+        int UserId PK
+        varchar FullName
+        varchar EmailAddress UK
+        varchar PasswordHash
+        enum Role
+        bool IsActive
+        bool IsDeleted
+        datetime CreatedAt
+        varchar ProfilePhoto
+        bool IsSystemProtected
+    }
+    
+    UserDetails {
+        int UserDetailId PK
+        int UserId FK
+        text Bio
+        varchar Location
+        varchar Website
+        date BirthDate
+        enum Gender
+        varchar PreferredLanguage
+        varchar PhoneNumber
+        json SocialMediaLinks
+    }
+    
+    AccountVerification {
+        int Id PK
+        int UserId FK
+        varchar Code
+        datetime Date
+        bool CheckedOK
+    }
+    
+    RefreshTokens {
+        int Id PK
+        int UserId FK
+        varchar Token
+        datetime ExpiryDate
+        bool IsRevoked
+    }
+    
+    UserVisitHistory {
+        int Id PK
+        int UserId FK
+        datetime VisitDate
+        varchar IpAddress
+        varchar UserAgent
+    }
+    
+    BlacklistTokens {
+        int Id PK
+        varchar JwtId UK
+        datetime ExpiryDate
+        datetime BlacklistedAt
+    }
+    
+    %% =====================================================
+    %% COURSE STRUCTURE MODULE
+    %% =====================================================
+    
+    Courses {
+        int CourseId PK
+        int InstructorId FK
+        varchar Title
+        text Description
+        decimal Price
+        decimal OriginalPrice
+        int EstimatedDurationMinutes
+        enum DifficultyLevel
+        text Requirements
+        text Prerequisites
+        varchar CourseLanguage
+        bool IsPublished
+        bool IsDeleted
+        datetime CreatedAt
+        datetime UpdatedAt
+        varchar CourseImage
+        int ViewCount
+        int EnrollmentCount
+    }
+    
+    AboutCourses {
+        int AboutCourseId PK
+        int CourseId FK
+        text AboutCourseText
+        enum OutcomeType
+    }
+    
+    CourseSkills {
+        int CourseSkillId PK
+        int CourseId FK
+        varchar CourseSkillText
+    }
+    
+    Levels {
+        int LevelId PK
+        int CourseId FK
+        varchar LevelName
+        int LevelOrder
+        int EstimatedDurationMinutes
+        bool IsLocked
+        bool IsRequired
+    }
+    
+    Sections {
+        int SectionId PK
+        int LevelId FK
+        varchar SectionName
+        int SectionOrder
+        int EstimatedDurationMinutes
+    }
+    
+    Contents {
+        int ContentId PK
+        int SectionId FK
+        varchar ContentName
+        enum ContentType
+        varchar ContentUrl
+        int Duration
+        int ContentOrder
+        bool IsRequired
+        bool IsFree
+        bool DownloadAllowed
+    }
+    
+    %% =====================================================
+    %% COURSE ORGANIZATION MODULE
+    %% =====================================================
+    
+    CourseTracks {
+        int TrackId PK
+        varchar TrackName
+        text TrackDescription
+        int EstimatedDurationHours
+        enum DifficultyLevel
+        bool IsActive
+    }
+    
+    CourseTrackCourses {
+        int Id PK
+        int TrackId FK
+        int CourseId FK
+    }
+    
+    CourseEnrollments {
+        int EnrollmentId PK
+        int UserId FK
+        int CourseId FK
+        datetime EnrollmentDate
+        enum PaymentStatus
+        decimal Progress
+        bool CertificateEarned
+        datetime CompletionDate
+    }
+    
+    FavoriteCourses {
+        int Id PK
+        int UserId FK
+        int CourseId FK
+        datetime AddedAt
+    }
+    
+    CourseFeedback {
+        int FeedbackId PK
+        int UserId FK
+        int CourseId FK
+        text FeedbackText
+        datetime FeedbackDate
+    }
+    
+    CourseReviews {
+        int ReviewId PK
+        int UserId FK
+        int CourseId FK
+        int Rating
+        text ReviewText
+        datetime ReviewDate
+        bool IsApproved
+    }
+    
+    %% =====================================================
+    %% LEARNING & PROGRESS MODULE
+    %% =====================================================
+    
+    UserProgress {
+        int ProgressId PK
+        int UserId FK
+        int CourseId FK
+        int CurrentLevelId FK
+        decimal CompletionPercentage
+        int TotalTimeSpentMinutes
+        datetime LastAccessedAt
+        datetime StartedAt
+        datetime CompletedAt
+    }
+    
+    UserContentActivity {
+        int ActivityId PK
+        int UserId FK
+        int ContentId FK
+        bool IsCompleted
+        bool IsBookmarked
+        int TimeSpentMinutes
+        int AccessCount
+        datetime LastAccessedAt
+        datetime CompletionDate
+    }
+    
+    UserCoursePoints {
+        int Id PK
+        int UserId FK
+        int CourseId FK
+        int TotalPoints
+    }
+    
+    UserStudyPlans {
+        int StudyPlanId PK
+        int UserId FK
+        int CourseId FK
+        datetime TargetCompletionDate
+        int DailyGoalMinutes
+        int WeeklyGoalMinutes
+        bool IsActive
+    }
+    
+    UserLearningGoals {
+        int GoalId PK
+        int UserId FK
+        enum GoalType
+        text GoalDescription
+        int TargetValue
+        int CurrentValue
+        datetime DeadlineDate
+        bool IsAchieved
+    }
+    
+    StudySessions {
+        int SessionId PK
+        int StudyPlanId FK
+        datetime ScheduledDate
+        int PlannedDurationMinutes
+        int ActualDurationMinutes
+        bool IsCompleted
+        text SessionNotes
+        int EffectivenessRating
+    }
+    
+    UserBookmarks {
+        int BookmarkId PK
+        int UserId FK
+        int ContentId FK
+        datetime BookmarkDate
+        text Note
+    }
+    
+    UserAchievements {
+        int AchievementId PK
+        int UserId FK
+        enum AchievementType
+        text AchievementDescription
+        datetime EarnedAt
+        varchar BadgeIcon
+    }
+    
+    UserLearningStreak {
+        int StreakId PK
+        int UserId FK
+        int CurrentStreak
+        int LongestStreak
+        datetime LastActivityDate
+        datetime StreakStartDate
+    }
+    
+    UserLearningAnalytics {
+        int AnalyticsId PK
+        int UserId FK
+        int TotalLearningTimeMinutes
+        int CoursesCompleted
+        int CoursesInProgress
+        decimal AverageCompletionRate
+        int WeeklyLearningMinutes
+        int MonthlyLearningMinutes
+    }
+    
+    %% =====================================================
+    %% FINANCIAL SYSTEM MODULE
+    %% =====================================================
+    
+    Payments {
+        int PaymentId PK
+        int UserId FK
+        int CourseId FK
+        decimal Amount
+        varchar Currency
+        enum PaymentMethod
+        enum PaymentStatus
+        datetime PaymentDate
+        varchar PaymentGatewayTransactionId
+    }
+    
+    PaymentTransactions {
+        int TransactionId PK
+        int PaymentId FK
+        enum TransactionType
+        decimal Amount
+        datetime TransactionDate
+        enum TransactionStatus
+        text GatewayResponse
+    }
+    
+    Discounts {
+        int DiscountId PK
+        varchar DiscountCode UK
+        decimal DiscountPercentage
+        datetime ValidFrom
+        datetime ValidTo
+        int MaxUsage
+        int CurrentUsage
+        bool IsActive
+    }
+    
+    %% =====================================================
+    %% QUIZ & EXAM SYSTEM MODULE
+    %% =====================================================
+    
+    Quizzes {
+        int QuizId PK
+        int CourseId FK
+        int InstructorId FK
+        int ContentId FK
+        varchar Title
+        text Description
+        enum QuizType
+        int TimeLimit
+        int MaxAttempts
+        decimal PassingScore
+        bool IsRequired
+        bool IsActive
+        datetime CreatedAt
+    }
+    
+    Questions {
+        int QuestionId PK
+        int QuizId FK
+        text QuestionText
+        enum QuestionType
+        decimal Points
+        enum DifficultyLevel
+        int QuestionOrder
+        int TimeLimit
+        bool IsActive
+    }
+    
+    QuestionOptions {
+        int OptionId PK
+        int QuestionId FK
+        text OptionText
+        bool IsCorrect
+        int OptionOrder
+    }
+    
+    QuizAttempts {
+        int AttemptId PK
+        int QuizId FK
+        int UserId FK
+        int AttemptNumber
+        datetime StartedAt
+        datetime SubmittedAt
+        decimal TotalScore
+        decimal MaxScore
+        int TimeSpentMinutes
+        bool IsCompleted
+        bool IsPassed
+    }
+    
+    UserAnswers {
+        int UserAnswerId PK
+        int AttemptId FK
+        int QuestionId FK
+        int SelectedOptionId FK
+        text EssayAnswer
+        bool IsCorrect
+        decimal PointsEarned
+        datetime AnsweredAt
+    }
+    
+    %% =====================================================
+    %% ADMINISTRATION & SECURITY MODULE
+    %% =====================================================
+    
+    AdminActionLog {
+        int LogId PK
+        int AdminId FK
+        int TargetUserId FK
+        enum ActionType
+        text ActionDescription
+        datetime ActionTimestamp
+        varchar IpAddress
+        varchar UserAgent
+        json ActionData
+    }
+    
+    SecurityAuditLog {
+        int LogId PK
+        int UserId FK
+        enum EventType
+        text EventDescription
+        varchar IpAddress
+        varchar UserAgent
+        datetime EventTimestamp
+        enum RiskLevel
+        json AdditionalData
+    }
+    
+    %% =====================================================
+    %% COMMUNICATION & NOTIFICATIONS MODULE
+    %% =====================================================
+    
+    UserNotifications {
+        int NotificationId PK
+        int UserId FK
+        enum NotificationType
+        varchar Title
+        text Message
+        bool IsRead
+        datetime CreatedAt
+        datetime ReadAt
+        varchar ActionUrl
+        enum Priority
+    }
+    
+    %% =====================================================
+    %% RELATIONSHIPS
+    %% =====================================================
+    
+    %% User Management Relationships
+    Users ||--o| UserDetails : "has profile"
+    Users ||--o{ AccountVerification : "has verifications"
+    Users ||--o{ RefreshTokens : "has tokens"
+    Users ||--o{ UserVisitHistory : "has visits"
+    
+    %% Course Structure Relationships
+    Users ||--o{ Courses : "instructs"
+    Courses ||--o{ AboutCourses : "has descriptions"
+    Courses ||--o{ CourseSkills : "teaches skills"
+    Courses ||--o{ Levels : "contains"
+    Levels ||--o{ Sections : "divided into"
+    Sections ||--o{ Contents : "contains"
+    
+    %% Course Organization Relationships
+    CourseTracks ||--o{ CourseTrackCourses : "includes"
+    Courses ||--o{ CourseTrackCourses : "belongs to"
+    Users ||--o{ CourseEnrollments : "enrolls in"
+    Courses ||--o{ CourseEnrollments : "has students"
+    Users ||--o{ FavoriteCourses : "favorites"
+    Courses ||--o{ FavoriteCourses : "favorited by"
+    Users ||--o{ CourseFeedback : "gives feedback"
+    Courses ||--o{ CourseFeedback : "receives feedback"
+    Users ||--o{ CourseReviews : "reviews"
+    Courses ||--o{ CourseReviews : "has reviews"
+    
+    %% Learning & Progress Relationships
+    Users ||--o{ UserProgress : "tracks progress"
+    Courses ||--o{ UserProgress : "progress tracked"
+    Levels ||--o{ UserProgress : "current level"
+    Users ||--o{ UserContentActivity : "interacts with"
+    Contents ||--o{ UserContentActivity : "activity tracked"
+    Users ||--o{ UserCoursePoints : "earns points"
+    Courses ||--o{ UserCoursePoints : "awards points"
+    Users ||--o{ UserStudyPlans : "creates plans"
+    Courses ||--o{ UserStudyPlans : "planned for"
+    UserStudyPlans ||--o{ StudySessions : "scheduled"
+    Users ||--o{ UserLearningGoals : "sets goals"
+    Users ||--o{ UserBookmarks : "bookmarks"
+    Contents ||--o{ UserBookmarks : "bookmarked"
+    Users ||--o{ UserAchievements : "earns"
+    Users ||--o{ UserLearningStreak : "maintains"
+    Users ||--o{ UserLearningAnalytics : "analytics for"
+    
+    %% Financial Relationships
+    Users ||--o{ Payments : "makes payments"
+    Courses ||--o{ Payments : "paid for"
+    Payments ||--o{ PaymentTransactions : "transaction history"
+    
+    %% Quiz & Exam Relationships
+    Courses ||--o{ Quizzes : "contains"
+    Users ||--o{ Quizzes : "creates"
+    Contents ||--o| Quizzes : "associated with"
+    Quizzes ||--o{ Questions : "contains"
+    Questions ||--o{ QuestionOptions : "has options"
+    Users ||--o{ QuizAttempts : "attempts"
+    Quizzes ||--o{ QuizAttempts : "attempted"
+    QuizAttempts ||--o{ UserAnswers : "contains answers"
+    Questions ||--o{ UserAnswers : "answered"
+    QuestionOptions ||--o{ UserAnswers : "selected"
+    
+    %% Administration & Security Relationships
+    Users ||--o{ AdminActionLog : "performs actions"
+    Users ||--o{ AdminActionLog : "target of actions"
+    Users ||--o{ SecurityAuditLog : "security events"
+    
+    %% Communication Relationships
+    Users ||--o{ UserNotifications : "receives"

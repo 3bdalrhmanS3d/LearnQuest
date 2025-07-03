@@ -1,0 +1,123 @@
+graph TB
+    %% =====================================================
+    %% MODULE GROUPING DIAGRAM
+    %% =====================================================
+    
+    subgraph "👥 User Management Module"
+        UM1["Users<br>- UserId PK<br>- FullName<br>- EmailAddress<br>- Role<br>- IsActive"]
+        UM2["UserDetails<br>- Bio<br>- Location<br>- PhoneNumber"]
+        UM3["AccountVerification<br>- Code<br>- CheckedOK"]
+        UM4["RefreshTokens<br>- Token<br>- ExpiryDate"]
+        UM5["UserVisitHistory<br>- VisitDate<br>- IpAddress"]
+        UM6["BlacklistTokens<br>- JwtId<br>- BlacklistedAt"]
+    end
+    
+    subgraph "📚 Course Structure Module"
+        CS1["Courses<br>- CourseId PK<br>- InstructorId<br>- Title<br>- Price<br>- DifficultyLevel"]
+        CS2["AboutCourses<br>- AboutCourseText<br>- OutcomeType"]
+        CS3["CourseSkills<br>- CourseSkillText"]
+        CS4["Levels<br>- LevelName<br>- LevelOrder<br>- IsLocked"]
+        CS5["Sections<br>- SectionName<br>- SectionOrder"]
+        CS6["Contents<br>- ContentName<br>- ContentType<br>- ContentUrl"]
+    end
+    
+    subgraph "🎯 Course Organization Module"
+        CO1["CourseTracks<br>- TrackName<br>- TrackDescription"]
+        CO2["CourseTrackCourses<br>- TrackId<br>- CourseId"]
+        CO3["CourseEnrollments<br>- UserId<br>- CourseId<br>- Progress<br>- CertificateEarned"]
+        CO4["FavoriteCourses<br>- UserId<br>- CourseId<br>- AddedAt"]
+        CO5["CourseFeedback<br>- FeedbackText"]
+        CO6["CourseReviews<br>- Rating<br>- ReviewText"]
+    end
+    
+    subgraph "📈 Learning & Progress Module"
+        LP1["UserProgress<br>- CompletionPercentage<br>- CurrentLevelId<br>- TotalTimeSpent"]
+        LP2["UserContentActivity<br>- IsCompleted<br>- TimeSpentMinutes<br>- AccessCount"]
+        LP3["UserCoursePoints<br>- TotalPoints"]
+        LP4["UserStudyPlans<br>- TargetCompletionDate<br>- DailyGoalMinutes"]
+        LP5["UserLearningGoals<br>- GoalType<br>- TargetValue<br>- IsAchieved"]
+        LP6["StudySessions<br>- ScheduledDate<br>- PlannedDuration"]
+        LP7["UserBookmarks<br>- BookmarkDate<br>- Note"]
+        LP8["UserAchievements<br>- AchievementType<br>- EarnedAt"]
+        LP9["UserLearningStreak<br>- CurrentStreak<br>- LongestStreak"]
+        LP10["UserLearningAnalytics<br>- TotalLearningTime<br>- CoursesCompleted"]
+    end
+    
+    subgraph "💰 Financial System Module"
+        FS1["Payments<br>- Amount<br>- PaymentMethod<br>- PaymentStatus"]
+        FS2["PaymentTransactions<br>- TransactionType<br>- TransactionStatus"]
+        FS3["Discounts<br>- DiscountCode<br>- DiscountPercentage<br>- ValidFrom/To"]
+    end
+    
+    subgraph "📝 Quiz & Exam System Module"
+        QS1["Quizzes<br>- Title<br>- QuizType<br>- PassingScore<br>- MaxAttempts"]
+        QS2["Questions<br>- QuestionText<br>- QuestionType<br>- Points"]
+        QS3["QuestionOptions<br>- OptionText<br>- IsCorrect"]
+        QS4["QuizAttempts<br>- AttemptNumber<br>- TotalScore<br>- IsPassed"]
+        QS5["UserAnswers<br>- SelectedOptionId<br>- IsCorrect<br>- PointsEarned"]
+    end
+    
+    subgraph "🔐 Administration & Security Module"
+        AS1["AdminActionLog<br>- ActionType<br>- ActionDescription<br>- IpAddress"]
+        AS2["SecurityAuditLog<br>- EventType<br>- RiskLevel<br>- EventTimestamp"]
+    end
+    
+    subgraph "📱 Communication Module"
+        CM1["UserNotifications<br>- Title<br>- Message<br>- IsRead<br>- Priority"]
+    end
+    
+    %% =====================================================
+    %% CROSS-MODULE RELATIONSHIPS
+    %% =====================================================
+    
+    %% User Management connections
+    UM1 -.->|instructs courses| CS1
+    UM1 -.->|enrolls in courses| CO3
+    UM1 -.->|tracks progress| LP1
+    UM1 -.->|makes payments| FS1
+    UM1 -.->|attempts quizzes| QS4
+    UM1 -.->|receives notifications| CM1
+    
+    %% Course Structure hierarchy
+    CS1 -->|contains| CS4
+    CS4 -->|divided into| CS5
+    CS5 -->|contains| CS6
+    
+    %% Course Organization
+    CO1 -->|includes courses| CO2
+    CS1 -->|belongs to tracks| CO2
+    
+    %% Learning Progress
+    CS1 -.->|progress tracked| LP1
+    CS6 -.->|activity tracked| LP2
+    
+    %% Quiz System
+    CS1 -->|contains| QS1
+    QS1 -->|has| QS2
+    QS2 -->|options| QS3
+    QS1 -.->|attempted| QS4
+    QS4 -->|answers| QS5
+    
+    %% Financial
+    CS1 -.->|paid for| FS1
+    FS1 -->|transactions| FS2
+    
+    %% Style definitions
+    classDef userMgmt fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef courseStruct fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef courseOrg fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    classDef learning fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef financial fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+    classDef quiz fill:#e0f2f1,stroke:#004d40,stroke-width:2px
+    classDef admin fill:#ffebee,stroke:#b71c1c,stroke-width:2px
+    classDef comm fill:#f1f8e9,stroke:#33691e,stroke-width:2px
+    
+    %% Apply styles
+    class UM1,UM2,UM3,UM4,UM5,UM6 userMgmt
+    class CS1,CS2,CS3,CS4,CS5,CS6 courseStruct
+    class CO1,CO2,CO3,CO4,CO5,CO6 courseOrg
+    class LP1,LP2,LP3,LP4,LP5,LP6,LP7,LP8,LP9,LP10 learning
+    class FS1,FS2,FS3 financial
+    class QS1,QS2,QS3,QS4,QS5 quiz
+    class AS1,AS2 admin
+    class CM1 comm

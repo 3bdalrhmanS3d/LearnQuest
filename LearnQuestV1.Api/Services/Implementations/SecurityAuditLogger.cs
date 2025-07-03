@@ -1210,5 +1210,10 @@ namespace LearnQuestV1.Api.Services.Implementations
             }
             catch { return "***@unknown.com"; }
         }
+
+        public Task LogResourceAccessAsync(int? userId, string resourceType, int resourceId, string action, string? details = null, bool success = true)
+        {
+            throw new NotImplementedException();
+        }
     }
 }
